@@ -1,0 +1,707 @@
+import React, { useState, useEffect } from 'react';
+import EditCustomer from './EditCustomer';
+import { VehicleDetailView } from './VehicleDetailView';
+import { 
+  User, 
+  Truck, 
+  Wrench, 
+  FileText, 
+  Wallet, 
+  Eye, 
+  Edit3, 
+  ChevronRight, 
+  ArrowLeft,
+  Search,
+  Download,
+  SlidersHorizontal,
+  Landmark
+} from 'lucide-react';
+
+interface CustomerType {
+  id: string;
+  name: string;
+  avatar: string;
+  avatarBg: string;
+  phone: string;
+  district: string;
+  vehicles: number;
+  lastService: string;
+  outstanding: string;
+  status: string;
+}
+
+interface CustomerDetailsProps {
+  customer: CustomerType;
+  onBack: () => void;
+}
+
+export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: initialCustomer, onBack }) => {
+  const [activeTab, setActiveTab] = useState<'vehicles' | 'services' | 'payments'>('vehicles');
+  const [currentCustomer, setCurrentCustomer] = useState<CustomerType>(initialCustomer);
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
+  const [serviceSearchTerm, setServiceSearchTerm] = useState('');
+
+  useEffect(() => {
+    setCurrentCustomer(initialCustomer);
+  }, [initialCustomer]);
+
+  const customer = currentCustomer;
+
+  // Specific data for Rajesh Kumar from user screenshot, fallback for others
+  const isRajesh = customer.id === 'CUST-1024';
+
+  const customerMeta = {
+    tier: isRajesh ? 'Gold Tier Client' : 'Standard Client',
+    gstNo: isRajesh ? '27AADCA1234F1Z5' : '27XXXXX1234F1ZX',
+    address: isRajesh 
+      ? 'Plot 42, MIDC Phase 2, Pune, MH 411026' 
+      : `${customer.district || 'Main Street'}, India`,
+    totalServices: isRajesh ? 12 : 5,
+    totalBills: isRajesh ? 15 : 7,
+    isOverdue: isRajesh || parseFloat(customer.outstanding.replace(/[^\d.]/g, '')) > 0,
+  };
+
+  const vehicleHistory = isRajesh 
+    ? [
+        {
+          model: 'John Deere 5050E',
+          registration: 'MH 12 AB 4567',
+          chassis: 'JD5050E998213',
+          purchaseDate: '15 Oct 2021',
+          status: 'Active',
+          statusClass: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+          image: 'https://images.unsplash.com/photo-1594913785162-e6785b49eed5?auto=format&fit=crop&q=80&w=100'
+        },
+        {
+          model: 'JCB 3DX Xtra',
+          registration: 'MH 14 CD 8821',
+          chassis: 'JCB3DX001244',
+          purchaseDate: '02 Feb 2022',
+          status: 'In Service',
+          statusClass: 'bg-blue-50 text-blue-600 border border-blue-100',
+          image: 'https://images.unsplash.com/photo-1579294800821-694d95e86143?auto=format&fit=crop&q=80&w=100'
+        },
+        {
+          model: 'Swaraj 855 FE',
+          registration: 'MH 12 ZZ 9900',
+          chassis: 'SW855FE5521',
+          purchaseDate: '20 May 2022',
+          status: 'Retired',
+          statusClass: 'bg-slate-50 text-slate-500 border border-slate-200',
+          image: 'https://images.unsplash.com/photo-1594913785162-e6785b49eed5?auto=format&fit=crop&q=80&w=100'
+        }
+      ]
+    : [
+        {
+          model: 'Eicher Pro 6028',
+          registration: 'MH 12 XY 9876',
+          chassis: 'EC6028X8Y110022',
+          purchaseDate: '10 Jan 2023',
+          status: 'Active',
+          statusClass: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+          image: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=100'
+        }
+      ];
+
+
+
+
+
+
+
+  if (selectedVehicle) {
+    return (
+      <VehicleDetailView 
+        vehicle={selectedVehicle} 
+        onBack={() => setSelectedVehicle(null)} 
+      />
+    );
+  }
+
+  if (isEditing) {
+    return (
+      <EditCustomer 
+        customer={customer} 
+        onBack={() => setIsEditing(false)} 
+        onSave={(updated) => {
+          setCurrentCustomer(updated);
+          setIsEditing(false);
+        }} 
+      />
+    );
+  }
+
+  return (
+    <div className="p-8 bg-[#f6f8fc] min-h-[calc(100vh-70px)] flex flex-col gap-6 box-border font-sans text-slate-700 text-left">
+      
+      {/* Breadcrumbs with Navigation */}
+      <div className="flex justify-between items-center">
+        <div>
+          <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+            <span className="cursor-pointer hover:text-slate-600" onClick={onBack}>Dashboard</span>
+            <ChevronRight size={10} />
+            <span className="cursor-pointer hover:text-slate-600" onClick={onBack}>Customers</span>
+            <ChevronRight size={10} />
+            <span className="text-slate-600 font-bold">{customer.id}</span>
+          </div>
+          <h1 className="text-2xl font-extrabold text-slate-900 m-0 mt-1.5 tracking-tight font-heading">
+            Customer Details - {customer.id}
+          </h1>
+        </div>
+
+        {/* Top Right Buttons */}
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onBack}
+            className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs py-2 px-4 rounded-md flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+          >
+            <ArrowLeft size={13} /> Back to Customer List
+          </button>
+          
+          <button 
+            onClick={() => setIsEditing(true)}
+            className="bg-[#184edb] hover:bg-blue-800 text-white font-semibold text-xs py-2 px-4 rounded-md flex items-center gap-2 cursor-pointer transition-colors border-none shadow-sm"
+          >
+            <Edit3 size={13} /> Edit Profile
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start w-full">
+        
+        {/* Left Card: Customer Profile details */}
+        <div className="bg-white rounded-xl border border-[#eef2f6] shadow-sm p-6 flex flex-col gap-6">
+          <div className="flex items-center gap-4 border-b border-slate-100 pb-5">
+            <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 flex-shrink-0">
+              <User size={32} />
+            </div>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-slate-800 text-[18px]">{customer.name}</span>
+                <span className="bg-blue-50 text-[#184edb] text-[9.5px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border border-blue-100">
+                  {customer.status}
+                </span>
+              </div>
+              <span className="text-[12.5px] text-slate-400 font-semibold mt-1">{customerMeta.tier}</span>
+            </div>
+          </div>
+
+          {/* Details fields */}
+          <div className="grid grid-cols-2 gap-y-5 text-[12.5px]">
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Customer ID</span>
+              <span className="font-bold text-slate-800">{customer.id}</span>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Phone</span>
+              <span className="font-semibold text-slate-700">{customer.phone}</span>
+            </div>
+
+            <div className="flex flex-col gap-1 col-span-2 border-t border-slate-100/70 pt-3">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">GST Number</span>
+              <span className="font-mono text-slate-700 font-semibold tracking-wide">{customerMeta.gstNo}</span>
+            </div>
+
+            <div className="flex flex-col gap-1 col-span-2 border-t border-slate-100/70 pt-3">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Address</span>
+              <span className="text-slate-600 font-medium leading-relaxed">{customerMeta.address}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Section: 4 Stat Cards */}
+        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+          
+          {/* Card 1: Total Vehicles */}
+          <div className="bg-white rounded-xl p-6 border border-[#eef2f6] shadow-sm flex flex-col justify-between h-32 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+            <div className="flex justify-between items-center">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-50">
+                <Truck className="text-blue-600" size={20} />
+              </div>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-300">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                <polyline points="17 6 23 6 23 12" />
+              </svg>
+            </div>
+            <div className="flex flex-col gap-1 mt-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Vehicles</span>
+              <h2 className="text-3xl font-extrabold text-slate-900 m-0 font-heading">{customer.vehicles || vehicleHistory.length}</h2>
+            </div>
+          </div>
+
+          {/* Card 2: Total Services */}
+          <div className="bg-white rounded-xl p-6 border border-[#eef2f6] shadow-sm flex flex-col justify-between h-32 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+            <div className="flex justify-between items-center">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-50">
+                <Wrench className="text-blue-600" size={20} />
+              </div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-300">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            </div>
+            <div className="flex flex-col gap-1 mt-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Services</span>
+              <h2 className="text-3xl font-extrabold text-slate-900 m-0 font-heading">{customerMeta.totalServices}</h2>
+            </div>
+          </div>
+
+          {/* Card 3: Total Bills */}
+          <div className="bg-white rounded-xl p-6 border border-[#eef2f6] shadow-sm flex flex-col justify-between h-32 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+            <div className="flex justify-between items-center">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-orange-50">
+                <FileText className="text-orange-600" size={20} />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1 mt-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Bills</span>
+              <h2 className="text-3xl font-extrabold text-slate-900 m-0 font-heading">{customerMeta.totalBills}</h2>
+            </div>
+          </div>
+
+          {/* Card 4: Outstanding */}
+          <div className={`rounded-xl p-6 shadow-sm flex flex-col justify-between h-32 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 border ${
+            customerMeta.isOverdue 
+              ? 'bg-red-50/50 border-red-100 text-red-700' 
+              : 'bg-white border-[#eef2f6] text-slate-700'
+          }`}>
+            <div className="flex justify-between items-center">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                customerMeta.isOverdue ? 'bg-red-100 text-red-600' : 'bg-blue-50 text-blue-600'
+              }`}>
+                <Wallet size={20} />
+              </div>
+              {customerMeta.isOverdue && (
+                <span className="bg-red-600 text-white text-[8px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wider">
+                  Overdue
+                </span>
+              )}
+            </div>
+            <div className="flex flex-col gap-1 mt-2">
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                customerMeta.isOverdue ? 'text-red-500' : 'text-slate-400'
+              }`}>Outstanding</span>
+              <h2 className={`text-3xl font-extrabold m-0 font-heading ${
+                customerMeta.isOverdue ? 'text-red-700' : 'text-slate-900'
+              }`}>{customer.outstanding}</h2>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* Tabs Layout */}
+      <div className="bg-white rounded-xl border border-[#eef2f6] shadow-sm overflow-hidden w-full">
+        
+        {/* Tab Headers */}
+        <div className="flex border-b border-slate-100 bg-slate-50/40">
+          
+          <button 
+            onClick={() => setActiveTab('vehicles')}
+            className={`py-3.5 px-6 font-bold text-[12.5px] cursor-pointer bg-transparent border-none outline-none transition-colors border-b-[2.5px] ${
+              activeTab === 'vehicles' 
+                ? 'border-[#184edb] text-[#184edb]' 
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Vehicle History
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('services')}
+            className={`py-3.5 px-6 font-bold text-[12.5px] cursor-pointer bg-transparent border-none outline-none transition-colors border-b-[2.5px] ${
+              activeTab === 'services' 
+                ? 'border-[#184edb] text-[#184edb]' 
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Service Records
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('payments')}
+            className={`py-3.5 px-6 font-bold text-[12.5px] cursor-pointer bg-transparent border-none outline-none transition-colors border-b-[2.5px] ${
+              activeTab === 'payments' 
+                ? 'border-[#184edb] text-[#184edb]' 
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Payment History
+          </button>
+
+
+
+        </div>
+
+        {/* Tab Panels */}
+        <div className="w-full">
+          
+          {/* VEHICLES TAB */}
+          {activeTab === 'vehicles' && (
+            <div className="overflow-x-auto w-full">
+              <table className="w-full border-collapse text-left text-[12px]">
+                <thead>
+                  <tr className="bg-slate-50/20">
+                    <th className="py-3.5 px-6 text-slate-400 font-bold text-[9.5px] tracking-wider border-b border-slate-100">VEHICLE MODEL</th>
+                    <th className="py-3.5 px-6 text-slate-400 font-bold text-[9.5px] tracking-wider border-b border-slate-100">REGISTRATION NO.</th>
+                    <th className="py-3.5 px-6 text-slate-400 font-bold text-[9.5px] tracking-wider border-b border-slate-100">CHASSIS NO.</th>
+                    <th className="py-3.5 px-6 text-slate-400 font-bold text-[9.5px] tracking-wider border-b border-slate-100">PURCHASE DATE</th>
+                    <th className="py-3.5 px-6 text-slate-400 font-bold text-[9.5px] tracking-wider border-b border-slate-100">STATUS</th>
+                    <th className="py-3.5 px-6 text-slate-400 font-bold text-[9.5px] tracking-wider border-b border-slate-100 text-center">ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vehicleHistory.map((veh, i) => (
+                    <tr key={i} className="hover:bg-slate-50/40 transition-colors">
+                      <td className="p-4 px-6 border-b border-slate-100">
+                        <div className="flex items-center gap-3">
+                          <img 
+                            src={veh.image} 
+                            alt={veh.model}
+                            className="w-10 h-8 object-cover rounded-md border border-slate-100 shadow-xs flex-shrink-0"
+                          />
+                          <span 
+                            onClick={() => setSelectedVehicle(veh)}
+                            className="font-extrabold text-slate-800 cursor-pointer hover:underline hover:text-[#184edb]"
+                          >
+                            {veh.model}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-4 px-6 border-b border-slate-100 text-slate-700 font-semibold">{veh.registration}</td>
+                      <td className="p-4 px-6 border-b border-slate-100 text-slate-500 font-mono text-[11px]">{veh.chassis}</td>
+                      <td className="p-4 px-6 border-b border-slate-100 text-slate-500 font-medium">{veh.purchaseDate}</td>
+                      <td className="p-4 px-6 border-b border-slate-100">
+                        <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold inline-block ${veh.statusClass}`}>
+                          {veh.status}
+                        </span>
+                      </td>
+                      <td className="p-4 px-6 border-b border-slate-100 text-center">
+                        <button 
+                          onClick={() => setSelectedVehicle(veh)}
+                          className="bg-transparent border-none text-[#184edb] hover:text-blue-800 cursor-pointer p-1"
+                        >
+                          <Eye size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* SERVICES TAB */}
+          {activeTab === 'services' && (() => {
+            const serviceLog = [
+              {
+                jobCard: 'JC-2024-9182',
+                date: 'Oct 12, 2023',
+                description: 'Hydraulic pump failure & filter replacement',
+                mechanic: 'Mark Henderson',
+                labour: '$450.00',
+                parts: '$1,240.50',
+                total: '$1,690.50'
+              },
+              {
+                jobCard: 'JC-2024-9245',
+                date: 'Feb 15, 2024',
+                description: 'Engine diagnostic & routine 1000hr service',
+                mechanic: 'Sarah Jenkins',
+                labour: '$280.00',
+                parts: '$310.20',
+                total: '$590.20'
+              },
+              {
+                jobCard: 'JC-2023-8812',
+                date: 'Nov 05, 2023',
+                description: 'Track adjustment & sprocket inspection',
+                mechanic: 'Mark Henderson',
+                labour: '$320.00',
+                parts: '$0.00',
+                total: '$320.00'
+              },
+              {
+                jobCard: 'JC-2023-8700',
+                date: 'Aug 22, 2023',
+                description: 'Electrical short in lighting system',
+                mechanic: 'David Smith',
+                labour: '$120.00',
+                parts: '$45.50',
+                total: '$165.50'
+              }
+            ];
+
+            const filteredLogs = serviceLog.filter(log => 
+              log.jobCard.toLowerCase().includes(serviceSearchTerm.toLowerCase()) ||
+              log.description.toLowerCase().includes(serviceSearchTerm.toLowerCase()) ||
+              log.mechanic.toLowerCase().includes(serviceSearchTerm.toLowerCase())
+            );
+
+            return (
+              <div className="flex flex-col w-full">
+                
+                {/* Header Filter Row */}
+                <div className="p-4 px-6 border-b border-slate-100 bg-slate-50/10 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-800 m-0 font-heading">Service Log</h3>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button className="bg-white border border-slate-200 rounded-md py-1.5 px-4 text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors text-slate-600 hover:bg-slate-50">
+                      <SlidersHorizontal size={13} /> Filter by Date Range
+                    </button>
+                    
+                    <div className="relative flex items-center">
+                      <Search className="absolute left-3 text-slate-450" size={13} />
+                      <input 
+                        type="text" 
+                        placeholder="Job number..."
+                        value={serviceSearchTerm}
+                        onChange={(e) => setServiceSearchTerm(e.target.value)}
+                        className="pl-9 pr-3 py-1.5 border border-slate-200 rounded-md text-xs outline-none w-52 bg-slate-50 text-slate-700 font-medium placeholder-slate-400 focus:border-blue-400 focus:bg-white transition-all"
+                      />
+                    </div>
+
+                    <button className="bg-white border border-slate-200 rounded-md p-1.5 flex items-center justify-center cursor-pointer transition-colors text-slate-600 hover:bg-slate-50">
+                      <Download size={13} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Table */}
+                <div className="overflow-x-auto w-full">
+                  <table className="w-full border-collapse text-left text-[12px]">
+                    <thead>
+                      <tr className="bg-slate-50/20 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                        <th className="py-3 px-6 border-b border-slate-100">JOB CARD NO.</th>
+                        <th className="py-3 px-6 border-b border-slate-100">SERVICE DATE</th>
+                        <th className="py-3 px-6 border-b border-slate-100">COMPLAINT / DESCRIPTION</th>
+                        <th className="py-3 px-6 border-b border-slate-100">MECHANIC</th>
+                        <th className="py-3 px-6 border-b border-slate-100">LABOUR</th>
+                        <th className="py-3 px-6 border-b border-slate-100">PARTS</th>
+                        <th className="py-3 px-6 border-b border-slate-100">TOTAL BILL</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredLogs.map((ser, i) => (
+                        <tr key={i} className="hover:bg-slate-50/40 transition-colors text-slate-700 font-medium">
+                          <td className="py-3.5 px-6 border-b border-slate-100 font-bold text-[#184edb] hover:underline cursor-pointer">
+                            {ser.jobCard}
+                          </td>
+                          <td className="py-3.5 px-6 border-b border-slate-100 text-slate-500">{ser.date}</td>
+                          <td className="py-3.5 px-6 border-b border-slate-100 text-slate-700 font-semibold">{ser.description}</td>
+                          <td className="py-3.5 px-6 border-b border-slate-100 text-slate-700">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-slate-350 flex-shrink-0" />
+                              <span>{ser.mechanic}</span>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-6 border-b border-slate-100 text-slate-500">{ser.labour}</td>
+                          <td className="py-3.5 px-6 border-b border-slate-100 text-slate-500">{ser.parts}</td>
+                          <td className="py-3.5 px-6 border-b border-slate-100 text-slate-900 font-bold">{ser.total}</td>
+                        </tr>
+                      ))}
+                      
+                      {filteredLogs.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="p-8 text-center text-slate-400 font-semibold">
+                            No service records found.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Table Footer */}
+                <div className="p-4 bg-slate-50/10 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                  <div>
+                    Showing {filteredLogs.length} of 24 records
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button className="w-7 h-7 bg-white border border-slate-200 rounded-md flex items-center justify-center text-slate-400 cursor-pointer hover:bg-slate-50" disabled>
+                      &lt;
+                    </button>
+                    <button className="w-8 h-7 bg-white border border-slate-200 rounded-md flex items-center justify-center text-slate-700 font-bold text-xs">
+                      1
+                    </button>
+                    <button className="w-7 h-7 bg-white border border-slate-200 rounded-md flex items-center justify-center text-slate-400 cursor-pointer hover:bg-slate-50" disabled>
+                      &gt;
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            );
+          })()}
+
+          {/* PAYMENTS TAB */}
+          {activeTab === 'payments' && (() => {
+            const paymentHistory = [
+              {
+                invoiceNo: '#INV-2023-0892',
+                subtitle: 'Parts & Spare Maintenance',
+                date: 'Oct 12, 2023',
+                amount: '1,45,000.00',
+                paid: '1,45,000.00',
+                balance: '0.00',
+                method: 'Bank Transfer',
+                isUpi: false,
+                isNa: false,
+                status: 'PAID',
+                statusClass: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+                receiptAvailable: true
+              },
+              {
+                invoiceNo: '#INV-2023-0714',
+                subtitle: 'JCB Excavator 3DX Service',
+                date: 'Sep 28, 2023',
+                amount: '4,28,500.00',
+                paid: '0.00',
+                balance: '4,28,500.00',
+                method: 'Not Applicable',
+                isUpi: false,
+                isNa: true,
+                status: 'UNPAID',
+                statusClass: 'bg-amber-50 text-amber-600 border border-amber-100',
+                receiptAvailable: false
+              },
+              {
+                invoiceNo: '#INV-2023-0601',
+                subtitle: 'Engine Overhaul - Unit B4',
+                date: 'Aug 15, 2023',
+                amount: '8,75,200.00',
+                paid: '5,00,000.00',
+                balance: '3,75,200.00',
+                method: 'UPI / Digital',
+                isUpi: true,
+                isNa: false,
+                status: 'PARTIAL',
+                statusClass: 'bg-blue-50 text-blue-600 border border-blue-100',
+                receiptAvailable: true
+              }
+            ];
+
+            return (
+              <div className="flex flex-col w-full">
+                
+                {/* Header Filter Row */}
+                <div className="p-4 px-6 border-b border-slate-100 bg-slate-50/10 flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-3">
+                    <select className="border border-slate-200 rounded-md py-1.5 px-3 text-xs outline-none bg-white text-slate-700 font-semibold focus:border-blue-400">
+                      <option>All Payments</option>
+                    </select>
+
+                    <select className="border border-slate-200 rounded-md py-1.5 px-3 text-xs outline-none bg-white text-slate-700 font-semibold focus:border-blue-400">
+                      <option>Date (Newest)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <button className="bg-transparent border-none text-[#184edb] hover:text-blue-800 font-bold text-xs cursor-pointer flex items-center gap-1.5">
+                      <Download size={13} /> Export Statement (PDF/Excel)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Table */}
+                <div className="overflow-x-auto w-full">
+                  <table className="w-full border-collapse text-left text-[12px]">
+                    <thead>
+                      <tr className="bg-slate-50/20 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                        <th className="py-3 px-6 border-b border-slate-100">INVOICE NUMBER</th>
+                        <th className="py-3 px-6 border-b border-slate-100">BILL DATE</th>
+                        <th className="py-3 px-6 border-b border-slate-100 text-right">BILL AMOUNT</th>
+                        <th className="py-3 px-6 border-b border-slate-100 text-right">PAID AMOUNT</th>
+                        <th className="py-3 px-6 border-b border-slate-100 text-right">BALANCE</th>
+                        <th className="py-3 px-6 border-b border-slate-100">PAYMENT METHOD</th>
+                        <th className="py-3 px-6 border-b border-slate-100">STATUS</th>
+                        <th className="py-3 px-6 border-b border-slate-100 text-center">RECEIPT</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paymentHistory.map((pay, i) => (
+                        <tr key={i} className="hover:bg-slate-50/40 transition-colors text-slate-700 font-medium">
+                          
+                          {/* Invoice No & Subtitle */}
+                          <td className="py-4 px-6 border-b border-slate-100">
+                            <div className="flex flex-col">
+                              <span className="font-extrabold text-[#184edb] hover:underline cursor-pointer">{pay.invoiceNo}</span>
+                              <span className="text-[10px] text-slate-400 mt-0.5">{pay.subtitle}</span>
+                            </div>
+                          </td>
+
+                          {/* Date */}
+                          <td className="py-4 px-6 border-b border-slate-100 text-slate-500">{pay.date}</td>
+
+                          {/* Bill Amount */}
+                          <td className="py-4 px-6 border-b border-slate-100 text-slate-900 font-extrabold text-right">
+                            {pay.amount}
+                          </td>
+
+                          {/* Paid Amount */}
+                          <td className="py-4 px-6 border-b border-slate-100 text-slate-500 text-right">
+                            {pay.paid}
+                          </td>
+
+                          {/* Balance */}
+                          <td className={`py-4 px-6 border-b border-slate-100 text-right font-semibold ${
+                            pay.balance !== '0.00' && pay.status === 'UNPAID' ? 'text-red-600 font-bold' : 'text-slate-500'
+                          }`}>
+                            {pay.balance}
+                          </td>
+
+                          {/* Payment Method */}
+                          <td className="py-4 px-6 border-b border-slate-100">
+                            {pay.isNa ? (
+                              <span className="text-slate-400 font-medium">{pay.method}</span>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <Landmark size={13} className="text-slate-400" />
+                                <span className="text-slate-700 font-semibold">{pay.method}</span>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Status */}
+                          <td className="py-4 px-6 border-b border-slate-100">
+                            <span className={`px-2.5 py-0.5 rounded text-[9.5px] font-bold inline-block ${pay.statusClass}`}>
+                              {pay.status}
+                            </span>
+                          </td>
+
+                          {/* Receipt */}
+                          <td className="py-4 px-6 border-b border-slate-100 text-center">
+                            {pay.receiptAvailable ? (
+                              <button className="bg-transparent border-none text-[#184edb] hover:text-blue-800 cursor-pointer">
+                                <FileText size={15} />
+                              </button>
+                            ) : (
+                              <FileText size={15} className="text-slate-300 mx-auto" />
+                            )}
+                          </td>
+
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+            );
+          })()}
+
+
+
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+export default CustomerDetails;

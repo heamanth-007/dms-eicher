@@ -1,11 +1,19 @@
 import { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
-import Dashboard from './pages/Dashboard';
-import Customers from './pages/Customers';
+import Dashboard from './main page/Dashboard';
+import Customers from './main page/Customers';
+import Vehicles from './main page/Vehicles';
+import VehicleSales from './main page/VehicleSales';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [selectedCustomerName, setSelectedCustomerName] = useState<string | null>(null);
+
+  const navigateToCustomer = (name: string) => {
+    setSelectedCustomerName(name);
+    setActiveTab('customers');
+  };
 
   return (
     <div className="flex min-h-screen w-full bg-[#f6f8fc] m-0 p-0 box-border font-sans">
@@ -16,7 +24,14 @@ function App() {
           {activeTab === 'dashboard' ? (
             <Dashboard />
           ) : activeTab === 'customers' ? (
-            <Customers />
+            <Customers 
+              selectedCustomerName={selectedCustomerName} 
+              clearSelectedCustomer={() => setSelectedCustomerName(null)} 
+            />
+          ) : activeTab === 'inventory' ? (
+            <Vehicles />
+          ) : activeTab === 'sales' ? (
+            <VehicleSales onCustomerClick={navigateToCustomer} />
           ) : (
             <div className="p-10 text-center text-slate-500 flex flex-col items-center justify-center min-h-[50vh]">
               <h2 className="text-2xl text-slate-800 mb-2 font-bold font-heading">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('-', ' ')} Page</h2>
