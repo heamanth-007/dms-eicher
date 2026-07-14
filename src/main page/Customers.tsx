@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Upload, 
-  UserPlus, 
-  Calendar, 
-  FileText, 
-  ChevronLeft, 
-  ChevronRight, 
-  Users, 
-  AlertCircle, 
+import {
+  Upload,
+  UserPlus,
+  Calendar,
+  FileText,
+  ChevronLeft,
+  ChevronRight,
+  Users,
+  AlertCircle,
   Truck
 } from 'lucide-react';
+import { CustomerDetails } from './CustomerDetails';
+import { AddCustomer } from './AddCustomer';
 
 interface CustomerType {
   _id?: string;
@@ -25,12 +27,50 @@ interface CustomerType {
   status: string;
 }
 
-export const Customers: React.FC = () => {
+interface CustomersProps {
+  selectedCustomerName?: string | null;
+  clearSelectedCustomer?: () => void;
+}
+
+export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clearSelectedCustomer }) => {
   const [district, setDistrict] = useState('All Districts');
   const [state, setState] = useState('All States');
   const [vehicleType, setVehicleType] = useState('All Types');
   const [dateRange, setDateRange] = useState('');
   const [customers, setCustomers] = useState<CustomerType[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerType | null>(null);
+  const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+
+  useEffect(() => {
+    if (selectedCustomerName && customers.length > 0) {
+      const found = customers.find(
+        c => c.name.toLowerCase().includes(selectedCustomerName.toLowerCase()) || 
+             c.id.toLowerCase().includes(selectedCustomerName.toLowerCase())
+      );
+      if (found) {
+        setSelectedCustomer(found);
+        setIsAddingCustomer(false);
+      } else {
+        const tempCustomer: CustomerType = {
+          id: '#CUST-9921',
+          name: selectedCustomerName,
+          avatar: selectedCustomerName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
+          avatarBg: 'bg-indigo-100 text-indigo-600',
+          phone: '+91 98765 43210',
+          district: 'Central Valley',
+          vehicles: 1,
+          lastService: 'Oct 24, 2023',
+          outstanding: '₹0.00',
+          status: 'ACTIVE'
+        };
+        setSelectedCustomer(tempCustomer);
+        setIsAddingCustomer(false);
+      }
+      if (clearSelectedCustomer) {
+        clearSelectedCustomer();
+      }
+    }
+  }, [selectedCustomerName, customers, clearSelectedCustomer]);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -40,19 +80,38 @@ export const Customers: React.FC = () => {
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           setCustomers(data);
+          localStorage.setItem('dms_customers', JSON.stringify(data));
         } else {
-          setFallbackCustomers();
+          loadFromLocalStorageOrFallback();
         }
       })
-      .catch(() => setFallbackCustomers());
+      .catch(() => {
+        loadFromLocalStorageOrFallback();
+      });
   };
 
   useEffect(() => {
     fetchCustomers();
   }, []);
 
+  const loadFromLocalStorageOrFallback = () => {
+    const local = localStorage.getItem('dms_customers');
+    if (local) {
+      try {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCustomers(parsed);
+          return;
+        }
+      } catch (e) {
+        console.error('Error parsing local customers:', e);
+      }
+    }
+    setFallbackCustomers();
+  };
+
   const setFallbackCustomers = () => {
-    setCustomers([
+    const fallback = [
       {
         id: '#CUST-8291',
         name: 'John Deere Farms Inc.',
@@ -77,43 +136,12 @@ export const Customers: React.FC = () => {
         outstanding: '₹0.00',
         status: 'ACTIVE'
       }
-    ]);
-  };
-
-  const handleAddCustomer = () => {
-    const mockNames = [
-      'Standard Heavy Excavations',
-      'Highland Farms & Agri',
-      'West Coast Logistics',
-      'Apex Machinery Services'
     ];
-    const randomName = mockNames[Math.floor(Math.random() * mockNames.length)];
-    const randomPhone = `+1 (555) 012-${Math.floor(1000 + Math.random() * 9000)}`;
-    const districts = ['Central Valley', 'Northern Hills', 'Coastal Plains'];
-    const randomDistrict = districts[Math.floor(Math.random() * districts.length)];
-    const randomVehicles = Math.floor(2 + Math.random() * 30);
-    const randomOutstanding = Math.floor(500 + Math.random() * 15000).toString();
-
-    fetch(`${API_URL}/api/customers`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: randomName,
-        phone: randomPhone,
-        district: randomDistrict,
-        vehicles: randomVehicles,
-        outstanding: randomOutstanding,
-        status: 'ACTIVE'
-      })
-    })
-      .then(res => res.json())
-      .then(() => {
-        fetchCustomers();
-      })
-      .catch((err) => {
-        console.error('Error adding customer:', err);
-      });
+    setCustomers(fallback);
+    localStorage.setItem('dms_customers', JSON.stringify(fallback));
   };
+
+
 
   const handleClearFilters = () => {
     setDistrict('All Districts');
@@ -128,9 +156,29 @@ export const Customers: React.FC = () => {
     return true;
   });
 
+  if (selectedCustomer) {
+    return <CustomerDetails customer={selectedCustomer} onBack={() => setSelectedCustomer(null)} />;
+  }
+
+  if (isAddingCustomer) {
+    return (
+      <AddCustomer
+        onBack={() => setIsAddingCustomer(false)}
+        onSave={() => {
+          setIsAddingCustomer(false);
+          fetchCustomers();
+        }}
+        onSaveAndAddVehicle={() => {
+          setIsAddingCustomer(false);
+          fetchCustomers();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="p-8 bg-[#f6f8fc] min-h-[calc(100vh-70px)] flex flex-col gap-6 box-border font-sans text-slate-700 text-left">
-      
+
       {/* Top Header Row with Actions */}
       <div className="flex justify-between items-center">
         <div>
@@ -141,8 +189,8 @@ export const Customers: React.FC = () => {
           <button className="bg-white border border-slate-200 rounded-md py-2 px-4 text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors text-slate-600 hover:bg-slate-50">
             <Upload size={14} /> Import
           </button>
-          <button 
-            onClick={handleAddCustomer}
+          <button
+            onClick={() => setIsAddingCustomer(true)}
             className="bg-[#184edb] text-white border-none py-2 px-4 rounded-md text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors hover:bg-blue-900"
           >
             <UserPlus size={14} /> Add Customer
@@ -155,8 +203,8 @@ export const Customers: React.FC = () => {
         {/* District Select */}
         <div className="flex-1 flex flex-col gap-2">
           <label className="text-[10px] font-bold text-slate-400 tracking-wider">DISTRICT</label>
-          <select 
-            value={district} 
+          <select
+            value={district}
             onChange={(e) => setDistrict(e.target.value)}
             className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 text-slate-700 font-medium"
           >
@@ -170,8 +218,8 @@ export const Customers: React.FC = () => {
         {/* State Select */}
         <div className="flex-1 flex flex-col gap-2">
           <label className="text-[10px] font-bold text-slate-400 tracking-wider">STATE</label>
-          <select 
-            value={state} 
+          <select
+            value={state}
             onChange={(e) => setState(e.target.value)}
             className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 text-slate-700 font-medium"
           >
@@ -185,8 +233,8 @@ export const Customers: React.FC = () => {
         {/* Vehicle Type Select */}
         <div className="flex-1 flex flex-col gap-2">
           <label className="text-[10px] font-bold text-slate-400 tracking-wider">VEHICLE TYPE</label>
-          <select 
-            value={vehicleType} 
+          <select
+            value={vehicleType}
             onChange={(e) => setVehicleType(e.target.value)}
             className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 text-slate-700 font-medium"
           >
@@ -202,8 +250,8 @@ export const Customers: React.FC = () => {
           <label className="text-[10px] font-bold text-slate-400 tracking-wider">DATE RANGE</label>
           <div className="relative flex items-center">
             <Calendar className="absolute left-3 text-slate-400" size={14} />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Select dates"
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value)}
@@ -213,7 +261,7 @@ export const Customers: React.FC = () => {
         </div>
 
         {/* Clear Filters Button */}
-        <button 
+        <button
           onClick={handleClearFilters}
           className="bg-blue-50/70 border-none text-[#184edb] font-semibold text-xs py-2 px-5 rounded-md cursor-pointer transition-colors hover:bg-blue-100/70"
         >
@@ -240,13 +288,21 @@ export const Customers: React.FC = () => {
             <tbody>
               {filteredCustomers.map((customer) => (
                 <tr key={customer.id} className="hover:bg-slate-50/40 transition-colors">
-                  <td className="p-4 border-b border-slate-100 font-bold text-[#184edb] cursor-pointer hover:underline">{customer.id}</td>
+                  <td
+                    onClick={() => setSelectedCustomer(customer)}
+                    className="p-4 border-b border-slate-100 font-bold text-[#184edb] cursor-pointer hover:underline"
+                  >
+                    {customer.id}
+                  </td>
                   <td className="p-4 border-b border-slate-100 text-slate-700">
-                    <div className="flex items-center gap-2.5">
+                    <div
+                      onClick={() => setSelectedCustomer(customer)}
+                      className="flex items-center gap-2.5 cursor-pointer hover:text-[#184edb] group"
+                    >
                       <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] ${customer.avatarBg}`}>
                         {customer.avatar}
                       </div>
-                      <span className="font-semibold">{customer.name}</span>
+                      <span className="font-semibold group-hover:underline">{customer.name}</span>
                     </div>
                   </td>
                   <td className="p-4 border-b border-slate-100 text-slate-500 font-medium">{customer.phone}</td>
@@ -255,11 +311,10 @@ export const Customers: React.FC = () => {
                   <td className="p-4 border-b border-slate-100 text-slate-500">{customer.lastService}</td>
                   <td className="p-4 border-b border-slate-100 font-bold text-slate-700">{customer.outstanding}</td>
                   <td className="p-4 border-b border-slate-100">
-                    <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold inline-block ${
-                      customer.status === 'ACTIVE' || customer.status === 'Active' 
-                        ? 'bg-green-100 text-green-600' 
+                    <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold inline-block ${customer.status === 'ACTIVE' || customer.status === 'Active'
+                        ? 'bg-green-100 text-green-600'
                         : 'bg-red-100 text-red-600'
-                    }`}>
+                      }`}>
                       {customer.status}
                     </span>
                   </td>

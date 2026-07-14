@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
+import Dashboard from './main page/Dashboard';
+import Customers from './main page/Customers';
+import Vehicles from './main page/Vehicles';
+import VehicleSales from './main page/VehicleSales';
 import Dashboard from './pages/Dashboard';
 import Customers from './pages/Customers';
 import VehicleInventory from './pages/VehicleInventory';
@@ -8,6 +12,12 @@ import Mechanics from './pages/Mechanics';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [selectedCustomerName, setSelectedCustomerName] = useState<string | null>(null);
+
+  const navigateToCustomer = (name: string) => {
+    setSelectedCustomerName(name);
+    setActiveTab('customers');
+  };
 
   return (
     <div className="flex min-h-screen w-full bg-[#f6f8fc] m-0 p-0 box-border font-sans">
@@ -18,6 +28,14 @@ function App() {
           {activeTab === 'dashboard' ? (
             <Dashboard />
           ) : activeTab === 'customers' ? (
+            <Customers 
+              selectedCustomerName={selectedCustomerName} 
+              clearSelectedCustomer={() => setSelectedCustomerName(null)} 
+            />
+          ) : activeTab === 'inventory' ? (
+            <Vehicles />
+          ) : activeTab === 'sales' ? (
+            <VehicleSales onCustomerClick={navigateToCustomer} />
             <Customers />
           ) : activeTab === 'inventory' ? (
             <VehicleInventory />

@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import connectDB from './db.js';
 import Customer from './models/Customer.js';
 import Transaction from './models/Transaction.js';
+import Vehicle from './models/Vehicle.js';
 
 dotenv.config();
 
@@ -74,6 +75,23 @@ const seedDatabase = async () => {
       console.log('Customers seeded successfully!');
     }
 
+    const rajesh = await Customer.findOne({ id: 'CUST-1024' });
+    if (!rajesh) {
+      console.log('Adding Rajesh Kumar seed customer...');
+      await Customer.create({
+        id: 'CUST-1024',
+        name: 'Rajesh Kumar',
+        avatar: 'RK',
+        avatarBg: 'bg-blue-100 text-blue-600',
+        phone: '+91 98765 43210',
+        district: 'Pune',
+        vehicles: 3,
+        lastService: 'Jul 14, 2026',
+        outstanding: '₹4,500.00',
+        status: 'ACTIVE'
+      });
+    }
+
     const transactionCount = await Transaction.countDocuments();
     if (transactionCount === 0) {
       console.log('Seeding Transactions...');
@@ -98,6 +116,70 @@ const seedDatabase = async () => {
         }
       ]);
       console.log('Transactions seeded successfully!');
+    }
+
+    const vehicleCount = await Vehicle.countDocuments();
+    if (vehicleCount === 0) {
+      console.log('Seeding Vehicles...');
+      await Vehicle.insertMany([
+        {
+          id: '#VEH-8921',
+          modelName: 'Eicher Pro 6028',
+          type: 'Heavy Duty Truck',
+          condition: 'Brand New',
+          engineNo: 'E694-TIC-12',
+          chassisNo: 'MC26028X1Y0034',
+          colorName: 'Arctic White',
+          colorHex: '#ffffff',
+          price: 42500,
+          sellPrice: 48200,
+          status: 'Available',
+          imageUrl: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=400'
+        },
+        {
+          id: '#VEH-7742',
+          modelName: 'Volvo 9400 B11R',
+          type: 'Coach Bus',
+          condition: 'Pre-booked',
+          engineNo: 'D11C-410-EU5',
+          chassisNo: 'VLB11R4X2Y8822',
+          colorName: 'Midnight Blue',
+          colorHex: '#1d4ed8',
+          price: 185000,
+          sellPrice: 210000,
+          status: 'Reserved',
+          imageUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&q=80&w=400'
+        },
+        {
+          id: '#VEH-4410',
+          modelName: 'Eicher Pro 2049',
+          type: 'LCV',
+          condition: 'Service Mode',
+          engineNo: 'E366-2L-BS6',
+          chassisNo: 'EC2049L3M9102',
+          colorName: 'Silver Metallic',
+          colorHex: '#94a3b8',
+          price: 22400,
+          sellPrice: 26100,
+          status: 'In Service',
+          imageUrl: 'https://images.unsplash.com/photo-1516576885230-101c434d6849?auto=format&fit=crop&q=80&w=400'
+        },
+        {
+          id: '#VEH-1109',
+          modelName: 'Eicher Pro 8031XM',
+          type: 'Tipper Truck',
+          condition: 'Sold Out',
+          engineNo: 'VEDX8-BS6-350',
+          chassisNo: 'T8031XM9Z2200',
+          colorName: 'Traffic Yellow',
+          colorHex: '#eab308',
+          price: 98000,
+          sellPrice: 112000,
+          status: 'Sold',
+          imageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=400'
+        }
+      ]);
+      console.log('Vehicles seeded successfully!');
     }
   } catch (error) {
     console.error('Error seeding database:', error);
@@ -149,6 +231,23 @@ app.post('/api/customers', async (req, res) => {
   }
 });
 
+app.put('/api/customers/:id', async (req, res) => {
+  try {
+    const { name, phone, district, vehicles, lastService, outstanding, status } = req.body;
+    const updatedCustomer = await Customer.findOneAndUpdate(
+      { id: req.params.id },
+      { name, phone, district, vehicles: Number(vehicles), lastService, outstanding, status },
+      { new: true }
+    );
+    if (!updatedCustomer) {
+      return res.status(404).json({ message: 'Customer not found' });
+    }
+    res.json(updatedCustomer);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error updating customer', error: error.message });
+  }
+});
+
 app.get('/api/transactions', async (req, res) => {
   try {
     const transactions = await Transaction.find({});
@@ -178,6 +277,42 @@ app.post('/api/transactions', async (req, res) => {
     res.status(201).json(savedTransaction);
   } catch (error) {
     res.status(500).json({ message: 'Server Error creating transaction', error: error.message });
+  }
+});
+
+app.get('/api/vehicles', async (req, res) => {
+  try {
+    const vehicles = await Vehicle.find({});
+    res.json(vehicles);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error fetching vehicles' });
+  }
+});
+
+app.post('/api/vehicles', async (req, res) => {
+  try {
+    const { modelName, type, condition, engineNo, chassisNo, colorName, colorHex, price, sellPrice, status, imageUrl } = req.body;
+    const randomId = `#VEH-${Math.floor(1000 + Math.random() * 9000)}`;
+    
+    const newVehicle = new Vehicle({
+      id: randomId,
+      modelName,
+      type,
+      condition: condition || 'Brand New',
+      engineNo: engineNo || `ENG-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
+      chassisNo: chassisNo || `CHS-${Math.random().toString(36).substring(2, 12).toUpperCase()}`,
+      colorName: colorName || 'Arctic White',
+      colorHex: colorHex || '#ffffff',
+      price: Number(price) || 0,
+      sellPrice: Number(sellPrice) || 0,
+      status: status || 'Available',
+      imageUrl: imageUrl || 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=400'
+    });
+
+    const savedVehicle = await newVehicle.save();
+    res.status(201).json(savedVehicle);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error creating vehicle', error: error.message });
   }
 });
 
