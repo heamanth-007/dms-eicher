@@ -5,6 +5,10 @@ import Dashboard from './main page/Dashboard';
 import Customers from './main page/Customers';
 import Vehicles from './main page/Vehicles';
 import VehicleSales from './main page/VehicleSales';
+import Dashboard from './pages/Dashboard';
+import Customers from './pages/Customers';
+import VehicleInventory from './pages/VehicleInventory';
+import Mechanics from './pages/Mechanics';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -32,6 +36,11 @@ function App() {
             <Vehicles />
           ) : activeTab === 'sales' ? (
             <VehicleSales onCustomerClick={navigateToCustomer} />
+            <Customers />
+          ) : activeTab === 'inventory' ? (
+            <VehicleInventory />
+          ) : activeTab === 'mechanics' ? (
+            <Mechanics />
           ) : (
             <div className="p-10 text-center text-slate-500 flex flex-col items-center justify-center min-h-[50vh]">
               <h2 className="text-2xl text-slate-800 mb-2 font-bold font-heading">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('-', ' ')} Page</h2>
