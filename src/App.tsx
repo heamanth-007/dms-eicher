@@ -8,6 +8,8 @@ import VehicleInventory from './pages/VehicleInventory';
 import Mechanics from './pages/Mechanics';
 import ServiceDashboard from './pages/ServiceDashboard';
 import CounterSales from './pages/CounterSales';
+import { Reports } from './pages/Reports';
+import { SpareParts } from './pages/SpareParts';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -60,6 +62,12 @@ function App() {
             <Mechanics />
           ) : activeTab === 'counter-sales' ? (
             <CounterSales />
+          ) : activeTab === 'mechanics' ? (
+            <Mechanics />
+          ) : activeTab === 'reports' ? (
+            <Reports />
+          ) : activeTab === 'parts' ? (
+            <SpareParts />
           ) : (
             <div className="p-10 text-center text-slate-500 flex flex-col items-center justify-center min-h-[50vh]">
               <h2 className="text-2xl text-slate-800 mb-2 font-bold font-heading">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('-', ' ')} Page</h2>
