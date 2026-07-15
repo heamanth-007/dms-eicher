@@ -248,6 +248,18 @@ app.put('/api/customers/:id', async (req, res) => {
   }
 });
 
+app.delete('/api/customers/:id', async (req, res) => {
+  try {
+    const deletedCustomer = await Customer.findOneAndDelete({ id: req.params.id });
+    if (!deletedCustomer) {
+      return res.status(404).json({ message: 'Customer not found' });
+    }
+    res.json({ message: 'Customer deleted successfully', customer: deletedCustomer });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error deleting customer', error: error.message });
+  }
+});
+
 app.get('/api/transactions', async (req, res) => {
   try {
     const transactions = await Transaction.find({});

@@ -1519,24 +1519,24 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ onCustomerClick }) =
                     <div className="flex items-center justify-center gap-2">
                       <button
                         onClick={() => setViewingSale(sale)}
-                        className="bg-transparent border-none text-[#184edb] hover:text-blue-900 cursor-pointer p-1"
+                        className="p-1.5 bg-blue-50 border border-blue-100 rounded-md text-blue-600 hover:bg-blue-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
                         title="View Details"
                       >
-                        <Eye size={14} />
+                        <Eye size={13} />
                       </button>
                       <button
                         onClick={() => handleEditClick(sale)}
-                        className="bg-transparent border-none text-slate-500 hover:text-slate-800 cursor-pointer p-1"
+                        className="p-1.5 bg-green-50 border border-green-100 rounded-md text-green-600 hover:bg-green-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
                         title="Edit Record"
                       >
-                        <Edit size={14} />
+                        <Edit size={13} />
                       </button>
                       <button
                         onClick={() => setPrintingSale(sale)}
-                        className="bg-transparent border-none text-slate-500 hover:text-slate-800 cursor-pointer p-1"
+                        className="p-1.5 bg-amber-50 border border-amber-100 rounded-md text-amber-600 hover:bg-amber-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
                         title="Print Invoice"
                       >
-                        <Printer size={14} />
+                        <Printer size={13} />
                       </button>
                     </div>
                   </td>
