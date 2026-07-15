@@ -3,10 +3,7 @@ import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import Dashboard from './main page/Dashboard';
 import Customers from './main page/Customers';
-import Vehicles from './main page/Vehicles';
 import VehicleSales from './main page/VehicleSales';
-import Dashboard from './pages/Dashboard';
-import Customers from './pages/Customers';
 import VehicleInventory from './pages/VehicleInventory';
 import Mechanics from './pages/Mechanics';
 
@@ -33,12 +30,9 @@ function App() {
               clearSelectedCustomer={() => setSelectedCustomerName(null)} 
             />
           ) : activeTab === 'inventory' ? (
-            <Vehicles />
+            <VehicleInventory />
           ) : activeTab === 'sales' ? (
             <VehicleSales onCustomerClick={navigateToCustomer} />
-            <Customers />
-          ) : activeTab === 'inventory' ? (
-            <VehicleInventory />
           ) : activeTab === 'mechanics' ? (
             <Mechanics />
           ) : (
