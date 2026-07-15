@@ -26,7 +26,10 @@ import {
   Clock,
   ExternalLink,
   Sliders,
-  ArrowLeft
+  ArrowLeft,
+  Eye,
+  Edit,
+  Trash2
 } from 'lucide-react';
 
 interface VehicleType {
@@ -1295,7 +1298,7 @@ export const VehicleInventory: React.FC = () => {
                 <th className="py-4 px-5 select-none">ENGINE / CHASSIS</th>
                 <th className="py-4 px-5 select-none">COLOR</th>
                 <th className="py-4 px-5 select-none">PRICING</th>
-                <th className="py-4 px-6 select-none">STATUS</th>
+                <th className="py-4 px-6 select-none">ACTIONS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-[13.5px]">
@@ -1362,28 +1365,45 @@ export const VehicleInventory: React.FC = () => {
                     </div>
                   </td>
 
-                  {/* Status column */}
-                  <td className="py-4 px-6 whitespace-nowrap">
-                    {v.status === 'Available' && (
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
-                        Available
-                      </span>
-                    )}
-                    {v.status === 'Reserved' && (
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-bold bg-amber-50 text-amber-600 border border-amber-100">
-                        Reserved
-                      </span>
-                    )}
-                    {v.status === 'In Service' && (
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-bold bg-orange-50 text-orange-600 border border-orange-100">
-                        In Service
-                      </span>
-                    )}
-                    {v.status === 'Sold' && (
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-bold bg-blue-50 text-[#184edb] border border-blue-100">
-                        Sold
-                      </span>
-                    )}
+                  {/* Actions column */}
+                  <td className="py-4 px-6 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => {
+                          handleRowClick(v);
+                        }}
+                        title="View Vehicle Details"
+                        className="p-1.5 bg-blue-50 border border-blue-100 rounded-md text-blue-600 hover:bg-blue-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
+                      >
+                        <Eye size={13} />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setVehicleModel(v.model);
+                          setRegNumber(v.id);
+                          setChassisNumber(v.chs);
+                          setEngineNumber(v.eng);
+                          setIsEditing(true);
+                          setIsRegistering(false);
+                          setViewingDetails(false);
+                        }}
+                        title="Edit Vehicle Details"
+                        className="p-1.5 bg-green-50 border border-green-100 rounded-md text-green-600 hover:bg-green-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
+                      >
+                        <Edit size={13} />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to delete vehicle ${v.id}?`)) {
+                            alert(`Vehicle ${v.id} deleted successfully (mock delete).`);
+                          }
+                        }}
+                        title="Delete Vehicle"
+                        className="p-1.5 bg-red-50 border border-red-100 rounded-md text-red-600 hover:bg-red-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

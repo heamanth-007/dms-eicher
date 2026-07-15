@@ -8,10 +8,14 @@ import {
   ChevronRight,
   Users,
   AlertCircle,
-  Truck
+  Truck,
+  Eye,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { CustomerDetails } from './CustomerDetails';
 import { AddCustomer } from './AddCustomer';
+import { EditCustomer } from './EditCustomer';
 
 interface CustomerType {
   _id?: string;
@@ -40,6 +44,8 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
   const [customers, setCustomers] = useState<CustomerType[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerType | null>(null);
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+  const [isEditingCustomer, setIsEditingCustomer] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<CustomerType | null>(null);
 
   useEffect(() => {
     if (selectedCustomerName && customers.length > 0) {
@@ -88,6 +94,54 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
       .catch(() => {
         loadFromLocalStorageOrFallback();
       });
+  };
+
+  const handleSaveEditedCustomer = (updatedCustomer: CustomerType) => {
+    const updatedList = customers.map(c => c.id === updatedCustomer.id ? updatedCustomer : c);
+    setCustomers(updatedList);
+    localStorage.setItem('dms_customers', JSON.stringify(updatedList));
+
+    fetch(`${API_URL}/api/customers/${updatedCustomer.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedCustomer)
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to update customer');
+        return res.json();
+      })
+      .then(() => {
+        setIsEditingCustomer(false);
+        setEditingCustomer(null);
+        fetchCustomers();
+      })
+      .catch(err => {
+        console.error('Error updating customer:', err);
+        setIsEditingCustomer(false);
+        setEditingCustomer(null);
+      });
+  };
+
+  const handleDeleteCustomer = (customer: CustomerType) => {
+    if (window.confirm(`Are you sure you want to delete ${customer.name}?`)) {
+      const updatedList = customers.filter(c => c.id !== customer.id);
+      setCustomers(updatedList);
+      localStorage.setItem('dms_customers', JSON.stringify(updatedList));
+
+      fetch(`${API_URL}/api/customers/${customer.id}`, {
+        method: 'DELETE'
+      })
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to delete customer');
+          return res.json();
+        })
+        .then(() => {
+          fetchCustomers();
+        })
+        .catch(err => {
+          console.error('Error deleting customer:', err);
+        });
+    }
   };
 
   useEffect(() => {
@@ -171,6 +225,21 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
         onSaveAndAddVehicle={() => {
           setIsAddingCustomer(false);
           fetchCustomers();
+        }}
+      />
+    );
+  }
+
+  if (isEditingCustomer && editingCustomer) {
+    return (
+      <EditCustomer
+        customer={editingCustomer}
+        onBack={() => {
+          setIsEditingCustomer(false);
+          setEditingCustomer(null);
+        }}
+        onSave={(updatedCustomer) => {
+          handleSaveEditedCustomer(updatedCustomer);
         }}
       />
     );
@@ -282,12 +351,12 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
                 <th className="py-3.5 px-4 text-slate-400 font-bold text-[10px] tracking-wider border-b border-slate-100">VEHICLES</th>
                 <th className="py-3.5 px-4 text-slate-400 font-bold text-[10px] tracking-wider border-b border-slate-100">LAST SERVICE</th>
                 <th className="py-3.5 px-4 text-slate-400 font-bold text-[10px] tracking-wider border-b border-slate-100">OUTSTANDING</th>
-                <th className="py-3.5 px-4 text-slate-400 font-bold text-[10px] tracking-wider border-b border-slate-100">STATUS</th>
+                <th className="py-3.5 px-4 text-slate-400 font-bold text-[10px] tracking-wider border-b border-slate-100">ACTIONS</th>
               </tr>
             </thead>
             <tbody>
               {filteredCustomers.map((customer) => (
-                <tr key={customer.id} className="hover:bg-slate-50/40 transition-colors">
+                <tr key={customer.id} className="hover:bg-slate-50/40 transition-colors group">
                   <td
                     onClick={() => setSelectedCustomer(customer)}
                     className="p-4 border-b border-slate-100 font-bold text-[#184edb] cursor-pointer hover:underline"
@@ -297,7 +366,7 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
                   <td className="p-4 border-b border-slate-100 text-slate-700">
                     <div
                       onClick={() => setSelectedCustomer(customer)}
-                      className="flex items-center gap-2.5 cursor-pointer hover:text-[#184edb] group"
+                      className="flex items-center gap-2.5 cursor-pointer hover:text-[#184edb] group-row"
                     >
                       <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] ${customer.avatarBg}`}>
                         {customer.avatar}
@@ -311,12 +380,32 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
                   <td className="p-4 border-b border-slate-100 text-slate-500">{customer.lastService}</td>
                   <td className="p-4 border-b border-slate-100 font-bold text-slate-700">{customer.outstanding}</td>
                   <td className="p-4 border-b border-slate-100">
-                    <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold inline-block ${customer.status === 'ACTIVE' || customer.status === 'Active'
-                        ? 'bg-green-100 text-green-600'
-                        : 'bg-red-100 text-red-600'
-                      }`}>
-                      {customer.status}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => setSelectedCustomer(customer)}
+                        title="View Customer Details"
+                        className="p-1.5 bg-blue-50 border border-blue-100 rounded-md text-blue-600 hover:bg-blue-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
+                      >
+                        <Eye size={13} />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setEditingCustomer(customer);
+                          setIsEditingCustomer(true);
+                        }}
+                        title="Edit Customer Details"
+                        className="p-1.5 bg-green-50 border border-green-100 rounded-md text-green-600 hover:bg-green-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
+                      >
+                        <Edit size={13} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteCustomer(customer)}
+                        title="Delete Customer"
+                        className="p-1.5 bg-red-50 border border-red-100 rounded-md text-red-600 hover:bg-red-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
