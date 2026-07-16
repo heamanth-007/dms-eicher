@@ -41,7 +41,13 @@ interface TransactionType {
   status: string;
 }
 
-export const Dashboard: React.FC = () => {
+interface DashboardProps {
+  salesCount: number;
+  onNavigate: (tab: string) => void;
+  onNavigateToService: (subTab: 'dashboard' | 'open-job-cards' | 'completed-jobs' | 'service-history') => void;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, onNavigateToService }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [customers, setCustomers] = useState<CustomerType[]>([]);
   const [transactions, setTransactions] = useState<TransactionType[]>([]);
@@ -143,7 +149,10 @@ export const Dashboard: React.FC = () => {
       {/* KPI Row 1 */}
       <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4 w-full">
         {/* Card 1 */}
-        <div className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+        <div 
+          onClick={() => onNavigate('sales')}
+          className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
+        >
           <div className="flex justify-between items-center">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-50">
               <Car className="text-blue-600" size={18} />
@@ -154,12 +163,17 @@ export const Dashboard: React.FC = () => {
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[10.5px] font-bold text-slate-400 tracking-wider">VEHICLE SALES</span>
-            <h3 className="text-2xl font-extrabold text-slate-800 m-0">08</h3>
+            <h3 className="text-2xl font-extrabold text-slate-800 m-0">
+              {salesCount < 10 ? `0${salesCount}` : salesCount}
+            </h3>
           </div>
         </div>
 
         {/* Card 2 */}
-        <div className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+        <div 
+          onClick={() => onNavigate('counter-sales')}
+          className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
+        >
           <div className="flex justify-between items-center">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-50">
               <ShoppingBag className="text-purple-600" size={18} />
@@ -175,7 +189,10 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Card 3 */}
-        <div className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+        <div 
+          onClick={() => onNavigate('billing')}
+          className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
+        >
           <div className="flex justify-between items-center">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-cyan-50">
               <FileText className="text-cyan-600" size={18} />
@@ -191,7 +208,10 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Card 4 */}
-        <div className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+        <div 
+          onClick={() => onNavigateToService('open-job-cards')}
+          className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
+        >
           <div className="flex justify-between items-center">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-orange-50">
               <ClipboardList className="text-orange-600" size={18} />
@@ -205,7 +225,10 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Card 5 */}
-        <div className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+        <div 
+          onClick={() => onNavigateToService('completed-jobs')}
+          className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
+        >
           <div className="flex justify-between items-center">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-green-50">
               <CheckCircle className="text-green-600" size={18} />
@@ -219,7 +242,10 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Card 6 */}
-        <div className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+        <div 
+          onClick={() => onNavigateToService('open-job-cards')}
+          className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
+        >
           <div className="flex justify-between items-center">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-50">
               <Clock className="text-blue-500" size={18} />
@@ -236,7 +262,10 @@ export const Dashboard: React.FC = () => {
       {/* KPI Row 2 */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 w-full">
         {/* Card 1 */}
-        <div className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+        <div 
+          onClick={() => onNavigate('reports')}
+          className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
+        >
           <div className="flex justify-between items-center">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-green-50">
               <Coins className="text-green-600" size={18} />
@@ -252,7 +281,10 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Card 2 */}
-        <div className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+        <div 
+          onClick={() => onNavigate('reports')}
+          className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
+        >
           <div className="flex justify-between items-center">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-50">
               <AlertTriangle className="text-red-600" size={18} />
@@ -266,7 +298,10 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Card 3 */}
-        <div className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+        <div 
+          onClick={() => onNavigate('parts')}
+          className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
+        >
           <div className="flex justify-between items-center">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-amber-50">
               <PackageOpen className="text-amber-600" size={18} />
@@ -280,7 +315,10 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Card 4 */}
-        <div className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+        <div 
+          onClick={() => onNavigate('customers')}
+          className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
+        >
           <div className="flex justify-between items-center">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-50">
               <Users className="text-purple-500" size={18} />
@@ -289,12 +327,17 @@ export const Dashboard: React.FC = () => {
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[10.5px] font-bold text-slate-400 tracking-wider">TOTAL CUSTOMERS</span>
-            <h3 className="text-2xl font-extrabold text-slate-800 m-0">1.2k</h3>
+            <h3 className="text-2xl font-extrabold text-slate-800 m-0">
+              {customers.length || '1.2k'}
+            </h3>
           </div>
         </div>
 
         {/* Card 5 */}
-        <div className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+        <div 
+          onClick={() => onNavigate('suppliers')}
+          className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
+        >
           <div className="flex justify-between items-center">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-50">
               <Truck className="text-slate-500" size={18} />
@@ -609,7 +652,10 @@ export const Dashboard: React.FC = () => {
       {/* Bottom Summary Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Workshop Performance */}
-        <div className="bg-white rounded-xl p-5 border border-[#eef2f6] shadow-sm flex flex-col gap-4">
+        <div 
+          onClick={() => onNavigate('service')}
+          className="bg-white rounded-xl p-5 border border-[#eef2f6] shadow-sm flex flex-col gap-4 cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
+        >
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-50">
               <Car size={16} className="text-blue-600" />
@@ -637,7 +683,10 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Inventory Summary */}
-        <div className="bg-white rounded-xl p-5 border border-[#eef2f6] shadow-sm flex flex-col gap-4">
+        <div 
+          onClick={() => onNavigate('parts')}
+          className="bg-white rounded-xl p-5 border border-[#eef2f6] shadow-sm flex flex-col gap-4 cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
+        >
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-orange-50">
               <PackageOpen size={16} className="text-orange-600" />
@@ -661,7 +710,10 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Revenue Summary */}
-        <div className="bg-white rounded-xl p-5 border border-[#eef2f6] shadow-sm flex flex-col gap-4 relative">
+        <div 
+          onClick={() => onNavigate('reports')}
+          className="bg-white rounded-xl p-5 border border-[#eef2f6] shadow-sm flex flex-col gap-4 relative cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
+        >
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-green-50">
               <Coins size={16} className="text-green-600" />
