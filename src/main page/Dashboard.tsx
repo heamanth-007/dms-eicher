@@ -263,7 +263,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 w-full">
         {/* Card 1 */}
         <div
-          onClick={() => onNavigate('reports')}
+          onClick={() => onNavigate('billing')}
           className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
         >
           <div className="flex justify-between items-center">
@@ -282,7 +282,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
 
         {/* Card 2 */}
         <div
-          onClick={() => onNavigate('reports')}
+          onClick={() => onNavigate('billing')}
           className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
         >
           <div className="flex justify-between items-center">
@@ -709,7 +709,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
 
         {/* Revenue Summary */}
         <div
-          onClick={() => onNavigate('reports')}
+          onClick={() => onNavigate('billing')}
           className="bg-white rounded-xl p-5 border border-[#eef2f6] shadow-sm flex flex-col gap-4 relative cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
         >
           <div className="flex items-center gap-2.5">

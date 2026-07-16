@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { 
   ArrowLeft, 
-  Edit3, 
-  Plus, 
   Calendar, 
   ShieldCheck, 
   Clock, 
@@ -101,16 +99,7 @@ export const VehicleDetailView: React.FC<VehicleDetailProps> = ({ vehicle, onBac
           </div>
         </div>
 
-        {/* Banner buttons */}
-        <div className="flex items-center gap-3 z-10">
-          <button className="bg-transparent border border-white/30 hover:bg-white/10 text-white font-semibold text-xs py-2.5 px-4 rounded-md cursor-pointer transition-colors">
-            <Edit3 size={13} className="inline mr-1" /> Edit Asset
-          </button>
-          
-          <button className="bg-white hover:bg-slate-50 text-[#184edb] border-none font-bold text-xs py-2.5 px-5 rounded-md cursor-pointer transition-colors shadow-md flex items-center gap-1">
-            <Plus size={14} /> New Service Ticket
-          </button>
-        </div>
+
 
         {/* Abstract design background overlays */}
         <div className="absolute right-0 top-0 w-80 h-full bg-gradient-to-l from-white/5 to-transparent pointer-events-none skew-x-12 transform origin-top-right" />

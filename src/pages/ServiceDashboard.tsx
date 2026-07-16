@@ -49,6 +49,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
 }) => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [isCreatingJobCard, setIsCreatingJobCard] = useState(false);
+  const [showLiveTable, setShowLiveTable] = useState(true);
 
   const [jobCards, setJobCards] = useState<JobCard[]>([
     {
@@ -197,6 +198,17 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
           </p>
         </div>
         <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setShowLiveTable(!showLiveTable)}
+            className={`flex items-center gap-1.5 px-3 py-2 border font-bold rounded-lg text-xs cursor-pointer transition-colors shadow-xs ${
+              showLiveTable
+                ? 'bg-[#184edb] text-white border-[#184edb] hover:bg-[#143eb3]'
+                : 'bg-white text-slate-650 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <span>{showLiveTable ? 'Hide Live Job Cards' : 'Show Live Job Cards'}</span>
+          </button>
+
           <button className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold rounded-lg text-xs cursor-pointer transition-colors bg-white shadow-xs">
             <Filter size={14} />
             <span>Filters</span>
@@ -555,7 +567,8 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
       </div>
 
       {/* Live Job Cards Table Card */}
-      <div className="bg-white rounded-xl shadow-xs border border-slate-100 overflow-hidden w-full flex flex-col box-border">
+      {showLiveTable && (
+        <div className="bg-white rounded-xl shadow-xs border border-slate-100 overflow-hidden w-full flex flex-col box-border">
         {/* Table Header Row */}
         <div className="p-5 px-6 border-b border-slate-100 bg-slate-50/15 flex items-center justify-between flex-wrap gap-4">
           <div>
@@ -740,6 +753,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 };

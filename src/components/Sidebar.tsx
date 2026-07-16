@@ -9,8 +9,8 @@ import {
   ShoppingBag,
   Building2,
   Receipt,
-  FileText,
-  Settings
+  Settings,
+  Notebook
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -31,7 +31,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
     { id: 'suppliers', label: 'Suppliers', icon: Building2 },
     { id: 'counter-sales', label: 'Counter Sales', icon: Receipt },
     { id: 'billing', label: 'Service Billing', icon: Receipt },
-    { id: 'reports', label: 'Reports', icon: FileText },
   ];
 
   return (

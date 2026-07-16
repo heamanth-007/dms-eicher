@@ -11,14 +11,58 @@ import ServiceDashboard from './pages/ServiceDashboard';
 import CounterSales from './pages/CounterSales';
 import { SpareParts } from './pages/SpareParts';
 import { Suppliers } from './pages/Suppliers';
+import type { SupplierType } from './pages/Suppliers';
 import { SettingsPage } from './pages/Settings';
-import { Reports } from './pages/Reports';
 import Purchase from './pages/Purchase';
 import ServiceBilling from './pages/ServiceBilling';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedCustomerName, setSelectedCustomerName] = useState<string | null>(null);
+
+  // Lifted Suppliers states
+  const [suppliersList, setSuppliersList] = useState<SupplierType[]>([
+    {
+      id: 'SUP-9821',
+      name: 'AutoParts Direct Ltd.',
+      gstNumber: '27AADCA1234F1Z1',
+      phone: '+1 202-555-0156',
+      email: 'orders@autoparts.com',
+      outstanding: '$12,450.00',
+      isOutstandingPositive: true,
+      status: 'ACTIVE'
+    },
+    {
+      id: 'SUP-7742',
+      name: 'Global Engine Spares',
+      gstNumber: '19BBEDA4432A1Z9',
+      phone: '+1 555-0198-2210',
+      email: 'billing@globalspares.co',
+      outstanding: '$0.00',
+      isOutstandingPositive: false,
+      status: 'ACTIVE'
+    },
+    {
+      id: 'SUP-3321',
+      name: 'Premium Lubricants Int.',
+      gstNumber: '33CCDFA5567G2Z0',
+      phone: '+1 212-701-0099',
+      email: 'contact@premiumlubes.com',
+      outstanding: '$4,200.00',
+      isOutstandingPositive: true,
+      status: 'INACTIVE'
+    },
+    {
+      id: 'SUP-1102',
+      name: 'Zenith Tire Solutions',
+      gstNumber: '07AABBA9999K3Z2',
+      phone: '+1 415-888-0123',
+      email: 'zenith@tires.co',
+      outstanding: '$26,200.00',
+      isOutstandingPositive: true,
+      status: 'ACTIVE'
+    }
+  ]);
 
   // Lifted Service sub-tab and search state
   const [serviceSubTab, setServiceSubTab] = useState<'dashboard' | 'open-job-cards' | 'completed-jobs' | 'service-history'>('dashboard');
@@ -127,15 +171,16 @@ function App() {
           ) : activeTab === 'parts' ? (
             <SpareParts />
           ) : activeTab === 'suppliers' ? (
-            <Suppliers />
+            <Suppliers
+              suppliersList={suppliersList}
+              setSuppliersList={setSuppliersList}
+            />
           ) : activeTab === 'settings' ? (
             <SettingsPage />
           ) : activeTab === 'purchase' ? (
             <Purchase />
           ) : activeTab === 'billing' ? (
             <ServiceBilling />
-          ) : activeTab === 'reports' ? (
-            <Reports />
           ) : (
             <div className="p-10 text-center text-slate-500 flex flex-col items-center justify-center min-h-[50vh]">
               <h2 className="text-2xl text-slate-800 mb-2 font-bold font-heading">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('-', ' ')} Page</h2>

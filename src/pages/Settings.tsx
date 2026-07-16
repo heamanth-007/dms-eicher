@@ -6,8 +6,7 @@ import {
   Upload,
   Save,
   CheckCircle2,
-  X,
-  FileSpreadsheet
+  X
 } from 'lucide-react';
 
 export const SettingsPage: React.FC = () => {

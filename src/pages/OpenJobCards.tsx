@@ -47,7 +47,7 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
   onEditJc,
   searchTerm
 }) => {
-  
+  const [showTable, setShowTable] = useState(true);
   const [jobCards] = useState<JobCardRecord[]>([
     {
       jcNumber: 'JC-2023-8841',
@@ -203,6 +203,16 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5">
+          <button 
+            onClick={() => setShowTable(!showTable)}
+            className={`flex items-center gap-1.5 px-3 py-2 border font-bold rounded-lg text-xs cursor-pointer transition-colors shadow-xs ${
+              showTable 
+                ? 'bg-[#184edb] text-white border-[#184edb] hover:bg-[#143eb3]' 
+                : 'bg-white text-slate-650 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <span>{showTable ? 'Hide Table' : 'Show Table'}</span>
+          </button>
 
           <button className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold rounded-lg text-xs cursor-pointer bg-white transition-colors">
             <Filter size={14} />
@@ -223,7 +233,8 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
       </div>
 
       {/* Main Table Card */}
-      <div className="bg-white rounded-xl shadow-xs border border-slate-100 overflow-hidden w-full flex flex-col box-border">
+      {showTable && (
+        <div className="bg-white rounded-xl shadow-xs border border-slate-100 overflow-hidden w-full flex flex-col box-border">
         <div className="overflow-x-auto w-full">
           <table className="w-full border-collapse text-left text-slate-650 text-[12.5px]">
             <thead>
@@ -372,8 +383,7 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Floating Action Button (FAB) at Bottom-Right */}
+      )}{/* Floating Action Button (FAB) at Bottom-Right */}
       <button 
         onClick={onNewJobCard}
         title="Add New Job Card"
