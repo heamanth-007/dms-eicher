@@ -17,7 +17,8 @@ import {
   TrendingUp,
   AlertCircle,
   CheckCircle,
-  Trash2
+  Trash2,
+  Info
 } from 'lucide-react';
 
 // Interfaces
@@ -53,6 +54,14 @@ interface SupplierInvoice {
   dueDate: string;
   amount: number;
   status: 'PAID' | 'PARTIAL' | 'UNPAID' | 'OVERDUE';
+}
+
+interface PurchaseItem {
+  id: string;
+  productName: string;
+  qty: number;
+  rate: number;
+  gstPercent: number;
 }
 
 export const Purchase: React.FC = () => {
@@ -285,6 +294,38 @@ export const Purchase: React.FC = () => {
   const [newPoTotal, setNewPoTotal] = useState(2500);
   const [newPoStatus, setNewPoStatus] = useState<'PAID' | 'PARTIAL' | 'PENDING'>('PAID');
 
+  const [newPoTerms, setNewPoTerms] = useState('Net 30');
+  const [newPoRemarks, setNewPoRemarks] = useState('');
+  const [newPoAdditionalCharges, setNewPoAdditionalCharges] = useState(45.00);
+  const [newPoDiscount, setNewPoDiscount] = useState(100.00);
+  const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
+
+  const handleItemChange = (id: string, field: keyof PurchaseItem, value: any) => {
+    setPurchaseItems(purchaseItems.map(item => {
+      if (item.id === id) {
+        return { ...item, [field]: value };
+      }
+      return item;
+    }));
+  };
+
+  const handleAddItem = () => {
+    setPurchaseItems([
+      ...purchaseItems,
+      {
+        id: 'item-' + Date.now(),
+        productName: '',
+        qty: 1,
+        rate: 0,
+        gstPercent: 18
+      }
+    ]);
+  };
+
+  const handleRemoveItem = (id: string) => {
+    setPurchaseItems(purchaseItems.filter(item => item.id !== id));
+  };
+
   // Return form state
   const [newRetId, setNewRetId] = useState('RET-2023-011');
   const [newRetPoRef, setNewRetPoRef] = useState('PO-2023-0942');
@@ -511,6 +552,427 @@ export const Purchase: React.FC = () => {
     }
     return true;
   });
+
+  if (showNewPurchaseModal) {
+    const calculatedSubtotal = purchaseItems.reduce((acc, item) => acc + (item.qty * item.rate), 0);
+    const calculatedGst = purchaseItems.reduce((acc, item) => acc + (item.qty * item.rate * (item.gstPercent / 100)), 0);
+    const calculatedGrandTotal = calculatedSubtotal + calculatedGst + newPoAdditionalCharges - newPoDiscount;
+
+    const handleSavePurchaseOrder = (status: 'PAID' | 'PENDING') => {
+      const supplierInitialsMap: { [key: string]: string } = {
+        'Precision Parts Co.': 'PP',
+        'Elite Motors Wholesale': 'EM',
+        'Global Tyres Ltd.': 'GT',
+        'Apex Hydraulics': 'AH',
+        'Standard Engines Co.': 'SE'
+      };
+      const supplierBgMap: { [key: string]: string } = {
+        'Precision Parts Co.': 'bg-indigo-50 text-indigo-600 border border-indigo-100',
+        'Elite Motors Wholesale': 'bg-purple-50 text-purple-600 border border-purple-100',
+        'Global Tyres Ltd.': 'bg-rose-50 text-rose-600 border border-rose-100',
+        'Apex Hydraulics': 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+        'Standard Engines Co.': 'bg-orange-50 text-orange-600 border border-orange-100'
+      };
+
+      const newPurchase: PurchaseOrder = {
+        id: newPoId,
+        invoiceNo: newPoInvoice || `INV/PUR-${Math.floor(1000 + Math.random() * 9000)}`,
+        supplier: newPoSupplier,
+        supplierInitials: supplierInitialsMap[newPoSupplier] || 'SU',
+        supplierBg: supplierBgMap[newPoSupplier] || 'bg-slate-50 text-slate-600 border border-slate-100',
+        date: newPoDate,
+        itemsCount: purchaseItems.reduce((acc, item) => acc + item.qty, 0),
+        gstAmount: calculatedGst,
+        grandTotal: calculatedGrandTotal,
+        status: status === 'PAID' ? 'PAID' : 'PENDING'
+      };
+
+      setPurchases([newPurchase, ...purchases]);
+      
+      // Auto-generate invoice for this purchase in invoices tab
+      const autoInvoice: SupplierInvoice = {
+        id: newPurchase.invoiceNo,
+        poRef: newPurchase.id,
+        supplier: newPurchase.supplier,
+        issueDate: newPurchase.date,
+        dueDate: 'Nov 26, 2023',
+        amount: newPurchase.grandTotal,
+        status: status === 'PAID' ? 'PAID' : 'UNPAID'
+      };
+      setInvoices([autoInvoice, ...invoices]);
+
+      // Reset
+      setNewPoInvoice('');
+      setPurchaseItems([]);
+      setNewPoRemarks('');
+      setNewPoAdditionalCharges(45.00);
+      setNewPoDiscount(100.00);
+      setNewPoId(`PO-2023-0${Number(newPoId.split('-')[2]) + 1}`);
+      setShowNewPurchaseModal(false);
+    };
+
+    return (
+      <div className="flex-1 flex flex-col p-8 bg-[#f8fafc] w-full box-border font-sans min-h-[calc(100vh-64px)] text-left text-slate-700">
+        {/* Breadcrumbs */}
+        <div className="flex items-center gap-2 text-[13px] text-slate-400 font-semibold mb-2">
+          <span>Dashboard</span>
+          <span>/</span>
+          <span 
+            onClick={() => setShowNewPurchaseModal(false)}
+            className="cursor-pointer hover:text-[#184edb] transition-colors"
+          >
+            Purchase
+          </span>
+          <span>/</span>
+          <span className="text-[#184edb]">New Entry</span>
+        </div>
+
+        {/* Title, Import PO */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight m-0 font-heading">
+              Create New Purchase Entry
+            </h1>
+          </div>
+          <button
+            type="button"
+            onClick={() => alert('Import from Purchase Order initiated')}
+            className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-650 font-bold text-[13px] rounded-lg border border-slate-200 shadow-sm cursor-pointer transition-colors"
+          >
+            Import from PO
+          </button>
+        </div>
+
+        {/* Grid Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 w-full box-border items-start">
+          {/* Left Column */}
+          <div className="lg:col-span-2 flex flex-col gap-8 w-full box-border">
+            
+            {/* Purchase Info Card */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col gap-6">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                <h3 className="text-base font-extrabold text-slate-800 m-0 flex items-center gap-2 font-heading">
+                  <span>Purchase Information</span>
+                </h3>
+                <span className="text-[12px] font-bold text-[#184edb] bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100">
+                  ENTRY ID: #{newPoId}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Supplier select */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wide">Supplier</label>
+                  <select
+                    value={newPoSupplier}
+                    onChange={(e) => setNewPoSupplier(e.target.value)}
+                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold text-slate-700 bg-white focus:outline-none focus:border-[#184edb]"
+                  >
+                    {suppliersList.filter(s => s !== 'All').map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Invoice Number */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wide">Invoice Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. INV-88291"
+                    value={newPoInvoice}
+                    onChange={(e) => setNewPoInvoice(e.target.value)}
+                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold text-slate-750 focus:outline-none focus:border-[#184edb]"
+                  />
+                </div>
+
+                {/* Purchase Date */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wide">Purchase Date</label>
+                  <input
+                    type="text"
+                    placeholder="mm/dd/yyyy"
+                    value={newPoDate}
+                    onChange={(e) => setNewPoDate(e.target.value)}
+                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold text-slate-750 focus:outline-none focus:border-[#184edb]"
+                  />
+                </div>
+
+                {/* Payment Terms */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wide">Payment Terms</label>
+                  <select
+                    value={newPoTerms}
+                    onChange={(e) => setNewPoTerms(e.target.value)}
+                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold text-slate-700 bg-white focus:outline-none focus:border-[#184edb]"
+                  >
+                    <option value="Net 30">Net 30</option>
+                    <option value="Net 45">Net 45</option>
+                    <option value="Net 60">Net 60</option>
+                    <option value="Due on Receipt">Due on Receipt</option>
+                  </select>
+                </div>
+
+                {/* Remarks */}
+                <div className="flex flex-col gap-1.5 md:col-span-2">
+                  <label className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wide">Remarks</label>
+                  <textarea
+                    placeholder="Any additional notes regarding this purchase..."
+                    value={newPoRemarks}
+                    onChange={(e) => setNewPoRemarks(e.target.value)}
+                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-medium text-slate-700 focus:outline-none focus:border-[#184edb] h-20 resize-none font-sans"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Product Entry Table */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col gap-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <h3 className="text-base font-extrabold text-slate-800 m-0 flex items-center gap-2 font-heading">
+                  <span>Product Entry</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={handleAddItem}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-[12.5px] border-none rounded-lg cursor-pointer transition-colors shadow-sm"
+                >
+                  <Plus size={15} />
+                  <span>Add Product</span>
+                </button>
+              </div>
+
+              <div className="border border-slate-100 rounded-xl overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[700px]">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 text-[11px] uppercase tracking-wider font-bold">
+                      <th className="py-3.5 px-4 font-bold">Product Name</th>
+                      <th className="py-3.5 px-3 text-center font-bold">Quantity</th>
+                      <th className="py-3.5 px-3 text-right font-bold">Rate ($)</th>
+                      <th className="py-3.5 px-3 text-center font-bold">GST %</th>
+                      <th className="py-3.5 px-3 text-right font-bold">Tax Amount ($)</th>
+                      <th className="py-3.5 px-3 text-right font-bold">Line Total ($)</th>
+                      <th className="py-3.5 px-4 text-center font-bold">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-[13.5px]">
+                    {purchaseItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-slate-400 font-semibold bg-white">
+                          No products added. Click "Add Product" to insert items.
+                        </td>
+                      </tr>
+                    ) : (
+                      purchaseItems.map((item) => {
+                        const baseVal = item.qty * item.rate;
+                        const taxVal = baseVal * (item.gstPercent / 100);
+                        const lineTotal = baseVal + taxVal;
+
+                        return (
+                          <tr key={item.id} className="hover:bg-slate-50/30 transition-colors">
+                            {/* Product Name */}
+                            <td className="py-3.5 px-4">
+                              <input
+                                type="text"
+                                value={item.productName}
+                                onChange={(e) => handleItemChange(item.id, 'productName', e.target.value)}
+                                placeholder="Enter product name..."
+                                className="p-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 w-full focus:outline-none focus:border-[#184edb]"
+                              />
+                            </td>
+
+                            {/* Quantity */}
+                            <td className="py-3.5 px-3 text-center w-24">
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.qty || ''}
+                                onChange={(e) => handleItemChange(item.id, 'qty', parseInt(e.target.value, 10) || 0)}
+                                className="p-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 text-center w-full focus:outline-none focus:border-[#184edb]"
+                              />
+                            </td>
+
+                            {/* Rate */}
+                            <td className="py-3.5 px-3 w-28">
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={item.rate || ''}
+                                onChange={(e) => handleItemChange(item.id, 'rate', parseFloat(e.target.value) || 0)}
+                                className="p-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 text-right w-full focus:outline-none focus:border-[#184edb]"
+                              />
+                            </td>
+
+                            {/* GST */}
+                            <td className="py-3.5 px-3 text-center w-24">
+                              <select
+                                value={item.gstPercent}
+                                onChange={(e) => handleItemChange(item.id, 'gstPercent', parseInt(e.target.value, 10))}
+                                className="p-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 bg-white focus:outline-none focus:border-[#184edb] w-full"
+                              >
+                                <option value="5">5%</option>
+                                <option value="12">12%</option>
+                                <option value="18">18%</option>
+                                <option value="28">28%</option>
+                              </select>
+                            </td>
+
+                            {/* Tax Display */}
+                            <td className="py-3.5 px-3 text-right font-bold text-slate-500 whitespace-nowrap">
+                              ${taxVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+
+                            {/* Line Total */}
+                            <td className="py-3.5 px-3 text-right font-bold text-slate-800 whitespace-nowrap">
+                              ${lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+
+                            {/* Action */}
+                            <td className="py-3.5 px-4 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveItem(item.id)}
+                                className="text-slate-400 hover:text-rose-600 p-1 border-none bg-transparent cursor-pointer transition-colors"
+                                title="Delete Item"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <span className="text-[11px] text-slate-400 font-semibold italic text-left">
+                Add more products from your catalog...
+              </span>
+            </div>
+
+          </div>
+
+          {/* Right Column */}
+          <div className="flex flex-col gap-8 w-full box-border">
+            
+            {/* Inventory Sync Banner Card */}
+            <div className="rounded-2xl overflow-hidden relative shadow-sm border border-slate-100 min-h-[240px] flex flex-col justify-end p-6 text-white group">
+              <div 
+                className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+                style={{ backgroundImage: `url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=600&q=80')` }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/65 to-transparent" />
+              
+              <div className="relative z-10 flex flex-col gap-1.5 text-left">
+                <span className="text-[9.5px] font-bold text-blue-300 uppercase tracking-widest">REAL-TIME BRIDGE</span>
+                <h4 className="text-lg font-extrabold tracking-tight m-0 font-heading">Inventory Sync</h4>
+                <p className="text-[11px] text-slate-300 font-medium leading-relaxed m-0 mt-1">
+                  Entering purchases here automatically updates your global inventory levels and calculates average landing costs.
+                </p>
+              </div>
+            </div>
+
+            {/* Purchase Summary */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col gap-6">
+              <h3 className="text-base font-extrabold text-slate-800 m-0 flex items-center gap-2 border-b border-slate-100 pb-3 font-heading">
+                <span>Purchase Summary</span>
+              </h3>
+
+              <div className="flex flex-col gap-3.5 text-[13.5px] font-semibold text-slate-500">
+                <div className="flex items-center justify-between">
+                  <span>Subtotal:</span>
+                  <span className="text-slate-800 font-bold">${calculatedSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span>GST Total (Aggregated):</span>
+                  <span className="text-slate-800 font-bold">${calculatedGst.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span>Additional Charges:</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-slate-400">$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={newPoAdditionalCharges}
+                      onChange={(e) => setNewPoAdditionalCharges(parseFloat(e.target.value) || 0)}
+                      className="w-20 p-1 border border-slate-200 rounded text-center text-xs font-bold text-slate-800 focus:outline-none focus:border-[#184edb]"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span>Discount:</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-slate-400">$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={newPoDiscount}
+                      onChange={(e) => setNewPoDiscount(parseFloat(e.target.value) || 0)}
+                      className="w-20 p-1 border border-slate-200 rounded text-center text-xs font-bold text-slate-800 focus:outline-none focus:border-[#184edb]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Grand Total Banner */}
+              <div className="border-t border-slate-100 pt-4 flex flex-col gap-1 items-center">
+                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Grand Total</span>
+                <span className="text-2xl font-black text-[#184edb] tracking-tight font-heading mt-0.5">
+                  ${calculatedGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              {/* Alert Banner */}
+              <div className="bg-[#f0f4ff] border border-[#d6e4ff] rounded-xl p-3 flex gap-2 items-start text-[#184edb]">
+                <span className="mt-0.5 flex"><Info size={14} /></span>
+                <p className="m-0 text-[10.5px] leading-normal text-left font-semibold text-slate-500">
+                  Rounded to the nearest dollar. This amount will be credited to the supplier's ledger.
+                </p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Bottom Actions Row */}
+        <div className="flex items-center justify-between border-t border-slate-100 pt-6 mt-8">
+          <button
+            type="button"
+            onClick={() => { if(window.confirm('Discard changes and return to purchases list?')) setShowNewPurchaseModal(false); }}
+            className="flex items-center gap-1.5 px-4.5 py-2.5 bg-white hover:bg-slate-50 text-slate-650 font-bold text-[13px] rounded-lg border border-slate-200 shadow-sm cursor-pointer transition-colors"
+          >
+            <X size={15} />
+            <span>Cancel</span>
+          </button>
+          
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => handleSavePurchaseOrder('PENDING')}
+              className="px-5 py-2.5 bg-white border border-[#184edb] hover:bg-blue-50/50 text-[#184edb] font-bold text-[13px] rounded-lg cursor-pointer transition-colors"
+            >
+              Save Draft
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSavePurchaseOrder('PAID')}
+              className="px-5 py-2.5 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-[13px] border-none rounded-lg shadow-md cursor-pointer transition-colors"
+            >
+              Save Purchase
+            </button>
+          </div>
+        </div>
+
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col p-8 bg-[#f8fafc] w-full box-border font-sans min-h-[calc(100vh-64px)]">
@@ -1271,139 +1733,7 @@ export const Purchase: React.FC = () => {
 
       </div>
 
-      {/* ==================== MODALS ==================== */}
-
-      {/* 1. NEW PURCHASE MODAL */}
-      {showNewPurchaseModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="px-6 py-4.5 bg-[#184edb] text-white flex items-center justify-between">
-              <span className="font-extrabold text-[16.5px]">Create Purchase Order</span>
-              <button
-                onClick={() => setShowNewPurchaseModal(false)}
-                className="text-white/80 hover:text-white border-none bg-transparent cursor-pointer"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleCreatePurchase} className="p-6 flex flex-col gap-4 box-border">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">PO Number</label>
-                  <input
-                    type="text"
-                    value={newPoId}
-                    onChange={(e) => setNewPoId(e.target.value)}
-                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold bg-slate-50 text-slate-500 cursor-not-allowed"
-                    readOnly
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Invoice No</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. INV/9941/23"
-                    value={newPoInvoice}
-                    onChange={(e) => setNewPoInvoice(e.target.value)}
-                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] focus:outline-none focus:border-[#184edb] font-medium"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Supplier</label>
-                <select
-                  value={newPoSupplier}
-                  onChange={(e) => setNewPoSupplier(e.target.value)}
-                  className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-medium focus:outline-none focus:border-[#184edb]"
-                >
-                  {suppliersList.filter(s => s !== 'All').map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Purchase Date</label>
-                  <input
-                    type="text"
-                    value={newPoDate}
-                    onChange={(e) => setNewPoDate(e.target.value)}
-                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] focus:outline-none focus:border-[#184edb] font-medium"
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Total Items Qty</label>
-                  <input
-                    type="number"
-                    value={newPoItems}
-                    onChange={(e) => setNewPoItems(Number(e.target.value))}
-                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] focus:outline-none focus:border-[#184edb] font-medium"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">GST Amount ($)</label>
-                  <input
-                    type="number"
-                    value={newPoGst}
-                    onChange={(e) => setNewPoGst(Number(e.target.value))}
-                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] focus:outline-none focus:border-[#184edb] font-medium"
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Grand Total ($)</label>
-                  <input
-                    type="number"
-                    value={newPoTotal}
-                    onChange={(e) => setNewPoTotal(Number(e.target.value))}
-                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] focus:outline-none focus:border-[#184edb] font-medium"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Payment Status</label>
-                <select
-                  value={newPoStatus}
-                  onChange={(e) => setNewPoStatus(e.target.value as any)}
-                  className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-medium focus:outline-none focus:border-[#184edb]"
-                >
-                  <option value="PAID">PAID</option>
-                  <option value="PARTIAL">PARTIAL</option>
-                  <option value="PENDING">PENDING</option>
-                </select>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 mt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowNewPurchaseModal(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-650 font-semibold text-[13px] rounded-lg bg-white hover:bg-slate-50 cursor-pointer transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-[#184edb] hover:bg-[#133eb5] text-white font-semibold text-[13px] border-none rounded-lg cursor-pointer transition-colors shadow-md"
-                >
-                  Save Entry
-                </button>
-              </div>
-
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Modal removed */}
 
       {/* 2. RECORD RETURN MODAL */}
       {showNewReturnModal && (

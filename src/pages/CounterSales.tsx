@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Plus, 
   Search, 
@@ -35,41 +35,13 @@ export const CounterSales: React.FC = () => {
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
 
   // Customer details state
-  const [customerName, setCustomerName] = useState('Vikram Malhotra');
+  const [customerName, setCustomerName] = useState('');
   const [customerType, setCustomerType] = useState('Retail');
-  const [mobileNumber, setMobileNumber] = useState('+91 98765 43210');
+  const [mobileNumber, setMobileNumber] = useState('');
   const [remarks, setRemarks] = useState('');
 
   // Bill items state initialized with the mockup items
-  const [billItems, setBillItems] = useState<BillItem[]>([
-    {
-      id: 'item-1',
-      name: 'Synthetic Engine Oil (5W-40) | Part No: AC-OIL-772',
-      code: 'AC-OIL-772',
-      qty: 4.5,
-      unitPrice: 850.00,
-      discountPercent: 5,
-      gstPercent: 18
-    },
-    {
-      id: 'item-2',
-      name: 'High-Flow Air Filter | Part No: AF-K7-001',
-      code: 'AF-K7-001',
-      qty: 1,
-      unitPrice: 2400.00,
-      discountPercent: 5,
-      gstPercent: 28
-    },
-    {
-      id: 'item-3',
-      name: 'Periodic Maintenance Labor | Service: 20K Checkup',
-      code: 'PM-LABOR-01',
-      qty: 1,
-      unitPrice: 1500.00,
-      discountPercent: 5,
-      gstPercent: 18
-    }
-  ]);
+  const [billItems, setBillItems] = useState<BillItem[]>([]);
 
   // Product Catalog for Search/Select dropdown
   const productCatalog = [
@@ -85,8 +57,10 @@ export const CounterSales: React.FC = () => {
   // Active product entry selection
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(productCatalog[0]);
-  const [entryQty, setEntryQty] = useState(1);
+  const [entryQty, setEntryQty] = useState<number | ''>('');
   const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const productSearchRef = useRef<HTMLInputElement>(null);
+  const quantityInputRef = useRef<HTMLInputElement>(null);
 
   // Edit item state
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -102,24 +76,27 @@ export const CounterSales: React.FC = () => {
 
   // Add selected product to bill
   const handleAddProduct = () => {
+    const finalQty = entryQty === '' ? 1 : entryQty;
     const existingItemIndex = billItems.findIndex(item => item.code === selectedProduct.code);
     if (existingItemIndex > -1) {
       const updated = [...billItems];
-      updated[existingItemIndex].qty += Number(entryQty);
+      updated[existingItemIndex].qty += finalQty;
       setBillItems(updated);
     } else {
       const newItem: BillItem = {
         id: 'item-' + Date.now(),
         name: selectedProduct.name,
         code: selectedProduct.code,
-        qty: Number(entryQty),
+        qty: finalQty,
         unitPrice: selectedProduct.price,
         discountPercent: selectedProduct.discount,
         gstPercent: selectedProduct.gst
       };
       setBillItems([...billItems, newItem]);
     }
-    setEntryQty(1);
+    setEntryQty('');
+    setSearchQuery('');
+    productSearchRef.current?.focus();
   };
 
   // Add frequent part directly
@@ -182,6 +159,7 @@ export const CounterSales: React.FC = () => {
       setCustomerType('Retail');
       setMobileNumber('');
       setSearchQuery('');
+      setEntryQty('');
     }
   };
 
@@ -728,6 +706,7 @@ export const CounterSales: React.FC = () => {
                   <div className="relative flex items-center">
                     <Search className="absolute left-3 text-slate-400" size={14} />
                     <input 
+                      ref={productSearchRef}
                       type="text"
                       placeholder="Start typing product name..."
                       value={searchQuery}
@@ -736,6 +715,15 @@ export const CounterSales: React.FC = () => {
                         setShowProductDropdown(true);
                       }}
                       onFocus={() => setShowProductDropdown(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (filteredCatalog.length > 0) {
+                            handleSelectProduct(filteredCatalog[0]);
+                          }
+                          quantityInputRef.current?.focus();
+                        }
+                      }}
                       className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 pl-9 pr-3.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#184edb] focus:bg-white transition-all"
                     />
                   </div>
@@ -766,11 +754,26 @@ export const CounterSales: React.FC = () => {
                     Quantity
                   </label>
                   <input 
+                    ref={quantityInputRef}
                     type="number"
-                    step="any"
-                    min="0.1"
+                    step="1"
+                    min="1"
+                    data-no-focus-shift="true"
                     value={entryQty}
-                    onChange={(e) => setEntryQty(Math.max(0.1, Number(e.target.value)))}
+                    onChange={(e) => {
+                      if (e.target.value === '') {
+                        setEntryQty('');
+                        return;
+                      }
+                      const val = parseInt(e.target.value, 10);
+                      setEntryQty(isNaN(val) ? 1 : Math.max(1, val));
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddProduct();
+                      }
+                    }}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-xs font-semibold text-slate-700 text-center outline-none focus:border-[#184edb] focus:bg-white transition-all"
                   />
                 </div>
@@ -850,10 +853,13 @@ export const CounterSales: React.FC = () => {
                           {isEditing ? (
                             <input 
                               type="number"
-                              step="any"
-                              min="0.1"
+                              step="1"
+                              min="1"
                               value={editQty}
-                              onChange={(e) => setEditQty(Math.max(0.1, Number(e.target.value)))}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10);
+                                setEditQty(isNaN(val) ? 1 : Math.max(1, val));
+                              }}
                               className="w-12 bg-white border border-slate-200 rounded p-1 text-center text-xs font-bold outline-none"
                             />
                           ) : (

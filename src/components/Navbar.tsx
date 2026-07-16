@@ -6,9 +6,10 @@ interface NavbarProps {
   setServiceSubTab?: (tab: any) => void;
   searchTerm?: string;
   setSearchTerm?: (term: string) => void;
+  userName?: string;
 }
 
-export const Navbar: React.FC<NavbarProps> = () => {
+export const Navbar: React.FC<NavbarProps> = ({ userName }) => {
   return (
     <header className="h-[64px] bg-[#184edb] flex items-center justify-between px-8 w-full box-border font-sans text-white sticky top-0 z-40 shadow-sm">
       
@@ -24,10 +25,10 @@ export const Navbar: React.FC<NavbarProps> = () => {
         <img 
           className="w-9 h-9 rounded-full object-cover border-2 border-white/80 shadow-sm" 
           src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=120" 
-          alt="Rohan Sharma" 
+          alt={userName || "Rohan Sharma"} 
         />
         <span className="text-[13.5px] font-bold tracking-wide">
-          Rohan Sharma
+          {userName || "Rohan Sharma"}
         </span>
       </div>
 

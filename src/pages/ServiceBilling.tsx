@@ -35,69 +35,47 @@ interface SparePart {
 
 export const ServiceBilling: React.FC = () => {
   // Header info
-  const [billNo] = useState('SB-2023-0045');
+  const [billNo] = useState(() => `SB-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
 
   // Customer & Vehicle State
-  const [customerName, setCustomerName] = useState('Rahul Sharma');
-  const [phoneNumber, setPhoneNumber] = useState('+91 98765 43210');
-  const [jobCardNo] = useState('JC-2023-8842');
-  const [vehicleNo, setVehicleNo] = useState('DL 3C AW 1234');
-  const [model, setModel] = useState('Volvo XC90 B5');
-  const [serviceDate, setServiceDate] = useState('11/24/2023');
-  const [engineNo, setEngineNo] = useState('FN773429188');
-  const [chassisNo, setChassisNo] = useState('CH9921003442');
+  const [customerName, setCustomerName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [jobCardNo] = useState(() => `JC-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+  const [vehicleNo, setVehicleNo] = useState('');
+  const [model, setModel] = useState('');
+  const [serviceDate, setServiceDate] = useState(() => {
+    const today = new Date();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const yyyy = today.getFullYear();
+    return `${mm}/${dd}/${yyyy}`;
+  });
+  const [engineNo, setEngineNo] = useState('');
+  const [chassisNo, setChassisNo] = useState('');
   const [assignedMechanic, setAssignedMechanic] = useState('Vikram Singh');
 
   // Mechanic Details State
-  const [serviceAdvisor, setServiceAdvisor] = useState('John Admin');
-  const [deliveryDate, setDeliveryDate] = useState('11/25/2023');
-  const [deliveryTime, setDeliveryTime] = useState('05:00 PM');
+  const [serviceAdvisor, setServiceAdvisor] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState(() => {
+    const today = new Date();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const yyyy = today.getFullYear();
+    return `${mm}/${dd}/${yyyy}`;
+  });
+  const [deliveryTime, setDeliveryTime] = useState('');
 
   // Labour Charges State
-  const [labourCharges, setLabourCharges] = useState<LabourCharge[]>([
-    {
-      id: 'l-1',
-      type: 'Engine Tuning',
-      description: 'Complete engine diagnostics and optimization',
-      amount: 3000.00
-    },
-    {
-      id: 'l-2',
-      type: 'Brake Service',
-      description: 'Front brake pad cleaning and lubrication',
-      amount: 850.00
-    }
-  ]);
+  const [labourCharges, setLabourCharges] = useState<LabourCharge[]>([]);
 
   // Spare Parts State
-  const [spareParts, setSpareParts] = useState<SparePart[]>([
-    {
-      id: 'p-1',
-      partNo: 'P-VLO-9002',
-      name: 'Synthetic Engine Oil',
-      qty: 1,
-      price: 4800.00,
-      gstPercent: 18,
-      total: 5664.00,
-      stockStatus: 'Low Stock'
-    },
-    {
-      id: 'p-2',
-      partNo: 'P-FLT-8821',
-      name: 'High Performance Oil Filter',
-      qty: 1,
-      price: 1250.00,
-      gstPercent: 12,
-      total: 1400.00,
-      stockStatus: 'Available'
-    }
-  ]);
+  const [spareParts, setSpareParts] = useState<SparePart[]>([]);
 
   // Remarks State
   const [remarks, setRemarks] = useState('');
 
   // Discount & Payment State
-  const [discountPercent, setDiscountPercent] = useState<string>('5');
+  const [discountPercent, setDiscountPercent] = useState<string>('0');
   const [paymentMode, setPaymentMode] = useState<'Cash' | 'Card' | 'UPI' | 'Net Banking'>('Cash');
 
   // Modals state
