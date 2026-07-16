@@ -24,7 +24,7 @@ import {
   Truck
 } from 'lucide-react';
 
-interface SaleRecord {
+export interface SaleRecord {
   invoiceNo: string;
   customerName: string;
   vehicleModel: string;
@@ -284,53 +284,12 @@ const PrintInvoiceModal: React.FC<PrintModalProps> = ({ printingSale, setPrintin
 };
 
 interface VehicleSalesProps {
+  sales: SaleRecord[];
+  setSales: React.Dispatch<React.SetStateAction<SaleRecord[]>>;
   onCustomerClick?: (name: string) => void;
 }
 
-export const VehicleSales: React.FC<VehicleSalesProps> = ({ onCustomerClick }) => {
-  // Mock sales ledger data
-  const [sales, setSales] = useState<SaleRecord[]>([
-    {
-      invoiceNo: '#INV-2023-0182',
-      customerName: 'Aditya Khanna',
-      vehicleModel: 'Eicher Pro 2049',
-      status: 'DELIVERED',
-      grandTotal: '₹17,43,450',
-      district: 'Central Valley',
-      deliveryDate: '24 Oct 2023',
-      salesExecutive: 'Vikram Singh'
-    },
-    {
-      invoiceNo: '#INV-2023-0180',
-      customerName: 'Karthik Reddy',
-      vehicleModel: 'Eicher Pro 3019',
-      status: 'DELIVERED',
-      grandTotal: '₹33,95,000',
-      district: 'Coastal Plains',
-      deliveryDate: '20 Oct 2023',
-      salesExecutive: 'Vikram Singh'
-    },
-    {
-      invoiceNo: '#INV-2023-0178',
-      customerName: 'Omkar Logistics Ltd',
-      vehicleModel: 'Eicher Pro 6028',
-      status: 'DELIVERED',
-      grandTotal: '₹54,25,000',
-      district: 'Northern Hills',
-      deliveryDate: '22 Oct 2023',
-      salesExecutive: 'Rajesh Kumar'
-    },
-    {
-      invoiceNo: '#INV-2023-0174',
-      customerName: 'Tejas Transports',
-      vehicleModel: 'Eicher Pro 6028',
-      status: 'PENDING',
-      grandTotal: '₹54,25,000',
-      district: 'Central Valley',
-      deliveryDate: 'Scheduled: 30 Oct 2023',
-      salesExecutive: 'Amit Gupta'
-    }
-  ]);
+export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onCustomerClick }) => {
 
   // Available stock items
   const stocks = [

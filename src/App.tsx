@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import Dashboard from './main page/Dashboard';
 import Customers from './main page/Customers';
 import VehicleSales from './main page/VehicleSales';
+import type { SaleRecord } from './main page/VehicleSales';
 import VehicleInventory from './pages/VehicleInventory';
 import Mechanics from './pages/Mechanics';
 import ServiceDashboard from './pages/ServiceDashboard';
@@ -11,6 +12,9 @@ import CounterSales from './pages/CounterSales';
 import { SpareParts } from './pages/SpareParts';
 import { Suppliers } from './pages/Suppliers';
 import { SettingsPage } from './pages/Settings';
+import { Reports } from './pages/Reports';
+import Purchase from './pages/Purchase';
+import ServiceBilling from './pages/ServiceBilling';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -20,6 +24,50 @@ function App() {
   const [serviceSubTab, setServiceSubTab] = useState<'dashboard' | 'open-job-cards' | 'completed-jobs' | 'service-history'>('dashboard');
   const [serviceSearchTerm, setServiceSearchTerm] = useState('');
 
+  // Lifted Vehicle Sales state
+  const [salesRecords, setSalesRecords] = useState<SaleRecord[]>([
+    {
+      invoiceNo: '#INV-2023-0182',
+      customerName: 'Aditya Khanna',
+      vehicleModel: 'Eicher Pro 2049',
+      status: 'DELIVERED',
+      grandTotal: '₹17,43,450',
+      district: 'Central Valley',
+      deliveryDate: '24 Oct 2023',
+      salesExecutive: 'Vikram Singh'
+    },
+    {
+      invoiceNo: '#INV-2023-0180',
+      customerName: 'Karthik Reddy',
+      vehicleModel: 'Eicher Pro 3019',
+      status: 'DELIVERED',
+      grandTotal: '₹33,95,000',
+      district: 'Coastal Plains',
+      deliveryDate: '20 Oct 2023',
+      salesExecutive: 'Vikram Singh'
+    },
+    {
+      invoiceNo: '#INV-2023-0178',
+      customerName: 'Omkar Logistics Ltd',
+      vehicleModel: 'Eicher Pro 6028',
+      status: 'DELIVERED',
+      grandTotal: '₹54,25,000',
+      district: 'Northern Hills',
+      deliveryDate: '22 Oct 2023',
+      salesExecutive: 'Rajesh Kumar'
+    },
+    {
+      invoiceNo: '#INV-2023-0174',
+      customerName: 'Tejas Transports',
+      vehicleModel: 'Eicher Pro 6028',
+      status: 'PENDING',
+      grandTotal: '₹54,25,000',
+      district: 'Central Valley',
+      deliveryDate: 'Scheduled: 30 Oct 2023',
+      salesExecutive: 'Amit Gupta'
+    }
+  ]);
+
   const navigateToCustomer = (name: string) => {
     setSelectedCustomerName(name);
     setActiveTab('customers');
@@ -28,6 +76,11 @@ function App() {
   const handleSetActiveTab = (tab: string) => {
     setActiveTab(tab);
     setServiceSearchTerm('');
+  };
+
+  const handleNavigateToService = (subTab: 'dashboard' | 'open-job-cards' | 'completed-jobs' | 'service-history') => {
+    setServiceSubTab(subTab);
+    handleSetActiveTab('service');
   };
 
   return (
@@ -43,7 +96,11 @@ function App() {
         />
         <main className="flex-1 flex flex-col box-border">
           {activeTab === 'dashboard' ? (
-            <Dashboard />
+            <Dashboard
+              salesCount={salesRecords.length}
+              onNavigate={handleSetActiveTab}
+              onNavigateToService={handleNavigateToService}
+            />
           ) : activeTab === 'customers' ? (
             <Customers
               selectedCustomerName={selectedCustomerName}
@@ -52,7 +109,11 @@ function App() {
           ) : activeTab === 'inventory' ? (
             <VehicleInventory />
           ) : activeTab === 'sales' ? (
-            <VehicleSales onCustomerClick={navigateToCustomer} />
+            <VehicleSales
+              sales={salesRecords}
+              setSales={setSalesRecords}
+              onCustomerClick={navigateToCustomer}
+            />
           ) : activeTab === 'service' ? (
             <ServiceDashboard
               subTab={serviceSubTab}
@@ -63,14 +124,18 @@ function App() {
             <Mechanics />
           ) : activeTab === 'counter-sales' ? (
             <CounterSales />
-          ) : activeTab === 'mechanics' ? (
-            <Mechanics />
           ) : activeTab === 'parts' ? (
             <SpareParts />
           ) : activeTab === 'suppliers' ? (
             <Suppliers />
           ) : activeTab === 'settings' ? (
             <SettingsPage />
+          ) : activeTab === 'purchase' ? (
+            <Purchase />
+          ) : activeTab === 'billing' ? (
+            <ServiceBilling />
+          ) : activeTab === 'reports' ? (
+            <Reports />
           ) : (
             <div className="p-10 text-center text-slate-500 flex flex-col items-center justify-center min-h-[50vh]">
               <h2 className="text-2xl text-slate-800 mb-2 font-bold font-heading">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('-', ' ')} Page</h2>
