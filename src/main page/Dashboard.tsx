@@ -1,19 +1,19 @@
 import { useState, useEffect } from 'react';
-import { 
-  Car, 
-  ShoppingBag, 
-  FileText, 
-  ClipboardList, 
-  CheckCircle, 
-  Clock, 
-  Coins, 
-  AlertTriangle, 
-  PackageOpen, 
-  Users, 
-  Truck, 
-  Filter, 
-  Download, 
-  Search, 
+import {
+  Car,
+  ShoppingBag,
+  FileText,
+  ClipboardList,
+  CheckCircle,
+  Clock,
+  Coins,
+  AlertTriangle,
+  PackageOpen,
+  Users,
+  Truck,
+  Filter,
+  Download,
+  Search,
   Plus,
   ArrowUpRight
 } from 'lucide-react';
@@ -132,7 +132,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
     ]);
   };
 
-  const filteredTransactions = transactions.filter(t => 
+  const filteredTransactions = transactions.filter(t =>
     t.payeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.refId.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.vehicleJob.toLowerCase().includes(searchTerm.toLowerCase())
@@ -149,7 +149,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
       {/* KPI Row 1 */}
       <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4 w-full">
         {/* Card 1 */}
-        <div 
+        <div
           onClick={() => onNavigate('sales')}
           className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
         >
@@ -170,7 +170,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
         </div>
 
         {/* Card 2 */}
-        <div 
+        <div
           onClick={() => onNavigate('counter-sales')}
           className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
         >
@@ -189,7 +189,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
         </div>
 
         {/* Card 3 */}
-        <div 
+        <div
           onClick={() => onNavigate('billing')}
           className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
         >
@@ -208,7 +208,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
         </div>
 
         {/* Card 4 */}
-        <div 
+        <div
           onClick={() => onNavigateToService('open-job-cards')}
           className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
         >
@@ -225,7 +225,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
         </div>
 
         {/* Card 5 */}
-        <div 
+        <div
           onClick={() => onNavigateToService('completed-jobs')}
           className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
         >
@@ -242,7 +242,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
         </div>
 
         {/* Card 6 */}
-        <div 
+        <div
           onClick={() => onNavigateToService('open-job-cards')}
           className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
         >
@@ -262,7 +262,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
       {/* KPI Row 2 */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 w-full">
         {/* Card 1 */}
-        <div 
+        <div
           onClick={() => onNavigate('reports')}
           className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
         >
@@ -281,7 +281,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
         </div>
 
         {/* Card 2 */}
-        <div 
+        <div
           onClick={() => onNavigate('reports')}
           className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
         >
@@ -298,7 +298,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
         </div>
 
         {/* Card 3 */}
-        <div 
+        <div
           onClick={() => onNavigate('parts')}
           className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
         >
@@ -315,7 +315,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
         </div>
 
         {/* Card 4 */}
-        <div 
+        <div
           onClick={() => onNavigate('customers')}
           className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
         >
@@ -334,7 +334,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
         </div>
 
         {/* Card 5 */}
-        <div 
+        <div
           onClick={() => onNavigate('suppliers')}
           className="bg-white rounded-xl p-4.5 shadow-sm border border-[#eef2f6] flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer"
         >
@@ -415,25 +415,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
             <svg viewBox="0 0 500 200" className="w-full h-[150px]">
               <defs>
                 <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#184edb" stopOpacity="0.25"/>
-                  <stop offset="100%" stopColor="#184edb" stopOpacity="0.0"/>
+                  <stop offset="0%" stopColor="#184edb" stopOpacity="0.25" />
+                  <stop offset="100%" stopColor="#184edb" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
               <line x1="0" y1="50" x2="500" y2="50" stroke="#f1f5f9" strokeWidth="1" />
               <line x1="0" y1="100" x2="500" y2="100" stroke="#f1f5f9" strokeWidth="1" />
               <line x1="0" y1="150" x2="500" y2="150" stroke="#f1f5f9" strokeWidth="1" />
-              
-              <path 
-                d="M 10 130 C 90 80, 170 120, 250 50 C 330 20, 410 70, 490 40 L 490 200 L 10 200 Z" 
-                fill="url(#chartGradient)" 
+
+              <path
+                d="M 10 130 C 90 80, 170 120, 250 50 C 330 20, 410 70, 490 40 L 490 200 L 10 200 Z"
+                fill="url(#chartGradient)"
               />
-              <path 
-                d="M 10 130 C 90 80, 170 120, 250 50 C 330 20, 410 70, 490 40" 
-                fill="none" 
-                stroke="#184edb" 
-                strokeWidth="2.5" 
+              <path
+                d="M 10 130 C 90 80, 170 120, 250 50 C 330 20, 410 70, 490 40"
+                fill="none"
+                stroke="#184edb"
+                strokeWidth="2.5"
               />
-              
+
               <circle cx="10" cy="130" r="4" fill="#ffffff" stroke="#184edb" strokeWidth="2" />
               <circle cx="250" cy="50" r="4" fill="#ffffff" stroke="#184edb" strokeWidth="2" />
               <circle cx="490" cy="40" r="4" fill="#ffffff" stroke="#184edb" strokeWidth="2" />
@@ -459,47 +459,47 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
             <div className="w-[120px] h-[120px] relative">
               <svg viewBox="0 0 100 100">
                 <circle cx="50" cy="50" r="40" fill="transparent" stroke="#f1f5f9" strokeWidth="10" />
-                <circle 
-                  cx="50" 
-                  cy="50" 
-                  r="40" 
-                  fill="transparent" 
-                  stroke="#184edb" 
-                  strokeWidth="10" 
-                  strokeDasharray="163.3 251.2" 
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="transparent"
+                  stroke="#184edb"
+                  strokeWidth="10"
+                  strokeDasharray="163.3 251.2"
                   strokeDashoffset="62.8"
                   transform="rotate(-90 50 50)"
                 />
-                <circle 
-                  cx="50" 
-                  cy="50" 
-                  r="40" 
-                  fill="transparent" 
-                  stroke="#38bdf8" 
-                  strokeWidth="10" 
-                  strokeDasharray="37.7 251.2" 
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="transparent"
+                  stroke="#38bdf8"
+                  strokeWidth="10"
+                  strokeDasharray="37.7 251.2"
                   strokeDashoffset="-100.5"
                   transform="rotate(-90 50 50)"
                 />
-                <circle 
-                  cx="50" 
-                  cy="50" 
-                  r="40" 
-                  fill="transparent" 
-                  stroke="#94a3b8" 
-                  strokeWidth="10" 
-                  strokeDasharray="25.1 251.2" 
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="transparent"
+                  stroke="#94a3b8"
+                  strokeWidth="10"
+                  strokeDasharray="25.1 251.2"
                   strokeDashoffset="-138.2"
                   transform="rotate(-90 50 50)"
                 />
-                <circle 
-                  cx="50" 
-                  cy="50" 
-                  r="40" 
-                  fill="transparent" 
-                  stroke="#ef4444" 
-                  strokeWidth="10" 
-                  strokeDasharray="25.1 251.2" 
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="transparent"
+                  stroke="#ef4444"
+                  strokeWidth="10"
+                  strokeDasharray="25.1 251.2"
                   strokeDashoffset="-163.3"
                   transform="rotate(-90 50 50)"
                 />
@@ -546,11 +546,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
                       <td className="p-3 border-b border-slate-100 font-bold text-slate-500">{c.id}</td>
                       <td className="p-3 border-b border-slate-100 text-slate-600">{c.name}</td>
                       <td className="p-3 border-b border-slate-100 text-slate-600">
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold inline-block ${
-                          c.status === 'Active' || c.status === 'ACTIVE' 
-                            ? 'bg-green-100 text-green-600' 
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold inline-block ${c.status === 'Active' || c.status === 'ACTIVE'
+                            ? 'bg-green-100 text-green-600'
                             : 'bg-blue-50 text-blue-500'
-                        }`}>
+                          }`}>
                           {c.status}
                         </span>
                       </td>
@@ -604,9 +603,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
           <div className="flex items-center gap-3">
             <div className="relative flex items-center">
               <Search className="absolute left-2.5 text-slate-400" size={14} />
-              <input 
-                type="text" 
-                placeholder="Search transactions..." 
+              <input
+                type="text"
+                placeholder="Search transactions..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-md text-xs outline-none w-[180px] bg-slate-50 transition-all focus:border-[#184edb] focus:bg-white focus:ring-2 focus:ring-blue-100"
@@ -638,9 +637,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
                   <td className="p-3 border-b border-slate-100 text-slate-600">{t.date}</td>
                   <td className="p-3 border-b border-slate-100 font-bold text-slate-700">{t.amount}</td>
                   <td className="p-3 border-b border-slate-100 text-slate-600">
-                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold inline-block ${
-                      t.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'
-                    }`}>{t.status}</span>
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold inline-block ${t.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'
+                      }`}>{t.status}</span>
                   </td>
                 </tr>
               ))}
@@ -652,7 +650,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
       {/* Bottom Summary Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Workshop Performance */}
-        <div 
+        <div
           onClick={() => onNavigate('service')}
           className="bg-white rounded-xl p-5 border border-[#eef2f6] shadow-sm flex flex-col gap-4 cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
         >
@@ -683,7 +681,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
         </div>
 
         {/* Inventory Summary */}
-        <div 
+        <div
           onClick={() => onNavigate('parts')}
           className="bg-white rounded-xl p-5 border border-[#eef2f6] shadow-sm flex flex-col gap-4 cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
         >
@@ -710,7 +708,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
         </div>
 
         {/* Revenue Summary */}
-        <div 
+        <div
           onClick={() => onNavigate('reports')}
           className="bg-white rounded-xl p-5 border border-[#eef2f6] shadow-sm flex flex-col gap-4 relative cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
         >

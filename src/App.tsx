@@ -94,8 +94,8 @@ function App() {
         />
         <main className="flex-1 flex flex-col box-border">
           {activeTab === 'dashboard' ? (
-            <Dashboard 
-              salesCount={salesRecords.length} 
+            <Dashboard
+              salesCount={salesRecords.length}
               onNavigate={handleSetActiveTab}
               onNavigateToService={handleNavigateToService}
             />
@@ -107,10 +107,10 @@ function App() {
           ) : activeTab === 'inventory' ? (
             <VehicleInventory />
           ) : activeTab === 'sales' ? (
-            <VehicleSales 
-              sales={salesRecords} 
-              setSales={setSalesRecords} 
-              onCustomerClick={navigateToCustomer} 
+            <VehicleSales
+              sales={salesRecords}
+              setSales={setSalesRecords}
+              onCustomerClick={navigateToCustomer}
             />
           ) : activeTab === 'service' ? (
             <ServiceDashboard
