@@ -5,13 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "npm run dev --prefix server",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^9.2.0",
+    "@mui/material": "^9.2.0",
     "@tailwindcss/vite": "^4.3.2",
     "lucide-react": "^1.24.0",
+    "mongoose": "^9.7.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "tailwindcss": "^4.3.2"
@@ -22,6 +28,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "concurrently": "^10.0.3",
     "eslint": "^10.6.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
