@@ -7,6 +7,8 @@ import Transaction from './models/Transaction.js';
 import Vehicle from './models/Vehicle.js';
 
 dotenv.config();
+console.log("MONGO_URI =", process.env.MONGO_URI);
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -206,7 +208,7 @@ app.post('/api/customers', async (req, res) => {
     const { name, phone, district, vehicles, lastService, outstanding, status } = req.body;
     const randomId = `#CUST-${Math.floor(1000 + Math.random() * 9000)}`;
     const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-    
+
     // Choose a random color for avatar
     const colors = ['bg-blue-100 text-blue-600', 'bg-orange-100 text-orange-600', 'bg-indigo-100 text-indigo-600', 'bg-slate-100 text-slate-600'];
     const avatarBg = colors[Math.floor(Math.random() * colors.length)];
@@ -305,7 +307,7 @@ app.post('/api/vehicles', async (req, res) => {
   try {
     const { modelName, type, condition, engineNo, chassisNo, colorName, colorHex, price, sellPrice, status, imageUrl } = req.body;
     const randomId = `#VEH-${Math.floor(1000 + Math.random() * 9000)}`;
-    
+
     const newVehicle = new Vehicle({
       id: randomId,
       modelName,
