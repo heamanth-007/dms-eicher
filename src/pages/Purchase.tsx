@@ -302,10 +302,7 @@ export const Purchase: React.FC = () => {
   const [newPoInvoice, setNewPoInvoice] = useState('');
   const [newPoSupplier, setNewPoSupplier] = useState('Precision Parts Co.');
   const [newPoDate, setNewPoDate] = useState('Oct 26, 2023');
-  const [newPoItems, setNewPoItems] = useState(50);
-  const [newPoGst, setNewPoGst] = useState(250);
-  const [newPoTotal, setNewPoTotal] = useState(2500);
-  const [newPoStatus, setNewPoStatus] = useState<'PAID' | 'PARTIAL' | 'PENDING'>('PAID');
+
 
   const [newPoTerms, setNewPoTerms] = useState('Net 30');
   const [newPoRemarks, setNewPoRemarks] = useState('');
@@ -374,59 +371,7 @@ export const Purchase: React.FC = () => {
   // List of suppliers for dropdown
   const suppliersList = ['All', 'Precision Parts Co.', 'Elite Motors Wholesale', 'Global Tyres Ltd.', 'Apex Hydraulics', 'Standard Engines Co.'];
 
-  // Handle New Purchase Submit
-  const handleCreatePurchase = (e: React.FormEvent) => {
-    e.preventDefault();
-    const supplierInitialsMap: { [key: string]: string } = {
-      'Precision Parts Co.': 'PP',
-      'Elite Motors Wholesale': 'EM',
-      'Global Tyres Ltd.': 'GT',
-      'Apex Hydraulics': 'AH',
-      'Standard Engines Co.': 'SE'
-    };
-    const supplierBgMap: { [key: string]: string } = {
-      'Precision Parts Co.': 'bg-indigo-50 text-indigo-600 border border-indigo-100',
-      'Elite Motors Wholesale': 'bg-purple-50 text-purple-600 border border-purple-100',
-      'Global Tyres Ltd.': 'bg-rose-50 text-rose-600 border border-rose-100',
-      'Apex Hydraulics': 'bg-emerald-50 text-emerald-600 border border-emerald-100',
-      'Standard Engines Co.': 'bg-orange-50 text-orange-600 border border-orange-100'
-    };
 
-    const newPurchase: PurchaseOrder = {
-      id: newPoId,
-      invoiceNo: newPoInvoice || `INV/CS-${Math.floor(1000 + Math.random() * 9000)}`,
-      supplier: newPoSupplier,
-      supplierInitials: supplierInitialsMap[newPoSupplier] || 'SU',
-      supplierBg: supplierBgMap[newPoSupplier] || 'bg-slate-50 text-slate-600 border border-slate-100',
-      date: newPoDate,
-      itemsCount: Number(newPoItems),
-      gstAmount: Number(newPoGst),
-      grandTotal: Number(newPoTotal),
-      status: newPoStatus
-    };
-
-    setPurchases([newPurchase, ...purchases]);
-    setShowNewPurchaseModal(false);
-
-    // Auto-generate invoice for this purchase in invoices tab
-    const autoInvoice: SupplierInvoice = {
-      id: newPurchase.invoiceNo,
-      poRef: newPurchase.id,
-      supplier: newPurchase.supplier,
-      issueDate: newPurchase.date,
-      dueDate: 'Nov 26, 2023',
-      amount: newPurchase.grandTotal,
-      status: newPurchase.status === 'PAID' ? 'PAID' : (newPurchase.status === 'PARTIAL' ? 'PARTIAL' : 'UNPAID')
-    };
-    setInvoices([autoInvoice, ...invoices]);
-
-    // Reset Form
-    setNewPoInvoice('');
-    setNewPoItems(50);
-    setNewPoGst(250);
-    setNewPoTotal(2500);
-    setNewPoId(`PO-2023-0${Number(newPoId.split('-')[2]) + 1}`);
-  };
 
   // Handle New Return Submit
   const handleCreateReturn = (e: React.FormEvent) => {

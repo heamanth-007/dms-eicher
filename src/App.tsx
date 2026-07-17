@@ -36,7 +36,7 @@ function App() {
           }
 
           const isSearchInput = 
-            target.type === 'search' || 
+            (target as HTMLInputElement).type === 'search' || 
             target.getAttribute('placeholder')?.toLowerCase().includes('search') || 
             target.className?.toLowerCase().includes('search');
 
