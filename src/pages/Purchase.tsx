@@ -21,6 +21,24 @@ import {
   Info
 } from 'lucide-react';
 
+import {
+  Box,
+  Typography,
+  Button,
+  Grid,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Divider as MuiDivider
+} from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import PrintIcon from '@mui/icons-material/Print';
+import BusinessIcon from '@mui/icons-material/Business';
+
 // Interfaces
 interface PurchaseOrder {
   id: string;
@@ -67,6 +85,7 @@ interface PurchaseItem {
 export const Purchase: React.FC = () => {
   // Sub-tabs: 'overview', 'return', 'invoice'
   const [subTab, setSubTab] = useState<'overview' | 'return' | 'invoice'>('overview');
+  const [showFigmaInvoice, setShowFigmaInvoice] = useState(false);
 
   // Modals state
   const [showNewPurchaseModal, setShowNewPurchaseModal] = useState(false);
@@ -289,10 +308,6 @@ export const Purchase: React.FC = () => {
   const [newPoInvoice, setNewPoInvoice] = useState('');
   const [newPoSupplier, setNewPoSupplier] = useState('Precision Parts Co.');
   const [newPoDate, setNewPoDate] = useState('Oct 26, 2023');
-  const [newPoItems, setNewPoItems] = useState(50);
-  const [newPoGst, setNewPoGst] = useState(250);
-  const [newPoTotal, setNewPoTotal] = useState(2500);
-  const [newPoStatus, setNewPoStatus] = useState<'PAID' | 'PARTIAL' | 'PENDING'>('PAID');
 
   const [newPoTerms, setNewPoTerms] = useState('Net 30');
   const [newPoRemarks, setNewPoRemarks] = useState('');
@@ -360,60 +375,6 @@ export const Purchase: React.FC = () => {
 
   // List of suppliers for dropdown
   const suppliersList = ['All', 'Precision Parts Co.', 'Elite Motors Wholesale', 'Global Tyres Ltd.', 'Apex Hydraulics', 'Standard Engines Co.'];
-
-  // Handle New Purchase Submit
-  const handleCreatePurchase = (e: React.FormEvent) => {
-    e.preventDefault();
-    const supplierInitialsMap: { [key: string]: string } = {
-      'Precision Parts Co.': 'PP',
-      'Elite Motors Wholesale': 'EM',
-      'Global Tyres Ltd.': 'GT',
-      'Apex Hydraulics': 'AH',
-      'Standard Engines Co.': 'SE'
-    };
-    const supplierBgMap: { [key: string]: string } = {
-      'Precision Parts Co.': 'bg-indigo-50 text-indigo-600 border border-indigo-100',
-      'Elite Motors Wholesale': 'bg-purple-50 text-purple-600 border border-purple-100',
-      'Global Tyres Ltd.': 'bg-rose-50 text-rose-600 border border-rose-100',
-      'Apex Hydraulics': 'bg-emerald-50 text-emerald-600 border border-emerald-100',
-      'Standard Engines Co.': 'bg-orange-50 text-orange-600 border border-orange-100'
-    };
-
-    const newPurchase: PurchaseOrder = {
-      id: newPoId,
-      invoiceNo: newPoInvoice || `INV/CS-${Math.floor(1000 + Math.random() * 9000)}`,
-      supplier: newPoSupplier,
-      supplierInitials: supplierInitialsMap[newPoSupplier] || 'SU',
-      supplierBg: supplierBgMap[newPoSupplier] || 'bg-slate-50 text-slate-600 border border-slate-100',
-      date: newPoDate,
-      itemsCount: Number(newPoItems),
-      gstAmount: Number(newPoGst),
-      grandTotal: Number(newPoTotal),
-      status: newPoStatus
-    };
-
-    setPurchases([newPurchase, ...purchases]);
-    setShowNewPurchaseModal(false);
-
-    // Auto-generate invoice for this purchase in invoices tab
-    const autoInvoice: SupplierInvoice = {
-      id: newPurchase.invoiceNo,
-      poRef: newPurchase.id,
-      supplier: newPurchase.supplier,
-      issueDate: newPurchase.date,
-      dueDate: 'Nov 26, 2023',
-      amount: newPurchase.grandTotal,
-      status: newPurchase.status === 'PAID' ? 'PAID' : (newPurchase.status === 'PARTIAL' ? 'PARTIAL' : 'UNPAID')
-    };
-    setInvoices([autoInvoice, ...invoices]);
-
-    // Reset Form
-    setNewPoInvoice('');
-    setNewPoItems(50);
-    setNewPoGst(250);
-    setNewPoTotal(2500);
-    setNewPoId(`PO-2023-0${Number(newPoId.split('-')[2]) + 1}`);
-  };
 
   // Handle New Return Submit
   const handleCreateReturn = (e: React.FormEvent) => {
@@ -974,6 +935,12 @@ export const Purchase: React.FC = () => {
     );
   }
 
+  if (showFigmaInvoice) {
+    return (
+      <FigmaInvoiceView onBack={() => setShowFigmaInvoice(false)} />
+    );
+  }
+
   return (
     <div className="flex-1 flex flex-col p-8 bg-[#f8fafc] w-full box-border font-sans min-h-[calc(100vh-64px)]">
       
@@ -999,6 +966,13 @@ export const Purchase: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-3.5 self-start md:self-center">
+          <button
+            onClick={() => setShowFigmaInvoice(true)}
+            className="flex items-center gap-2 bg-[#184edb] hover:bg-[#133eb5] text-white font-semibold text-[13.5px] px-4.5 py-2.5 rounded-lg border-none shadow-md cursor-pointer transition-all duration-200"
+          >
+            <span>View Invoice</span>
+          </button>
+
           <button
             onClick={handleExportCSV}
             className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-[13.5px] px-4.5 py-2.5 rounded-lg border border-slate-200 shadow-sm cursor-pointer transition-all duration-200"
@@ -2137,6 +2111,411 @@ export const Purchase: React.FC = () => {
       )}
 
     </div>
+  );
+};
+
+interface FigmaInvoiceViewProps {
+  onBack: () => void;
+}
+
+const FigmaInvoiceView: React.FC<FigmaInvoiceViewProps> = ({ onBack }) => {
+  return (
+    <Box sx={{ p: 4, bgcolor: '#f3f4f6', minHeight: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, boxSizing: 'border-box' }}>
+      
+      {/* Back Button */}
+      <Box sx={{ width: '100%', maxWidth: '1000px', display: 'flex', justifyContent: 'flex-start', mb: 1 }}>
+        <Button 
+          variant="text" 
+          startIcon={<ArrowBackIcon sx={{ color: '#475569', fontSize: 20 }} />}
+          onClick={onBack}
+          sx={{ 
+            color: '#475569', 
+            fontWeight: 700,
+            textTransform: 'none',
+            '&:hover': { bgcolor: 'transparent', color: '#184edb' }
+          }}
+        >
+          Back to Purchase Overview
+        </Button>
+      </Box>
+
+      {/* Main Invoice Card */}
+      <Paper 
+        elevation={0} 
+        sx={{ 
+          width: '100%',
+          maxWidth: '1000px',
+          p: 6, 
+          borderRadius: '16px', 
+          border: '1px solid #e5e7eb', 
+          bgcolor: '#ffffff',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4.5,
+          boxSizing: 'border-box'
+        }}
+      >
+        
+        {/* Invoice Header */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box 
+              sx={{ 
+                width: 48, 
+                height: 48, 
+                borderRadius: '10px', 
+                bgcolor: '#184edb', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                boxShadow: '0 4px 6px -1px rgba(24, 78, 219, 0.2)'
+              }}
+            >
+              <BusinessIcon sx={{ color: '#ffffff', fontSize: 26 }} />
+            </Box>
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 900, color: '#184edb', m: 0, letterSpacing: '-0.01em' }}>
+                EICHER WORKSHOP
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 800, letterSpacing: '0.05em', mt: 0.5, display: 'block' }}>
+                PREMIUM MANAGEMENT SOLUTIONS
+              </Typography>
+            </Box>
+          </Box>
+          
+          <Box sx={{ textAlign: 'right' }}>
+            <Typography 
+              variant="h4" 
+              sx={{ 
+                fontWeight: 900, 
+                color: '#184edb', 
+                letterSpacing: '-0.025em',
+                fontFamily: 'system-ui, sans-serif'
+              }}
+            >
+              PURCHASE INVOICE
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 1.5, alignItems: 'flex-end' }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: '#475569', fontSize: '13.5px' }}>
+                Invoice #: <Box component="span" sx={{ color: '#0f172a', fontWeight: 800 }}>PUR-2023-8842</Box>
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: '#475569', fontSize: '13.5px' }}>
+                Date: <Box component="span" sx={{ color: '#0f172a', fontWeight: 800 }}>Oct 24, 2023</Box>
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 750, color: '#ef4444', fontSize: '13.5px', mt: 0.5 }}>
+                Due Date: <Box component="span" sx={{ fontWeight: 800 }}>Nov 07, 2023</Box>
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Supplier Details & Bill To Columns */}
+        <Grid container spacing={6}>
+          {/* Supplier Details */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Typography variant="caption" sx={{ color: '#184edb', fontWeight: 800, letterSpacing: '0.1em' }}>
+                SUPPLIER DETAILS
+              </Typography>
+              <Typography variant="body1" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '15px' }}>
+                Global Parts Distribution Ltd.
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#475569', fontWeight: 600, lineHeight: 1.5 }}>
+                42 Industrial Estate, Sector 18<br />
+                Gurgaon, Haryana 122001<br />
+                <Box component="span" sx={{ fontWeight: 750, color: '#0f172a' }}>GSTIN: </Box>07AAACG1234F1Z5<br />
+                <Box component="span" sx={{ fontWeight: 750, color: '#0f172a' }}>Phone: </Box>+91 91234 56789<br />
+                <Box component="span" sx={{ fontWeight: 750, color: '#0f172a' }}>Email: </Box>
+                <Box component="span" sx={{ color: '#184edb', cursor: 'pointer', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
+                  orders@globalparts.com
+                </Box>
+              </Typography>
+            </Box>
+          </Grid>
+
+          {/* Bill To */}
+          <Grid size={{ xs: 12, md: 6 }} sx={{ textAlign: 'right' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, alignItems: 'flex-end' }}>
+              <Typography variant="caption" sx={{ color: '#184edb', fontWeight: 800, letterSpacing: '0.1em' }}>
+                BILL TO
+              </Typography>
+              <Typography variant="body1" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '15px' }}>
+                Eicher Authorized Service Center
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#475569', fontWeight: 600, lineHeight: 1.5, textAlign: 'right' }}>
+                98 Industrial Estate, Phase II<br />
+                Okhla, New Delhi 110020<br />
+                <Box component="span" sx={{ color: '#184edb', fontWeight: 750 }}>Attn: </Box>Workshop Manager<br />
+                <Box component="span" sx={{ fontWeight: 750, color: '#0f172a' }}>GSTIN: </Box>07AABCE4321F1Z2<br />
+                <Box component="span" sx={{ fontWeight: 750, color: '#0f172a' }}>Phone: </Box>+91 93765 43210
+              </Typography>
+            </Box>
+          </Grid>
+        </Grid>
+
+        {/* Product Table */}
+        <TableContainer sx={{ border: 'none', overflow: 'hidden' }}>
+          <Table sx={{ minWidth: 650 }} aria-label="invoice items table">
+            <TableHead>
+              <TableRow sx={{ borderBottom: '2px solid #e2e8f0' }}>
+                <TableCell sx={{ fontWeight: 800, color: '#64748b', fontSize: '10.5px', py: 1.5, px: 1 }}>#</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: '#64748b', fontSize: '10.5px', py: 1.5, px: 1 }}>PRODUCT DESCRIPTION</TableCell>
+                <TableCell sx={{ fontWeight: 800, color: '#64748b', fontSize: '10.5px', py: 1.5, px: 1 }}>SKU</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 800, color: '#64748b', fontSize: '10.5px', py: 1.5, px: 1 }}>QTY</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: '#64748b', fontSize: '10.5px', py: 1.5, px: 1 }}>RATE</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: '#64748b', fontSize: '10.5px', py: 1.5, px: 1 }}>GST (18%)</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: '#64748b', fontSize: '10.5px', py: 1.5, px: 1 }}>TOTAL</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {/* Row 1 */}
+              <TableRow sx={{ borderBottom: '1px solid #f1f5f9' }}>
+                <TableCell sx={{ color: '#94a3b8', fontWeight: 600, fontSize: '13px', px: 1 }}>01</TableCell>
+                <TableCell sx={{ py: 2, px: 1 }}>
+                  <Typography sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px' }}>
+                    Turbocharger Assembly
+                  </Typography>
+                  <Typography sx={{ color: '#64748b', fontSize: '11px', fontWeight: 550, mt: 0.5 }}>
+                    VNT Grade - High Performance Euro VI Compliant
+                  </Typography>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 650, color: '#334155', fontSize: '12.5px', px: 1 }}>TC-882-VNT</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>02</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: '#334155', fontSize: '13.5px', px: 1 }}>$3,450.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: '#334155', fontSize: '13.5px', px: 1 }}>$1,242.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>$8,142.00</TableCell>
+              </TableRow>
+              {/* Row 2 */}
+              <TableRow sx={{ borderBottom: '1px solid #f1f5f9' }}>
+                <TableCell sx={{ color: '#94a3b8', fontWeight: 600, fontSize: '13px', px: 1 }}>02</TableCell>
+                <TableCell sx={{ py: 2, px: 1 }}>
+                  <Typography sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px' }}>
+                    High-Pressure Fuel Pump
+                  </Typography>
+                  <Typography sx={{ color: '#64748b', fontSize: '11px', fontWeight: 550, mt: 0.5 }}>
+                    Common Rail System - 2000 Bar Rated
+                  </Typography>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 650, color: '#334155', fontSize: '12.5px', px: 1 }}>FP-CR-2K-9</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>01</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: '#334155', fontSize: '13.5px', px: 1 }}>$2,100.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: '#334155', fontSize: '13.5px', px: 1 }}>$378.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>$2,478.00</TableCell>
+              </TableRow>
+              {/* Row 3 */}
+              <TableRow sx={{ borderBottom: '1px solid #f1f5f9' }}>
+                <TableCell sx={{ color: '#94a3b8', fontWeight: 600, fontSize: '13px', px: 1 }}>03</TableCell>
+                <TableCell sx={{ py: 2, px: 1 }}>
+                  <Typography sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px' }}>
+                    Carbon Ceramic Brake Pad Set
+                  </Typography>
+                  <Typography sx={{ color: '#64748b', fontSize: '11px', fontWeight: 550, mt: 0.5 }}>
+                    Front Axle - Low Dust Formula
+                  </Typography>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 650, color: '#334155', fontSize: '12.5px', px: 1 }}>BP-CC-F-4X</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>04</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: '#334155', fontSize: '13.5px', px: 1 }}>$1,250.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: '#334155', fontSize: '13.5px', px: 1 }}>$900.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>$5,900.00</TableCell>
+              </TableRow>
+              {/* Row 4 */}
+              <TableRow sx={{ borderBottom: '2px solid #e2e8f0' }}>
+                <TableCell sx={{ color: '#94a3b8', fontWeight: 600, fontSize: '13px', px: 1 }}>04</TableCell>
+                <TableCell sx={{ py: 2, px: 1 }}>
+                  <Typography sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px' }}>
+                    Forged Piston Set
+                  </Typography>
+                  <Typography sx={{ color: '#64748b', fontSize: '11px', fontWeight: 550, mt: 0.5 }}>
+                    Over-sized +0.50mm - Set of 6
+                  </Typography>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 650, color: '#334155', fontSize: '12.5px', px: 1 }}>PS-FRG-050</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>01</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: '#334155', fontSize: '13.5px', px: 1 }}>$3,850.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: '#334155', fontSize: '13.5px', px: 1 }}>$693.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>$4,543.00</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {/* Notes & Calculations Section */}
+        <Grid container spacing={4}>
+          {/* Notes & Terms */}
+          <Grid size={{ xs: 12, md: 7 }} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Box 
+              sx={{ 
+                p: 2.5, 
+                borderRadius: '8px', 
+                bgcolor: '#f8fafc',
+                border: '1px solid #f1f5f9'
+              }}
+            >
+              <Typography variant="body2" sx={{ fontWeight: 800, color: '#184edb', letterSpacing: '0.02em', mb: 1.5, fontSize: '11.5px' }}>
+                PAYMENT TERMS & INSTRUCTIONS
+              </Typography>
+              <Box component="ul" sx={{ m: 0, p: 0, pl: 2, display: 'flex', flexDirection: 'column', gap: 1, color: '#64748b', fontSize: '11px', fontWeight: 600, lineHeight: 1.5 }}>
+                <Box component="li">Payment is due within 15 days of invoice date.</Box>
+                <Box component="li">Please include Invoice #PUR-2023-8842 on all bank transfers.</Box>
+                <Box component="li">Standard warranty applies only to parts installed by certified mechanics.</Box>
+                <Box component="li">Subject to New Delhi Jurisdiction.</Box>
+              </Box>
+            </Box>
+
+            <Typography variant="body2" sx={{ fontStyle: 'italic', color: '#94a3b8', fontSize: '11px', fontWeight: 550, mt: 1, pr: 4 }}>
+              "*This is a computer-generated invoice and requires no physical signature for digital validation.*"
+            </Typography>
+          </Grid>
+
+          {/* Calculations */}
+          <Grid size={{ xs: 12, md: 5 }} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, px: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 650 }}>Subtotal:</Typography>
+                <Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 800 }}>$16,650.00</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 650 }}>Total GST (18%):</Typography>
+                <Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 800 }}>$3,213.00</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="body2" sx={{ color: '#ef4444', fontWeight: 800 }}>Corporate Discount (5%):</Typography>
+                <Typography variant="body2" sx={{ color: '#ef4444', fontWeight: 800 }}>-$993.15</Typography>
+              </Box>
+            </Box>
+
+            <MuiDivider sx={{ borderColor: '#cbd5e1', borderHeight: '1.5px' }} />
+
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2 }}>
+              <Typography variant="h6" sx={{ color: '#0f172a', fontWeight: 900 }}>Grand Total:</Typography>
+              <Typography 
+                variant="h4" 
+                sx={{ 
+                  color: '#184edb', 
+                  fontWeight: 900,
+                  letterSpacing: '-0.025em',
+                  fontFamily: 'system-ui, sans-serif'
+                }}
+              >
+                $18,869.85
+              </Typography>
+            </Box>
+
+            <Box 
+              sx={{ 
+                p: 2, 
+                borderRadius: '8px', 
+                bgcolor: '#f0f4ff',
+                border: '1px solid #d6e4ff',
+                textAlign: 'right',
+                mt: 1
+              }}
+            >
+              <Typography variant="caption" sx={{ color: '#184edb', fontWeight: 800, letterSpacing: '0.05em', display: 'block', mb: 0.5 }}>
+                AMOUNT IN WORDS
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 800, color: '#334155', fontSize: '11px', lineHeight: 1.4 }}>
+                Eighteen Thousand Eight Hundred Sixty Nine and<br />85/100 Dollars Only
+              </Typography>
+            </Box>
+          </Grid>
+        </Grid>
+
+        {/* Footer Stamp & Signature */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mt: 4 }}>
+          {/* Representative stamp */}
+          <Box sx={{ textAlign: 'center' }}>
+            <Box 
+              sx={{ 
+                width: 240, 
+                height: 60, 
+                border: '1px dashed #cbd5e1', 
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: '#f8fafc'
+              }}
+            >
+              <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 850, letterSpacing: '0.05em', fontSize: '10px' }}>
+                SUPPLIER STAMP AREA
+              </Typography>
+            </Box>
+            <Typography variant="caption" sx={{ display: 'block', color: '#64748b', fontWeight: 800, mt: 1.5, letterSpacing: '0.05em', fontSize: '10px' }}>
+              AUTHORIZED SUPPLIER REPRESENTATIVE
+            </Typography>
+          </Box>
+
+          {/* Signature */}
+          <Box sx={{ textAlign: 'right' }}>
+            <Typography 
+              sx={{ 
+                fontFamily: '"Playfair Display", "Georgia", serif', 
+                fontSize: '22px', 
+                color: '#334155', 
+                fontStyle: 'italic',
+                fontWeight: 600,
+                pr: 2
+              }}
+            >
+              Alex E. Johnson
+            </Typography>
+            <Box sx={{ width: 260, height: '1px', bgcolor: '#cbd5e1', my: 1, ml: 'auto' }} />
+            <Typography variant="caption" sx={{ display: 'block', color: '#64748b', fontWeight: 800, letterSpacing: '0.05em', fontSize: '9.5px' }}>
+              AUTHORIZED SIGNATURE (WORKSHOP MANAGER)
+            </Typography>
+            <Typography variant="caption" sx={{ display: 'block', color: '#184edb', fontWeight: 800, mt: 0.5, letterSpacing: '0.05em', fontSize: '9.5px' }}>
+              Eicher Workshop Operations
+            </Typography>
+          </Box>
+        </Box>
+
+        <MuiDivider sx={{ mt: 3, borderColor: '#f1f5f9' }} />
+
+        {/* Bottom Small Print */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#94a3b8', fontSize: '10px', fontWeight: 600 }}>
+          <Typography variant="caption" sx={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600 }}>
+            Generated by <Box component="span" sx={{ color: '#64748b', fontWeight: 800 }}>AutoCore DMS</Box> v2.4.0
+          </Typography>
+          <Typography variant="caption" sx={{ fontSize: '10px', color: '#64748b', fontWeight: 800, letterSpacing: '0.05em' }}>
+            THANK YOU FOR YOUR BUSINESS
+          </Typography>
+          <Typography variant="caption" sx={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600 }}>
+            Oct 24, 2023 | 14:45:12 IST
+          </Typography>
+        </Box>
+
+      </Paper>
+
+      {/* Floating/Bottom Action Buttons */}
+      <Box sx={{ width: '100%', maxWidth: '1000px', display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+        <Button
+          variant="contained"
+          startIcon={<PrintIcon sx={{ color: '#ffffff' }} />}
+          onClick={() => window.print()}
+          sx={{
+            bgcolor: '#184edb',
+            color: '#ffffff',
+            fontWeight: 800,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            borderRadius: '8px',
+            px: 3.5,
+            py: 1.5,
+            fontSize: '13px',
+            boxShadow: '0 4px 6px -1px rgba(24, 78, 219, 0.25)',
+            '&:hover': {
+              bgcolor: '#133eb5',
+            }
+          }}
+        >
+          Print Invoice
+        </Button>
+      </Box>
+
+    </Box>
   );
 };
 

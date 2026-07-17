@@ -9,8 +9,7 @@ import {
   ShoppingBag,
   Building2,
   Receipt,
-  Settings,
-  Notebook
+  Settings
 } from 'lucide-react';
 
 interface SidebarProps {
