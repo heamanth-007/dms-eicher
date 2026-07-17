@@ -1080,7 +1080,7 @@ export const SpareParts: React.FC = () => {
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-slate-500 text-[12px] font-bold">Low Stock Items</span>
-                  <span className="text-xl font-bold text-orange-500 tracking-tight">156</span>
+                  <span className="text-xl font-bold text-orange-500 tracking-tight">32</span>
                 </div>
               </div>
             </div>

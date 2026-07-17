@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ShoppingBag,
   RotateCcw,
@@ -51,6 +52,7 @@ interface PurchaseOrder {
   gstAmount: number;
   grandTotal: number;
   status: 'PAID' | 'PARTIAL' | 'PENDING';
+  items?: PurchaseItem[];
 }
 
 interface PurchaseReturn {
@@ -92,6 +94,17 @@ export const Purchase: React.FC = () => {
   const [showNewReturnModal, setShowNewReturnModal] = useState(false);
   const [showNewInvoiceModal, setShowNewInvoiceModal] = useState(false);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseOrder | null>(null);
+  const [shouldTriggerPrint, setShouldTriggerPrint] = useState(false);
+
+  useEffect(() => {
+    if (selectedPurchase && shouldTriggerPrint) {
+      const timer = setTimeout(() => {
+        window.print();
+        setShouldTriggerPrint(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedPurchase, shouldTriggerPrint]);
 
   // Filters state
   const [supplierFilter, setSupplierFilter] = useState('All');
@@ -309,6 +322,7 @@ export const Purchase: React.FC = () => {
   const [newPoSupplier, setNewPoSupplier] = useState('Precision Parts Co.');
   const [newPoDate, setNewPoDate] = useState('Oct 26, 2023');
 
+
   const [newPoTerms, setNewPoTerms] = useState('Net 30');
   const [newPoRemarks, setNewPoRemarks] = useState('');
   const [newPoAdditionalCharges, setNewPoAdditionalCharges] = useState(45.00);
@@ -375,6 +389,8 @@ export const Purchase: React.FC = () => {
 
   // List of suppliers for dropdown
   const suppliersList = ['All', 'Precision Parts Co.', 'Elite Motors Wholesale', 'Global Tyres Ltd.', 'Apex Hydraulics', 'Standard Engines Co.'];
+
+
 
   // Handle New Return Submit
   const handleCreateReturn = (e: React.FormEvent) => {
@@ -545,11 +561,12 @@ export const Purchase: React.FC = () => {
         itemsCount: purchaseItems.reduce((acc, item) => acc + item.qty, 0),
         gstAmount: calculatedGst,
         grandTotal: calculatedGrandTotal,
-        status: status === 'PAID' ? 'PAID' : 'PENDING'
+        status: status === 'PAID' ? 'PAID' : 'PENDING',
+        items: purchaseItems
       };
 
       setPurchases([newPurchase, ...purchases]);
-      
+
       // Auto-generate invoice for this purchase in invoices tab
       const autoInvoice: SupplierInvoice = {
         id: newPurchase.invoiceNo,
@@ -578,7 +595,7 @@ export const Purchase: React.FC = () => {
         <div className="flex items-center gap-2 text-[13px] text-slate-400 font-semibold mb-2">
           <span>Dashboard</span>
           <span>/</span>
-          <span 
+          <span
             onClick={() => setShowNewPurchaseModal(false)}
             className="cursor-pointer hover:text-[#184edb] transition-colors"
           >
@@ -608,7 +625,7 @@ export const Purchase: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 w-full box-border items-start">
           {/* Left Column */}
           <div className="lg:col-span-2 flex flex-col gap-8 w-full box-border">
-            
+
             {/* Purchase Info Card */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col gap-6">
               <div className="flex justify-between items-center border-b border-slate-100 pb-4">
@@ -816,15 +833,15 @@ export const Purchase: React.FC = () => {
 
           {/* Right Column */}
           <div className="flex flex-col gap-8 w-full box-border">
-            
+
             {/* Inventory Sync Banner Card */}
             <div className="rounded-2xl overflow-hidden relative shadow-sm border border-slate-100 min-h-[240px] flex flex-col justify-end p-6 text-white group">
-              <div 
+              <div
                 className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
                 style={{ backgroundImage: `url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=600&q=80')` }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/65 to-transparent" />
-              
+
               <div className="relative z-10 flex flex-col gap-1.5 text-left">
                 <span className="text-[9.5px] font-bold text-blue-300 uppercase tracking-widest">REAL-TIME BRIDGE</span>
                 <h4 className="text-lg font-extrabold tracking-tight m-0 font-heading">Inventory Sync</h4>
@@ -906,13 +923,13 @@ export const Purchase: React.FC = () => {
         <div className="flex items-center justify-between border-t border-slate-100 pt-6 mt-8">
           <button
             type="button"
-            onClick={() => { if(window.confirm('Discard changes and return to purchases list?')) setShowNewPurchaseModal(false); }}
+            onClick={() => { if (window.confirm('Discard changes and return to purchases list?')) setShowNewPurchaseModal(false); }}
             className="flex items-center gap-1.5 px-4.5 py-2.5 bg-white hover:bg-slate-50 text-slate-650 font-bold text-[13px] rounded-lg border border-slate-200 shadow-sm cursor-pointer transition-colors"
           >
             <X size={15} />
             <span>Cancel</span>
           </button>
-          
+
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -935,6 +952,227 @@ export const Purchase: React.FC = () => {
     );
   }
 
+  const renderInvoiceSheet = (po: PurchaseOrder) => {
+    return (
+      <div className="flex flex-col gap-6 w-full box-border">
+        {/* Header section */}
+        <div className="flex justify-between items-start border-b border-slate-100 pb-5">
+          <div className="flex items-center gap-3">
+            <div className="bg-[#184edb] text-white p-2.5 rounded-xl flex items-center justify-center shadow-lg">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M3 21h18M3 10h18M5 21V10M19 21V10M9 21v-4a2 2 0 014 0v4M12 3L2 10h20L12 3z" />
+              </svg>
+            </div>
+            <div className="flex flex-col text-left">
+              <span className="text-lg font-black text-slate-900 tracking-tight leading-tight uppercase font-heading">
+                Eicher Workshop
+              </span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                Premium Management Solutions
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-col text-right">
+            <h2 className="text-2xl font-black text-[#184edb] uppercase tracking-tight m-0 font-heading">
+              Purchase Invoice
+            </h2>
+            <div className="flex flex-col gap-0.5 text-xs text-slate-500 font-semibold mt-2">
+              <span>Invoice #: <strong className="text-slate-800">{po.invoiceNo}</strong></span>
+              <span>Date: <strong className="text-slate-800">{po.date}</strong></span>
+              <span>Due Date: <strong className="text-[#e1523a]">Nov 07, 2023</strong></span>
+            </div>
+          </div>
+        </div>
+
+        {/* Info Grid */}
+        <div className="grid grid-cols-2 gap-12 mt-2">
+          {/* Left: Supplier Details */}
+          <div className="flex flex-col gap-2.5 text-left text-xs font-semibold text-slate-500">
+            <span className="text-[10px] font-black text-[#184edb] uppercase tracking-wider">Supplier Details</span>
+            <div className="flex flex-col gap-1 text-slate-700">
+              <span className="text-[13.5px] font-bold text-slate-900">{po.supplier}</span>
+              <span className="leading-relaxed">
+                42 Industrial Estate, Sector 18<br />
+                Gurgaon, Haryana 122001
+              </span>
+              <span>GSTIN: <strong className="text-slate-800">07AAACG1234F1Z5</strong></span>
+              <span>Phone: <strong className="text-slate-800">+91 91234 56789</strong></span>
+              <span>Email: <strong className="text-slate-800">orders@{po.supplier.toLowerCase().replace(/[^a-z0-9]/g, '') || 'supplier'}.com</strong></span>
+            </div>
+          </div>
+
+          {/* Right: Bill To */}
+          <div className="flex flex-col gap-2.5 text-left text-xs font-semibold text-slate-500">
+            <span className="text-[10px] font-black text-[#184edb] uppercase tracking-wider">Bill To</span>
+            <div className="flex flex-col gap-1 text-slate-700">
+              <span className="text-[13.5px] font-bold text-slate-900">Eicher Authorized Service Center</span>
+              <span className="leading-relaxed">
+                98 Industrial Estate, Phase II<br />
+                Okhla, New Delhi 110020
+              </span>
+              <span>Attn: <strong className="text-[#184edb]">Workshop Manager</strong></span>
+              <span>GSTIN: <strong className="text-slate-800">07AABCE4321F1Z2</strong></span>
+              <span>Phone: <strong className="text-slate-800">+91 93765 43210</strong></span>
+            </div>
+          </div>
+        </div>
+
+        {/* Table of items */}
+        <div className="border border-slate-100 rounded-xl overflow-hidden mt-3">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-100 font-heading">
+                <th className="py-2.5 px-4 text-center w-8">#</th>
+                <th className="py-2.5 px-4">Product Description</th>
+                <th className="py-2.5 px-3 text-center">SKU</th>
+                <th className="py-2.5 px-3 text-center w-12">Qty</th>
+                <th className="py-2.5 px-4 text-right">Rate</th>
+                <th className="py-2.5 px-4 text-right">GST</th>
+                <th className="py-2.5 px-4 text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody className="text-[12px] divide-y divide-slate-100 font-semibold text-slate-700">
+              {(() => {
+                const itemsList = po.items && po.items.length > 0 
+                  ? po.items.map((item: any, idx: number) => ({
+                      num: String(idx + 1).padStart(2, '0'),
+                      name: item.productName || 'Workshop Replacement Spare Part',
+                      sub: 'Premium Grade - Dynamic Replacement Component',
+                      sku: `SP-${item.id.substring(0, 5).toUpperCase()}`,
+                      qty: String(item.qty).padStart(2, '0'),
+                      rate: item.rate,
+                      gst: item.rate * item.qty * (item.gstPercent / 100),
+                      total: item.rate * item.qty * (1 + item.gstPercent / 100)
+                    }))
+                  : [
+                      {
+                        num: '01',
+                        name: 'Eicher Genuine Spare Parts & Components',
+                        sub: 'Standard Issue Replacement Parts',
+                        sku: `SP-${po.id.replace('PO-', '')}`,
+                        qty: String(po.itemsCount).padStart(2, '0'),
+                        rate: (po.grandTotal - po.gstAmount) / (po.itemsCount || 1),
+                        gst: po.gstAmount,
+                        total: po.grandTotal
+                      }
+                    ];
+
+                return itemsList.map((item) => (
+                  <tr key={item.num} className="hover:bg-slate-50/20">
+                    <td className="py-2.5 px-4 text-center font-bold text-slate-400">{item.num}</td>
+                    <td className="py-2.5 px-4 text-left">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-bold text-slate-800">{item.name}</span>
+                        <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wide">{item.sub}</span>
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-3 text-center text-slate-500 text-[11px] font-mono">{item.sku}</td>
+                    <td className="py-2.5 px-3 text-center font-extrabold text-slate-800">{item.qty}</td>
+                    <td className="py-2.5 px-4 text-right font-medium">${item.rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className="py-2.5 px-4 text-right font-medium text-slate-500">${item.gst.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className="py-2.5 px-4 text-right font-extrabold text-slate-800">${item.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  </tr>
+                ));
+              })()}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Bottom Instructions and Totals */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start mt-3">
+          {/* Left Instructions */}
+          <div className="flex flex-col gap-3 text-left">
+            <div className="bg-[#f8fafc] border border-slate-100 rounded-xl p-4 flex flex-col gap-2 text-xs text-slate-500 font-semibold leading-relaxed">
+              <span className="text-[9.5px] font-black text-[#184edb] uppercase tracking-wider">Payment Terms & Instructions</span>
+              <ul className="m-0 pl-4 flex flex-col gap-1 list-disc text-left">
+                <li>Payment is due within 15 days of invoice date.</li>
+                <li>Please include Invoice #{po.invoiceNo} on all bank transfers.</li>
+                <li>Standard warranty applies only to parts installed by certified mechanics.</li>
+                <li>Subject to New Delhi Jurisdiction.</li>
+              </ul>
+            </div>
+            <span className="text-[9.5px] text-slate-400 font-bold italic leading-normal">
+              *This is a computer-generated invoice and requires no physical signature for digital validation.*
+            </span>
+          </div>
+
+          {/* Right Totals */}
+          <div className="flex flex-col gap-3 text-right">
+            {(() => {
+              const subtotalVal = po.grandTotal - po.gstAmount;
+              const gstVal = po.gstAmount;
+              const grandTotalVal = po.grandTotal;
+
+              const numberToWords = (num: number) => {
+                const integerPart = Math.floor(num);
+                const decimalPart = Math.round((num - integerPart) * 100);
+                return `${integerPart.toLocaleString()} and ${decimalPart}/100 Dollars Only`;
+              };
+
+              return (
+                <div className="flex flex-col gap-2.5 font-semibold text-slate-500 text-xs">
+                  <div className="flex items-center justify-between pl-12">
+                    <span>Subtotal:</span>
+                    <span className="text-slate-800 font-bold">${subtotalVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between pl-12">
+                    <span>Total GST:</span>
+                    <span className="text-slate-800 font-bold">${gstVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between pl-12 border-t border-slate-100 pt-2.5">
+                    <span className="text-sm font-black text-slate-900 uppercase tracking-tight font-heading">Grand Total:</span>
+                    <span className="text-xl font-black text-[#184edb] font-heading">${grandTotalVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+
+                  {/* Amount In Words */}
+                  <div className="bg-[#f8fafc] border border-slate-100 rounded-xl p-3 flex flex-col gap-0.5 text-[11px] mt-2">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider text-right">Amount in Words</span>
+                    <p className="m-0 text-slate-700 font-bold leading-normal text-right">
+                      {numberToWords(grandTotalVal)}
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+
+        {/* Signatures */}
+        <div className="grid grid-cols-2 gap-12 items-end mt-6 border-t border-slate-100 pt-6">
+          {/* Stamp box */}
+          <div className="flex flex-col gap-2 items-start">
+            <div className="w-52 h-20 border border-dashed border-slate-200 rounded-xl flex items-center justify-center text-[10px] font-black text-slate-400 uppercase tracking-wider bg-slate-50/50">
+              Supplier Stamp Area
+            </div>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">
+              Authorized Supplier Representative
+            </span>
+          </div>
+
+          {/* Manager Signature */}
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-[13px] font-bold text-slate-800 italic font-heading pr-4">
+              Alex E. Johnson
+            </span>
+            <div className="w-56 h-px bg-slate-200" />
+            <div className="flex flex-col text-right mt-1 font-semibold text-slate-500 text-[9px] uppercase tracking-wider gap-0.5">
+              <span>Authorized Signature (Workshop Manager)</span>
+              <span className="text-[#184edb] font-bold text-[8.5px]">Eicher Workshop Operations</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Print Footer */}
+        <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-4 text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
+          <span>Generated by <strong className="text-[#184edb]">AutoCore DMS</strong> v2.4.0</span>
+          <span className="font-bold text-slate-500">Thank you for your business</span>
+          <span>{po.date} | 14:45:12 IST</span>
+        </div>
+      </div>
+    );
+  };
   if (showFigmaInvoice) {
     return (
       <FigmaInvoiceView onBack={() => setShowFigmaInvoice(false)} />
@@ -943,7 +1181,7 @@ export const Purchase: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col p-8 bg-[#f8fafc] w-full box-border font-sans min-h-[calc(100vh-64px)]">
-      
+
       {/* Breadcrumbs */}
       <div className="flex items-center gap-2 text-[13px] text-slate-400 font-semibold mb-2">
         <span>Dashboard</span>
@@ -980,7 +1218,7 @@ export const Purchase: React.FC = () => {
             <Download size={16} className="text-slate-500" />
             <span>Export</span>
           </button>
-          
+
           {subTab === 'overview' && (
             <button
               onClick={() => setShowNewPurchaseModal(true)}
@@ -1013,15 +1251,14 @@ export const Purchase: React.FC = () => {
 
       {/* --- SUB-TABS (THREE BOX TABS) BELOW NAVBAR --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        
+
         {/* Tab 1: Overview */}
         <button
           onClick={() => setSubTab('overview')}
-          className={`flex items-start gap-4 p-5 rounded-2xl border text-left cursor-pointer transition-all duration-300 relative overflow-hidden group hover:scale-[1.01] hover:shadow-md ${
-            subTab === 'overview'
-              ? 'bg-white border-[#184edb] shadow-sm ring-1 ring-[#184edb]/30'
-              : 'bg-white border-slate-100 shadow-sm'
-          }`}
+          className={`flex items-start gap-4 p-5 rounded-2xl border text-left cursor-pointer transition-all duration-300 relative overflow-hidden group hover:scale-[1.01] hover:shadow-md ${subTab === 'overview'
+            ? 'bg-white border-[#184edb] shadow-sm ring-1 ring-[#184edb]/30'
+            : 'bg-white border-slate-100 shadow-sm'
+            }`}
         >
           <div className={`p-3 rounded-xl ${subTab === 'overview' ? 'bg-[#184edb] text-white' : 'bg-slate-50 text-slate-500 group-hover:bg-[#184edb]/10 group-hover:text-[#184edb]'} transition-colors duration-300`}>
             <ShoppingBag size={22} />
@@ -1041,11 +1278,10 @@ export const Purchase: React.FC = () => {
         {/* Tab 2: Return */}
         <button
           onClick={() => setSubTab('return')}
-          className={`flex items-start gap-4 p-5 rounded-2xl border text-left cursor-pointer transition-all duration-300 relative overflow-hidden group hover:scale-[1.01] hover:shadow-md ${
-            subTab === 'return'
-              ? 'bg-white border-[#184edb] shadow-sm ring-1 ring-[#184edb]/30'
-              : 'bg-white border-slate-100 shadow-sm'
-          }`}
+          className={`flex items-start gap-4 p-5 rounded-2xl border text-left cursor-pointer transition-all duration-300 relative overflow-hidden group hover:scale-[1.01] hover:shadow-md ${subTab === 'return'
+            ? 'bg-white border-[#184edb] shadow-sm ring-1 ring-[#184edb]/30'
+            : 'bg-white border-slate-100 shadow-sm'
+            }`}
         >
           <div className={`p-3 rounded-xl ${subTab === 'return' ? 'bg-[#184edb] text-white' : 'bg-slate-50 text-slate-500 group-hover:bg-[#184edb]/10 group-hover:text-[#184edb]'} transition-colors duration-300`}>
             <RotateCcw size={22} />
@@ -1065,11 +1301,10 @@ export const Purchase: React.FC = () => {
         {/* Tab 3: Invoice */}
         <button
           onClick={() => setSubTab('invoice')}
-          className={`flex items-start gap-4 p-5 rounded-2xl border text-left cursor-pointer transition-all duration-300 relative overflow-hidden group hover:scale-[1.01] hover:shadow-md ${
-            subTab === 'invoice'
-              ? 'bg-white border-[#184edb] shadow-sm ring-1 ring-[#184edb]/30'
-              : 'bg-white border-slate-100 shadow-sm'
-          }`}
+          className={`flex items-start gap-4 p-5 rounded-2xl border text-left cursor-pointer transition-all duration-300 relative overflow-hidden group hover:scale-[1.01] hover:shadow-md ${subTab === 'invoice'
+            ? 'bg-white border-[#184edb] shadow-sm ring-1 ring-[#184edb]/30'
+            : 'bg-white border-slate-100 shadow-sm'
+            }`}
         >
           <div className={`p-3 rounded-xl ${subTab === 'invoice' ? 'bg-[#184edb] text-white' : 'bg-slate-50 text-slate-500 group-hover:bg-[#184edb]/10 group-hover:text-[#184edb]'} transition-colors duration-300`}>
             <FileText size={22} />
@@ -1089,7 +1324,7 @@ export const Purchase: React.FC = () => {
 
       {/* --- METRICS CARDS (Changes dynamically according to active tab) --- */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        
+
         {/* Metric 1 */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100/60 flex items-center justify-between">
           <div className="flex flex-col gap-2">
@@ -1192,7 +1427,7 @@ export const Purchase: React.FC = () => {
 
       {/* --- SEARCH AND FILTERS CONTAINER --- */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-8 flex flex-col md:flex-row items-center gap-4.5 w-full box-border">
-        
+
         {/* Search bar */}
         <div className="flex-1 w-full relative">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1202,8 +1437,8 @@ export const Purchase: React.FC = () => {
               subTab === 'overview'
                 ? 'Search purchase ID, invoice #, supplier...'
                 : subTab === 'return'
-                ? 'Search return ID, PO ref, supplier, reason...'
-                : 'Search invoice no, PO ref, supplier...'
+                  ? 'Search return ID, PO ref, supplier, reason...'
+                  : 'Search invoice no, PO ref, supplier...'
             }
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -1298,7 +1533,7 @@ export const Purchase: React.FC = () => {
 
       {/* --- DATA TABLE CARD --- */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col w-full">
-        
+
         {/* Table Title / Header */}
         <div className="px-6 py-5 flex items-center justify-between border-b border-slate-100">
           <span className="text-base font-extrabold text-slate-800 font-heading">
@@ -1323,7 +1558,7 @@ export const Purchase: React.FC = () => {
 
         {/* Responsive Table Container */}
         <div className="overflow-x-auto w-full">
-          
+
           {/* OVERVIEW TAB TABLE */}
           {subTab === 'overview' && (
             <table className="w-full text-left border-collapse min-w-[1000px]">
@@ -1431,7 +1666,10 @@ export const Purchase: React.FC = () => {
                             <Pencil size={16} />
                           </button>
                           <button
-                            onClick={() => alert(`Printing purchase invoice for PO: ${p.id}`)}
+                            onClick={() => {
+                              setSelectedPurchase(p);
+                              setShouldTriggerPrint(true);
+                            }}
                             className="text-slate-400 hover:text-slate-700 p-0 border-none bg-transparent cursor-pointer transition-colors"
                             title="Print"
                           >
@@ -1480,7 +1718,7 @@ export const Purchase: React.FC = () => {
                 ) : (
                   filteredReturns.map((r) => (
                     <tr key={r.id} className="hover:bg-slate-50/40 transition-colors">
-                      
+
                       {/* ID */}
                       <td className="py-4 px-6 font-bold text-slate-800 whitespace-nowrap">
                         {r.id}
@@ -1587,7 +1825,7 @@ export const Purchase: React.FC = () => {
                 ) : (
                   filteredInvoices.map((i) => (
                     <tr key={i.id} className="hover:bg-slate-50/40 transition-colors">
-                      
+
                       {/* Invoice No */}
                       <td className="py-4 px-6 font-bold text-slate-800 whitespace-nowrap">
                         {i.id}
@@ -1681,7 +1919,7 @@ export const Purchase: React.FC = () => {
               <option value="50">50 entries</option>
             </select>
           </div>
-          
+
           <div className="flex items-center gap-1">
             <button className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 bg-white hover:bg-slate-50 text-slate-400 cursor-pointer">
               <ChevronLeft size={16} />
@@ -1722,7 +1960,7 @@ export const Purchase: React.FC = () => {
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={handleCreateReturn} className="p-6 flex flex-col gap-4 box-border">
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
@@ -1854,7 +2092,7 @@ export const Purchase: React.FC = () => {
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={handleCreateInvoice} className="p-6 flex flex-col gap-4 box-border">
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
@@ -1967,147 +2205,84 @@ export const Purchase: React.FC = () => {
 
       {/* 4. PURCHASE ORDER DETAIL PREVIEW MODAL */}
       {selectedPurchase && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            {/* Modal Header */}
-            <div className="px-6 py-4.5 bg-[#184edb] text-white flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="font-extrabold text-[16.5px] tracking-tight">{selectedPurchase.id} Details</span>
-                <span className="text-[11.5px] text-blue-100 font-medium">Invoice: {selectedPurchase.invoiceNo}</span>
-              </div>
-              <button
-                onClick={() => setSelectedPurchase(null)}
-                className="text-white/80 hover:text-white border-none bg-transparent cursor-pointer"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            
-            {/* Modal Body */}
-            <div className="p-6 flex flex-col gap-6 box-border max-h-[75vh] overflow-y-auto">
-              
-              {/* Top Details Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
-                <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Supplier</span>
-                  <span className="text-[13.5px] font-bold text-slate-800">{selectedPurchase.supplier}</span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Order Date</span>
-                  <span className="text-[13.5px] font-medium text-slate-700">{selectedPurchase.date}</span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</span>
-                  <span className="self-start mt-0.5">
-                    {selectedPurchase.status === 'PAID' && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
-                        PAID
-                      </span>
-                    )}
-                    {selectedPurchase.status === 'PARTIAL' && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-600 border border-amber-100">
-                        PARTIAL
-                      </span>
-                    )}
-                    {selectedPurchase.status === 'PENDING' && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-600 border border-rose-100">
-                        PENDING
-                      </span>
-                    )}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Invoiced Value</span>
-                  <span className="text-[13.5px] font-extrabold text-[#184edb]">${selectedPurchase.grandTotal.toLocaleString()}</span>
-                </div>
+        <>
+          <style>{`
+            @media screen {
+              #purchase-invoice-print-area {
+                display: none !important;
+              }
+            }
+            @media print {
+              #root {
+                display: none !important;
+              }
+              #purchase-invoice-print-area {
+                display: block !important;
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 20px !important;
+                border: none !important;
+                background: white !important;
+                color: black !important;
+              }
+            }
+          `}</style>
+
+          {/* On-screen modal preview */}
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto print:hidden">
+            <div className="bg-white rounded-2xl w-full max-w-[850px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 my-8 flex flex-col">
+              {/* Modal Header Control Bar */}
+              <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between flex-shrink-0">
+                <span className="font-extrabold text-[13px] tracking-wider uppercase">Purchase Invoice Preview</span>
+                <button
+                  onClick={() => setSelectedPurchase(null)}
+                  className="text-white/80 hover:text-white border-none bg-transparent cursor-pointer flex items-center"
+                >
+                  <X size={20} />
+                </button>
               </div>
 
-              {/* Items Breakdown list */}
-              <div className="flex flex-col gap-3">
-                <span className="text-[12.5px] font-extrabold text-slate-800 tracking-wider uppercase">Order Items Breakdown</span>
-                
-                <div className="border border-slate-100 rounded-xl overflow-hidden">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50 text-slate-400 text-[10.5px] uppercase font-bold tracking-wider border-b border-slate-100">
-                        <th className="py-2.5 px-4">Item Name</th>
-                        <th className="py-2.5 px-3 text-center">Qty</th>
-                        <th className="py-2.5 px-4 text-right">Unit Price</th>
-                        <th className="py-2.5 px-4 text-right">Total Price</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-[13px] divide-y divide-slate-50">
-                      <tr>
-                        <td className="py-3 px-4 font-bold text-slate-800">Eicher Heavy Engine Cylinder Block V8</td>
-                        <td className="py-3 px-3 text-center font-semibold text-slate-700">12 Units</td>
-                        <td className="py-3 px-4 text-right font-medium text-slate-600">$500.00</td>
-                        <td className="py-3 px-4 text-right font-bold text-slate-800">$6,000.00</td>
-                      </tr>
-                      <tr>
-                        <td className="py-3 px-4 font-bold text-slate-800">Vibrashield Cabin Shocks Mounts</td>
-                        <td className="py-3 px-3 text-center font-semibold text-slate-700">80 Units</td>
-                        <td className="py-3 px-4 text-right font-medium text-slate-600">$45.00</td>
-                        <td className="py-3 px-4 text-right font-bold text-slate-800">$3,600.00</td>
-                      </tr>
-                      <tr>
-                        <td className="py-3 px-4 font-bold text-slate-800">Advanced Steering Column Assembly (Pro)</td>
-                        <td className="py-3 px-3 text-center font-semibold text-slate-700 text-slate-700">10 Units</td>
-                        <td className="py-3 px-4 text-right font-medium text-slate-600">$280.00</td>
-                        <td className="py-3 px-4 text-right font-bold text-slate-800">$2,800.00</td>
-                      </tr>
-                      <tr>
-                        <td className="py-3 px-4 font-bold text-slate-800">Brake Liner Rivets & Shims Pack</td>
-                        <td className="py-3 px-3 text-center font-semibold text-slate-700 text-slate-700">40 Units</td>
-                        <td className="py-3 px-4 text-right font-medium text-slate-600">$30.00</td>
-                        <td className="py-3 px-4 text-right font-bold text-slate-800">$1,200.00</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+              {/* Scrollable invoice body preview on screen */}
+              <div className="p-8 bg-white text-left text-slate-700 font-sans overflow-y-auto max-h-[70vh]">
+                {renderInvoiceSheet(selectedPurchase)}
               </div>
 
-              {/* Summary / Totals */}
-              <div className="flex flex-col items-end gap-2 border-t border-slate-100 pt-4.5">
-                <div className="flex items-center gap-10 text-[13.5px]">
-                  <span className="text-slate-400 font-semibold">Subtotal:</span>
-                  <span className="text-slate-800 font-bold">${(selectedPurchase.grandTotal - selectedPurchase.gstAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex items-center gap-10 text-[13.5px]">
-                  <span className="text-slate-400 font-semibold">GST (18%):</span>
-                  <span className="text-slate-800 font-bold">${selectedPurchase.gstAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex items-center gap-10 text-[14.5px] border-t border-slate-100 pt-2">
-                  <span className="text-slate-900 font-extrabold font-heading">Grand Total:</span>
-                  <span className="text-[#184edb] font-extrabold text-lg">${selectedPurchase.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                </div>
-              </div>
-
-              {/* Bottom Actions */}
-              <div className="flex items-center justify-between pt-2">
-                <span className="text-[11.5px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+              {/* Modal Control Footer Bar */}
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between flex-shrink-0">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                   <CheckCircle size={14} className="text-emerald-500" />
                   Verified by Rohan Sharma
                 </span>
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => alert('Printing order detail sheet...')}
-                    className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 font-bold text-[12.5px] px-4 py-2 border border-slate-200 rounded-lg shadow-sm cursor-pointer transition-colors"
+                    onClick={() => window.print()}
+                    className="flex items-center gap-2 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-[12.5px] px-5 py-2.5 border-none rounded-lg shadow-md cursor-pointer transition-colors"
                   >
                     <Printer size={15} />
                     <span>Print Invoice</span>
                   </button>
                   <button
                     onClick={() => setSelectedPurchase(null)}
-                    className="bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-[12.5px] px-4 py-2 border-none rounded-lg shadow-md cursor-pointer transition-colors"
+                    className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-[12.5px] px-5 py-2.5 rounded-lg cursor-pointer transition-colors"
                   >
                     Close
                   </button>
                 </div>
               </div>
-
             </div>
           </div>
-        </div>
+
+          {/* Printable Invoice Portal (renders outside of #root) */}
+          {createPortal(
+            <div id="purchase-invoice-print-area">
+              {renderInvoiceSheet(selectedPurchase)}
+            </div>,
+            document.body
+          )}
+        </>
       )}
 
     </div>
