@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Search,
   Plus,
@@ -202,92 +202,89 @@ export const VehicleInventory: React.FC = () => {
     </svg>
   );
 
-  const vehicles: VehicleType[] = [
-    {
-      id: '#VEH-8291',
-      model: 'Eicher Pro 6028',
-      category: 'Heavy Duty Truck',
-      statusText: 'Brand New',
-      eng: 'E694-TIC-12',
-      chs: 'MC26028X1Y0034',
-      colorName: 'Arctic White',
-      colorHex: '#FFFFFF',
-      price: '$42,500',
-      sellPrice: '$48,200',
-      status: 'Available',
-      imageSvg: SemiTruckSVG
-    },
-    {
-      id: '#VEH-7742',
-      model: 'Volvo 9400 B11R',
-      category: 'Coach Bus',
-      statusText: 'Pre-booked',
-      eng: 'D11C-410-EU5',
-      chs: 'VLB11R4X2Y8822',
-      colorName: 'Midnight Blue',
-      colorHex: '#1E3A8A',
-      price: '$185,000',
-      sellPrice: '$210,000',
-      status: 'Reserved',
-      imageSvg: CoachBusSVG
-    },
-    {
-      id: '#VEH-4410',
-      model: 'Eicher Pro 2049',
-      category: 'LCV',
-      statusText: 'Service Mode',
-      eng: 'E366-2L-BS6',
-      chs: 'EC2049L3M9102',
-      colorName: 'Silver Metallic',
-      colorHex: '#94A3B8',
-      price: '$22,400',
-      sellPrice: '$26,100',
-      status: 'In Service',
-      imageSvg: LcvSVG
-    },
-    {
-      id: '#VEH-1109',
-      model: 'Eicher Pro 8031XM',
-      category: 'Tipper Truck',
-      statusText: 'Sold Out',
-      eng: 'VEDX8-BS6-350',
-      chs: 'T8031XM9Z2200',
-      colorName: 'Traffic Yellow',
-      colorHex: '#EAB308',
-      price: '$98,000',
-      sellPrice: '$112,000',
-      status: 'Sold',
-      imageSvg: TipperSVG
-    },
-    {
-      id: '#VEH-1109',
-      model: 'Eicher Pro 8031XM',
-      category: 'Tipper Truck',
-      statusText: 'Sold Out',
-      eng: 'VEDX8-BS6-350',
-      chs: 'T8031XM9Z2200',
-      colorName: 'Traffic Yellow',
-      colorHex: '#EAB308',
-      price: '$98,000',
-      sellPrice: '$112,000',
-      status: 'Sold',
-      imageSvg: TipperSVG
-    },
-    {
-      id: '#VEH-1109',
-      model: 'Eicher Pro 8031XM',
-      category: 'Tipper Truck',
-      statusText: 'Sold Out',
-      eng: 'VEDX8-BS6-350',
-      chs: 'T8031XM9Z2200',
-      colorName: 'Traffic Yellow',
-      colorHex: '#EAB308',
-      price: '$98,000',
-      sellPrice: '$112,000',
-      status: 'Sold',
-      imageSvg: TipperSVG
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const [vehicles, setVehicles] = useState<VehicleType[]>([]);
+
+  const getVehicleSVG = (category: string) => {
+    switch (category) {
+      case 'Heavy Duty Truck': return SemiTruckSVG;
+      case 'Coach Bus': return CoachBusSVG;
+      case 'LCV': return LcvSVG;
+      case 'Tipper Truck': return TipperSVG;
+      default: return SemiTruckSVG;
     }
-  ];
+  };
+
+  const fetchVehicles = () => {
+    fetch(`${API_URL}/api/vehicles`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          const formatted = data.map((v: any) => ({
+            id: v.id,
+            model: v.modelName,
+            category: v.type,
+            statusText: v.condition,
+            eng: v.engineNo,
+            chs: v.chassisNo,
+            colorName: v.colorName,
+            colorHex: v.colorHex || '#ffffff',
+            price: `₹${Number(v.price).toLocaleString('en-IN')}`,
+            sellPrice: `₹${Number(v.sellPrice).toLocaleString('en-IN')}`,
+            status: v.status || 'Available',
+            imageSvg: getVehicleSVG(v.type)
+          }));
+          setVehicles(formatted);
+        }
+      })
+      .catch(err => console.error('Error fetching vehicles:', err));
+  };
+
+  useEffect(() => {
+    fetchVehicles();
+  }, []);
+
+  const handleSaveVehicle = () => {
+    if (!regModel) {
+      alert('Please enter a vehicle model.');
+      return;
+    }
+    const priceVal = parseFloat(regPurchasePrice.replace(/[^\d.]/g, '')) || 0;
+    const sellPriceVal = parseFloat(regSellingPrice.replace(/[^\d.]/g, '')) || 0;
+    
+    const bodyPayload = {
+      modelName: regModel,
+      type: regVehicleType,
+      condition: 'Brand New',
+      engineNo: regEngineNum || `ENG-${Math.floor(100000 + Math.random() * 900000)}`,
+      chassisNo: regChassisNum || `CHS-${Math.floor(100000 + Math.random() * 900000)}`,
+      colorName: regColor || 'Arctic White',
+      colorHex: '#ffffff',
+      price: priceVal,
+      sellPrice: sellPriceVal,
+      status: 'Available',
+      imageUrl: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=400'
+    };
+
+    fetch(`${API_URL}/api/vehicles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bodyPayload)
+    })
+      .then(res => res.json())
+      .then(() => {
+        fetchVehicles();
+        setIsRegistering(false);
+        // Reset registration fields
+        setRegModel('');
+        setRegColor('');
+        setRegEngineNum('');
+        setRegChassisNum('');
+        setRegPurchasePrice('');
+        setRegSellingPrice('');
+      })
+      .catch(err => console.error(err));
+  };
 
   const handleRowClick = (_v: VehicleType) => {
     setViewingDetails(true);
@@ -720,7 +717,7 @@ export const VehicleInventory: React.FC = () => {
 
           <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
             <button
-              onClick={() => setIsRegistering(false)}
+              onClick={handleSaveVehicle}
               className="flex items-center gap-1.5 px-4 py-2 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-[#184edb] font-semibold rounded-lg text-[13.5px] cursor-pointer transition-all bg-white"
             >
               <PlusCircle size={15} />
@@ -728,7 +725,7 @@ export const VehicleInventory: React.FC = () => {
             </button>
 
             <button
-              onClick={() => setIsRegistering(false)}
+              onClick={handleSaveVehicle}
               className="flex items-center gap-1.5 px-5 py-2 bg-[#184edb] hover:bg-[#143eb3] text-white font-semibold rounded-lg text-[13.5px] cursor-pointer transition-all border-none shadow-sm"
             >
               <CheckCircle size={15} />
@@ -1395,7 +1392,11 @@ export const VehicleInventory: React.FC = () => {
                       <button 
                         onClick={() => {
                           if (window.confirm(`Are you sure you want to delete vehicle ${v.id}?`)) {
-                            alert(`Vehicle ${v.id} deleted successfully (mock delete).`);
+                            fetch(`${API_URL}/api/vehicles/${v.id}`, { method: 'DELETE' })
+                              .then(() => {
+                                fetchVehicles();
+                              })
+                              .catch(err => console.error('Error deleting vehicle:', err));
                           }
                         }}
                         title="Delete Vehicle"

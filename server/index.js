@@ -5,6 +5,11 @@ import connectDB from './db.js';
 import Customer from './models/Customer.js';
 import Transaction from './models/Transaction.js';
 import Vehicle from './models/Vehicle.js';
+import Supplier from './models/Supplier.js';
+import Part from './models/Part.js';
+import Mechanic from './models/Mechanic.js';
+import Sale from './models/Sale.js';
+import JobCard from './models/JobCard.js';
 
 dotenv.config();
 console.log("MONGO_URI =", process.env.MONGO_URI);
@@ -183,6 +188,260 @@ const seedDatabase = async () => {
       ]);
       console.log('Vehicles seeded successfully!');
     }
+
+    const supplierCount = await Supplier.countDocuments();
+    if (supplierCount === 0) {
+      console.log('Seeding Suppliers...');
+      await Supplier.insertMany([
+        {
+          id: 'SUP-9821',
+          name: 'AutoParts Direct Ltd.',
+          gstNumber: '27AADCA1234F1Z1',
+          phone: '+1 202-555-0156',
+          email: 'orders@autoparts.com',
+          outstanding: '$12,450.00',
+          isOutstandingPositive: true,
+          status: 'ACTIVE'
+        },
+        {
+          id: 'SUP-7742',
+          name: 'Global Engine Spares',
+          gstNumber: '19BBEDA4432A1Z9',
+          phone: '+1 555-0198-2210',
+          email: 'billing@globalspares.co',
+          outstanding: '$0.00',
+          isOutstandingPositive: false,
+          status: 'ACTIVE'
+        },
+        {
+          id: 'SUP-3321',
+          name: 'Premium Lubricants Int.',
+          gstNumber: '33CCDFA5567G2Z0',
+          phone: '+1 212-701-0099',
+          email: 'contact@premiumlubes.com',
+          outstanding: '$4,200.00',
+          isOutstandingPositive: true,
+          status: 'INACTIVE'
+        },
+        {
+          id: 'SUP-1102',
+          name: 'Zenith Tire Solutions',
+          gstNumber: '07AABBA9999K3Z2',
+          phone: '+1 415-888-0123',
+          email: 'zenith@tires.co',
+          outstanding: '$26,200.00',
+          isOutstandingPositive: true,
+          status: 'ACTIVE'
+        }
+      ]);
+      console.log('Suppliers seeded successfully!');
+    }
+
+    const partCount = await Part.countDocuments();
+    if (partCount === 0) {
+      console.log('Seeding Parts...');
+      await Part.insertMany([
+        {
+          partNumber: 'SP-99231-A',
+          partName: 'Oil Filter Premium',
+          category: 'Consumables',
+          brand: 'Bosch',
+          hsnCode: '842123',
+          gstPercent: '18%',
+          purchasePrice: '$12.50',
+          salePrice: '$24.99',
+          stock: '1,240',
+          stockStatus: 'normal'
+        },
+        {
+          partNumber: 'BR-44102-X',
+          partName: 'Ceramic Brake Pads Rear',
+          category: 'Braking System',
+          brand: 'Brembo',
+          hsnCode: '870830',
+          gstPercent: '12%',
+          purchasePrice: '$85.00',
+          salePrice: '$149.00',
+          stock: '12',
+          stockStatus: 'low'
+        },
+        {
+          partNumber: 'EL-10552-C',
+          partName: 'Iridium Spark Plug (Set of 4)',
+          category: 'Electrical',
+          brand: 'NGK',
+          hsnCode: '851110',
+          gstPercent: '18%',
+          purchasePrice: '$42.20',
+          salePrice: '$78.50',
+          stock: '0',
+          stockStatus: 'out'
+        },
+        {
+          partNumber: 'SU-77021-M',
+          partName: 'Front Shock Absorber',
+          category: 'Suspension',
+          brand: 'Monroe',
+          hsnCode: '870880',
+          gstPercent: '18%',
+          purchasePrice: '$115.00',
+          salePrice: '$195.00',
+          stock: '45',
+          stockStatus: 'normal'
+        }
+      ]);
+      console.log('Parts seeded successfully!');
+    }
+
+    const mechanicCount = await Mechanic.countDocuments();
+    if (mechanicCount === 0) {
+      console.log('Seeding Mechanics...');
+      await Mechanic.insertMany([
+        {
+          id: 'MEC-101',
+          name: 'David Chen',
+          phone: '+91 98765 43211',
+          initials: 'DC',
+          avatarBg: 'bg-emerald-100 text-emerald-600',
+          experience: '8 Years',
+          status: 'Available',
+          jobs: 14
+        },
+        {
+          id: 'MEC-102',
+          name: 'Sarah Johnson',
+          phone: '+91 98765 43212',
+          initials: 'SJ',
+          avatarBg: 'bg-orange-100 text-orange-600',
+          experience: '5 Years',
+          status: 'Busy',
+          jobs: 9
+        },
+        {
+          id: 'MEC-103',
+          name: 'Marco Rossi',
+          phone: '+91 98765 43213',
+          initials: 'MR',
+          avatarBg: 'bg-rose-100 text-rose-600',
+          experience: '12 Years',
+          status: 'Inactive',
+          jobs: 22
+        }
+      ]);
+      console.log('Mechanics seeded successfully!');
+    }
+
+    const saleCount = await Sale.countDocuments();
+    if (saleCount === 0) {
+      console.log('Seeding Sales...');
+      await Sale.insertMany([
+        {
+          invoiceNo: '#INV-2023-0182',
+          customerName: 'Aditya Khanna',
+          vehicleModel: 'Eicher Pro 2049',
+          status: 'DELIVERED',
+          grandTotal: '₹17,43,450',
+          district: 'Central Valley',
+          deliveryDate: '24 Oct 2023',
+          salesExecutive: 'Vikram Singh'
+        },
+        {
+          invoiceNo: '#INV-2023-0180',
+          customerName: 'Karthik Reddy',
+          vehicleModel: 'Eicher Pro 3019',
+          status: 'DELIVERED',
+          grandTotal: '₹33,95,000',
+          district: 'Coastal Plains',
+          deliveryDate: '20 Oct 2023',
+          salesExecutive: 'Vikram Singh'
+        },
+        {
+          invoiceNo: '#INV-2023-0178',
+          customerName: 'Omkar Logistics Ltd',
+          vehicleModel: 'Eicher Pro 6028',
+          status: 'DELIVERED',
+          grandTotal: '₹54,25,000',
+          district: 'Northern Hills',
+          deliveryDate: '22 Oct 2023',
+          salesExecutive: 'Rajesh Kumar'
+        },
+        {
+          invoiceNo: '#INV-2023-0174',
+          customerName: 'Tejas Transports',
+          vehicleModel: 'Eicher Pro 6028',
+          status: 'PENDING',
+          grandTotal: '₹54,25,000',
+          district: 'Central Valley',
+          deliveryDate: 'Scheduled: 30 Oct 2023',
+          salesExecutive: 'Amit Gupta'
+        }
+      ]);
+      console.log('Sales seeded successfully!');
+    }
+
+    const jobCardCount = await JobCard.countDocuments();
+    if (jobCardCount === 0) {
+      console.log('Seeding Job Cards...');
+      await JobCard.insertMany([
+        {
+          jcNumber: 'JC-2023-8841',
+          inTime: '09:15 AM',
+          customerName: 'Mohan Logistics',
+          vehicleModel: 'Eicher Pro 3015',
+          vehicleReg: 'MH-12-PQ-9042',
+          complaintSummary: 'Brake liner replacement & general inspection',
+          mechanicName: 'Amit S.',
+          mechanicInitials: 'AM',
+          status: 'WORKING',
+          expectedDelivery: 'Today, 04:30 PM',
+          isDelayed: false,
+          readyForPickup: false
+        },
+        {
+          jcNumber: 'JC-2023-8845',
+          inTime: '10:30 AM',
+          customerName: 'Raj Express',
+          vehicleModel: 'Eicher Pro 2049',
+          vehicleReg: 'DL-1C-AA-5582',
+          complaintSummary: 'Periodic Maintenance Service (PMS-40k)',
+          mechanicName: 'Suresh G.',
+          mechanicInitials: 'SG',
+          status: 'WAITING PARTS',
+          expectedDelivery: 'Delayed: Oct 25',
+          isDelayed: true,
+          readyForPickup: false
+        },
+        {
+          jcNumber: 'JC-2023-8848',
+          inTime: '11:15 AM',
+          customerName: 'Pooja Transports',
+          vehicleModel: 'Eicher Skyline Pro',
+          vehicleReg: 'UP-16-BT-0021',
+          complaintSummary: 'Suspension noise & Steering alignment check',
+          mechanicName: 'Abdul R.',
+          mechanicInitials: 'AR',
+          status: 'ASSIGNED',
+          expectedDelivery: 'Oct 26, 11:00 AM',
+          isDelayed: false,
+          readyForPickup: false
+        },
+        {
+          jcNumber: 'JC-2023-8839',
+          inTime: '08:00 AM',
+          customerName: 'Shiva Carriers',
+          vehicleModel: 'Eicher Pro 6028',
+          vehicleReg: 'KA-01-EE-1234',
+          complaintSummary: 'Air conditioning service & cabin filter swap',
+          mechanicName: 'Vikram S.',
+          mechanicInitials: 'VS',
+          status: 'COMPLETED',
+          expectedDelivery: 'Today, 02:00 PM',
+          isDelayed: false,
+          readyForPickup: true
+        }
+      ]);
+      console.log('Job cards seeded successfully!');
+    }
   } catch (error) {
     console.error('Error seeding database:', error);
   }
@@ -287,19 +546,9 @@ app.post('/api/transactions', async (req, res) => {
       status: status || 'Paid'
     });
 
-    const savedTransaction = await newTransaction.save();
     res.status(201).json(savedTransaction);
   } catch (error) {
     res.status(500).json({ message: 'Server Error creating transaction', error: error.message });
-  }
-});
-
-app.get('/api/vehicles', async (req, res) => {
-  try {
-    const vehicles = await Vehicle.find({});
-    res.json(vehicles);
-  } catch (error) {
-    res.status(500).json({ message: 'Server Error fetching vehicles' });
   }
 });
 
@@ -327,6 +576,238 @@ app.post('/api/vehicles', async (req, res) => {
     res.status(201).json(savedVehicle);
   } catch (error) {
     res.status(500).json({ message: 'Server Error creating vehicle', error: error.message });
+  }
+});
+
+// Decoupled GET vehicles route
+app.get('/api/vehicles', async (req, res) => {
+  try {
+    const vehicles = await Vehicle.find({});
+    res.json(vehicles);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error fetching vehicles' });
+  }
+});
+
+// PUT for vehicles
+app.put('/api/vehicles/:id', async (req, res) => {
+  try {
+    const updated = await Vehicle.findOneAndUpdate({ id: req.params.id }, req.body, { new: true });
+    if (!updated) return res.status(404).json({ message: 'Vehicle not found' });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error updating vehicle', error: error.message });
+  }
+});
+
+// DELETE for vehicles
+app.delete('/api/vehicles/:id', async (req, res) => {
+  try {
+    const deleted = await Vehicle.findOneAndDelete({ id: req.params.id });
+    if (!deleted) return res.status(404).json({ message: 'Vehicle not found' });
+    res.json({ message: 'Vehicle deleted successfully', vehicle: deleted });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error deleting vehicle', error: error.message });
+  }
+});
+
+// CRUD for Suppliers
+app.get('/api/suppliers', async (req, res) => {
+  try {
+    const suppliers = await Supplier.find({});
+    res.json(suppliers);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error fetching suppliers' });
+  }
+});
+
+app.post('/api/suppliers', async (req, res) => {
+  try {
+    const newSupplier = new Supplier(req.body);
+    const saved = await newSupplier.save();
+    res.status(201).json(saved);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error creating supplier', error: error.message });
+  }
+});
+
+app.put('/api/suppliers/:id', async (req, res) => {
+  try {
+    const updated = await Supplier.findOneAndUpdate({ id: req.params.id }, req.body, { new: true });
+    if (!updated) return res.status(404).json({ message: 'Supplier not found' });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error updating supplier', error: error.message });
+  }
+});
+
+app.delete('/api/suppliers/:id', async (req, res) => {
+  try {
+    const deleted = await Supplier.findOneAndDelete({ id: req.params.id });
+    if (!deleted) return res.status(404).json({ message: 'Supplier not found' });
+    res.json({ message: 'Supplier deleted successfully', supplier: deleted });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error deleting supplier', error: error.message });
+  }
+});
+
+// CRUD for Parts
+app.get('/api/parts', async (req, res) => {
+  try {
+    const parts = await Part.find({});
+    res.json(parts);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error fetching parts' });
+  }
+});
+
+app.post('/api/parts', async (req, res) => {
+  try {
+    const newPart = new Part(req.body);
+    const saved = await newPart.save();
+    res.status(201).json(saved);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error creating part', error: error.message });
+  }
+});
+
+app.put('/api/parts/:partNumber', async (req, res) => {
+  try {
+    const updated = await Part.findOneAndUpdate({ partNumber: req.params.partNumber }, req.body, { new: true });
+    if (!updated) return res.status(404).json({ message: 'Part not found' });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error updating part', error: error.message });
+  }
+});
+
+app.delete('/api/parts/:partNumber', async (req, res) => {
+  try {
+    const deleted = await Part.findOneAndDelete({ partNumber: req.params.partNumber });
+    if (!deleted) return res.status(404).json({ message: 'Part not found' });
+    res.json({ message: 'Part deleted successfully', part: deleted });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error deleting part', error: error.message });
+  }
+});
+
+// CRUD for Mechanics
+app.get('/api/mechanics', async (req, res) => {
+  try {
+    const mechanics = await Mechanic.find({});
+    res.json(mechanics);
+  } catch (error) {
+    res.status(550).json({ message: 'Server Error fetching mechanics' });
+  }
+});
+
+app.post('/api/mechanics', async (req, res) => {
+  try {
+    const newMechanic = new Mechanic(req.body);
+    const saved = await newMechanic.save();
+    res.status(201).json(saved);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error creating mechanic', error: error.message });
+  }
+});
+
+app.put('/api/mechanics/:id', async (req, res) => {
+  try {
+    const updated = await Mechanic.findOneAndUpdate({ id: req.params.id }, req.body, { new: true });
+    if (!updated) return res.status(404).json({ message: 'Mechanic not found' });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error updating mechanic', error: error.message });
+  }
+});
+
+app.delete('/api/mechanics/:id', async (req, res) => {
+  try {
+    const deleted = await Mechanic.findOneAndDelete({ id: req.params.id });
+    if (!deleted) return res.status(404).json({ message: 'Mechanic not found' });
+    res.json({ message: 'Mechanic deleted successfully', mechanic: deleted });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error deleting mechanic', error: error.message });
+  }
+});
+
+// CRUD for Sales
+app.get('/api/sales', async (req, res) => {
+  try {
+    const sales = await Sale.find({});
+    res.json(sales);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error fetching sales' });
+  }
+});
+
+app.post('/api/sales', async (req, res) => {
+  try {
+    const newSale = new Sale(req.body);
+    const saved = await newSale.save();
+    res.status(201).json(saved);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error creating sale', error: error.message });
+  }
+});
+
+app.put('/api/sales/:invoiceNo', async (req, res) => {
+  try {
+    const updated = await Sale.findOneAndUpdate({ invoiceNo: req.params.invoiceNo }, req.body, { new: true });
+    if (!updated) return res.status(404).json({ message: 'Sale record not found' });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error updating sale', error: error.message });
+  }
+});
+
+app.delete('/api/sales/:invoiceNo', async (req, res) => {
+  try {
+    const deleted = await Sale.findOneAndDelete({ invoiceNo: req.params.invoiceNo });
+    if (!deleted) return res.status(404).json({ message: 'Sale record not found' });
+    res.json({ message: 'Sale record deleted successfully', sale: deleted });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error deleting sale', error: error.message });
+  }
+});
+
+// CRUD for Job Cards
+app.get('/api/jobcards', async (req, res) => {
+  try {
+    const jobcards = await JobCard.find({});
+    res.json(jobcards);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error fetching jobcards' });
+  }
+});
+
+app.post('/api/jobcards', async (req, res) => {
+  try {
+    const newJc = new JobCard(req.body);
+    const saved = await newJc.save();
+    res.status(201).json(saved);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error creating jobcard', error: error.message });
+  }
+});
+
+app.put('/api/jobcards/:jcNumber', async (req, res) => {
+  try {
+    const updated = await JobCard.findOneAndUpdate({ jcNumber: req.params.jcNumber }, req.body, { new: true });
+    if (!updated) return res.status(404).json({ message: 'JobCard not found' });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error updating jobcard', error: error.message });
+  }
+});
+
+app.delete('/api/jobcards/:jcNumber', async (req, res) => {
+  try {
+    const deleted = await JobCard.findOneAndDelete({ jcNumber: req.params.jcNumber });
+    if (!deleted) return res.status(404).json({ message: 'JobCard not found' });
+    res.json({ message: 'JobCard deleted successfully', jobcard: deleted });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error deleting jobcard', error: error.message });
   }
 });
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AddJobCard } from './AddJobCard';
 import { OpenJobCards } from './OpenJobCards';
 import { CompletedJobs } from './CompletedJobs';
@@ -51,58 +51,23 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
   const [isCreatingJobCard, setIsCreatingJobCard] = useState(false);
   const [showLiveTable, setShowLiveTable] = useState(true);
 
-  const [jobCards, setJobCards] = useState<JobCard[]>([
-    {
-      jcNumber: 'JC-2023-8841',
-      inTime: '09:15 AM',
-      customerName: 'Mohan Logistics',
-      vehicleModel: 'Eicher Pro 3015',
-      vehicleReg: 'MH-12-PQ-9042',
-      complaintSummary: 'Brake liner replacement & general inspection',
-      mechanicName: 'Amit S.',
-      mechanicInitials: 'AM',
-      status: 'WORKING',
-      expectedDelivery: 'Today, 04:30 PM'
-    },
-    {
-      jcNumber: 'JC-2023-8845',
-      inTime: '10:30 AM',
-      customerName: 'Raj Express',
-      vehicleModel: 'Eicher Pro 2049',
-      vehicleReg: 'DL-1C-AA-5582',
-      complaintSummary: 'Periodic Maintenance Service (PMS-40k)',
-      mechanicName: 'Suresh G.',
-      mechanicInitials: 'SG',
-      status: 'WAITING PARTS',
-      expectedDelivery: 'Delayed: Oct 25',
-      isDelayed: true
-    },
-    {
-      jcNumber: 'JC-2023-8848',
-      inTime: '11:15 AM',
-      customerName: 'Pooja Transports',
-      vehicleModel: 'Eicher Skyline Pro',
-      vehicleReg: 'UP-16-BT-0021',
-      complaintSummary: 'Suspension noise & Steering alignment check',
-      mechanicName: 'Abdul R.',
-      mechanicInitials: 'AR',
-      status: 'ASSIGNED',
-      expectedDelivery: 'Oct 26, 11:00 AM'
-    },
-    {
-      jcNumber: 'JC-2023-8839',
-      inTime: '08:00 AM',
-      customerName: 'Shiva Carriers',
-      vehicleModel: 'Eicher Pro 6028',
-      vehicleReg: 'KA-01-EE-1234',
-      complaintSummary: 'Air conditioning service & cabin filter swap',
-      mechanicName: 'Vikram S.',
-      mechanicInitials: 'VS',
-      status: 'COMPLETED',
-      expectedDelivery: 'Ready for Pick-up',
-      readyForPickup: true
-    }
-  ]);
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const [jobCards, setJobCards] = useState<JobCard[]>([]);
+
+  const fetchJobCards = () => {
+    fetch(`${API_URL}/api/jobcards`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setJobCards(data);
+        }
+      })
+      .catch(err => console.error('Error fetching job cards:', err));
+  };
+
+  useEffect(() => {
+    fetchJobCards();
+  }, []);
 
   const filteredJobCards = jobCards.filter(jc => {
     if (statusFilter !== 'All' && jc.status !== statusFilter) return false;
@@ -119,14 +84,16 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
   });
 
   const handleRefresh = () => {
-    // Re-set initial state or mock refresh
+    fetchJobCards();
     alert('Live data reloaded successfully!');
   };
 
 
   const handleDeleteJc = (num: string) => {
     if (window.confirm(`Are you sure you want to delete Job Card ${num}?`)) {
-      setJobCards(jobCards.filter(jc => jc.jcNumber !== num));
+      fetch(`${API_URL}/api/jobcards/${num}`, { method: 'DELETE' })
+        .then(() => fetchJobCards())
+        .catch(err => console.error('Error deleting job card:', err));
     }
   };
 
@@ -135,8 +102,16 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
       <AddJobCard
         onBack={() => setIsCreatingJobCard(false)}
         onSave={(newJc) => {
-          setJobCards([newJc, ...jobCards]);
-          setIsCreatingJobCard(false);
+          fetch(`${API_URL}/api/jobcards`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newJc)
+          })
+            .then(() => {
+              fetchJobCards();
+              setIsCreatingJobCard(false);
+            })
+            .catch(err => console.error('Error saving job card:', err));
         }}
       />
     );

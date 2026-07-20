@@ -362,6 +362,8 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
   const [editExecutive, setEditExecutive] = useState('');
 
   // Handle click edit
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
   const handleEditClick = (sale: SaleRecord) => {
     setEditingSale(sale);
     setEditCustomer(sale.customerName);
@@ -378,24 +380,25 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
     e.preventDefault();
     if (!editingSale) return;
 
-    const updated = sales.map(s => {
-      if (s.invoiceNo === editingSale.invoiceNo) {
-        return {
-          ...s,
-          customerName: editCustomer,
-          vehicleModel: editVehicle,
-          status: editStatus,
-          grandTotal: editTotal,
-          district: editDistrict,
-          deliveryDate: editDeliveryDate,
-          salesExecutive: editExecutive
-        };
-      }
-      return s;
-    });
-
-    setSales(updated);
-    setEditingSale(null);
+    fetch(`${API_URL}/api/sales/${editingSale.invoiceNo}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customerName: editCustomer,
+        vehicleModel: editVehicle,
+        status: editStatus,
+        grandTotal: editTotal,
+        district: editDistrict,
+        deliveryDate: editDeliveryDate,
+        salesExecutive: editExecutive
+      })
+    })
+      .then(res => res.json())
+      .then(data => {
+        setSales(sales.map(s => s.invoiceNo === editingSale.invoiceNo ? data : s));
+        setEditingSale(null);
+      })
+      .catch(err => console.error('Error saving edited sale:', err));
   };
 
   // Trigger print window helper
@@ -443,18 +446,27 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
       salesExecutive: 'Vikram Singh'
     };
 
-    setSales([newRecord, ...sales]);
-    setIsRegisteringSale(false);
+    fetch(`${API_URL}/api/sales`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newRecord)
+    })
+      .then(res => res.json())
+      .then(data => {
+        setSales([data, ...sales]);
+        setIsRegisteringSale(false);
 
-    // Reset fields
-    setRegFullName('');
-    setRegMobile('');
-    setRegAddress('');
-    setRegGst('');
-    setRegEmail('');
-    setRegDeliveryDate('');
-    setRegInternalNotes('');
-    setRegAdvancePaid('50000');
+        // Reset fields
+        setRegFullName('');
+        setRegMobile('');
+        setRegAddress('');
+        setRegGst('');
+        setRegEmail('');
+        setRegDeliveryDate('');
+        setRegInternalNotes('');
+        setRegAdvancePaid('50000');
+      })
+      .catch(err => console.error('Error registering sale:', err));
   };
 
   // 1. View state switcher: New Sale Registration

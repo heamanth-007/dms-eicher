@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Users,
   CheckCircle,
@@ -56,6 +56,24 @@ interface MechanicType {
 }
 
 export const Mechanics: React.FC = () => {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const [mechanics, setMechanics] = useState<MechanicType[]>([]);
+
+  const fetchMechanics = () => {
+    fetch(`${API_URL}/api/mechanics`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setMechanics(data);
+        }
+      })
+      .catch(err => console.error('Error fetching mechanics:', err));
+  };
+
+  useEffect(() => {
+    fetchMechanics();
+  }, []);
+
   const [showToast, setShowToast] = useState(true);
   const [isRegistering, setIsRegistering] = useState(false);
   const [currentView, setCurrentView] = useState<'list' | 'jobs' | 'assign' | 'completed'>('list');
@@ -224,48 +242,58 @@ export const Mechanics: React.FC = () => {
   const [joiningDate, setJoiningDate] = useState('');
   const [status, setStatus] = useState('Active');
 
-  const mechanicsData: MechanicType[] = [
-    {
-      id: 'MEC-8842',
-      name: 'John Ramirez',
-      phone: '+1 (555) 012-3456',
-      initials: 'JR',
-      avatarBg: 'bg-blue-100 text-blue-600',
-      experience: '8 Years (Senior)',
-      status: 'Available',
-      jobs: 0
-    },
-    {
-      id: 'MEC-8843',
-      name: 'Sarah Williams',
-      phone: '+1 (555) 012-7890',
-      initials: 'SW',
-      avatarBg: 'bg-purple-100 text-purple-650',
-      experience: '4 Years (Mid)',
-      status: 'Busy',
-      jobs: 2
-    },
-    {
-      id: 'MEC-8844',
-      name: 'Michael Tan',
-      phone: '+1 (555) 012-1122',
-      initials: 'MT',
-      avatarBg: 'bg-teal-100 text-teal-600',
-      experience: '12 Years (Expert)',
-      status: 'Inactive',
-      jobs: 0
-    },
-    {
-      id: 'MEC-8845',
-      name: 'Anita Patel',
-      phone: '+1 (555) 012-3344',
-      initials: 'AP',
-      avatarBg: 'bg-orange-100 text-orange-600',
-      experience: '2 Years (Junior)',
-      status: 'Available',
-      jobs: 0
+  // mechanicsData removed to use dynamic db state
+  
+  const handleSaveMechanic = () => {
+    if (!fullName || !phoneNumber) {
+      alert('Please enter Name and Phone Number.');
+      return;
     }
-  ];
+
+    const newId = `MEC-${Math.floor(1000 + Math.random() * 9000)}`;
+    const initials = fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    
+    // Choose a random color for avatar
+    const colors = ['bg-emerald-100 text-emerald-600', 'bg-orange-100 text-orange-600', 'bg-rose-100 text-rose-600', 'bg-blue-100 text-blue-600'];
+    const avatarBg = colors[Math.floor(Math.random() * colors.length)];
+
+    const payload = {
+      id: newId,
+      name: fullName,
+      phone: phoneNumber,
+      initials,
+      avatarBg,
+      experience: experienceYears ? `${experienceYears} Years` : '1 Year',
+      status: 'Available',
+      jobs: 0
+    };
+
+    fetch(`${API_URL}/api/mechanics`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(res => res.json())
+      .then(() => {
+        fetchMechanics();
+        setIsRegistering(false);
+        handleResetForm();
+      })
+      .catch(err => console.error('Error saving mechanic:', err));
+  };
+
+  const handleDeleteMechanic = (id: string) => {
+    if (window.confirm('Are you sure you want to delete this mechanic?')) {
+      fetch(`${API_URL}/api/mechanics/${id}`, {
+        method: 'DELETE'
+      })
+        .then(res => res.json())
+        .then(() => {
+          fetchMechanics();
+        })
+        .catch(err => console.error('Error deleting mechanic:', err));
+    }
+  };
 
   const departmentLoadBars = [
     { height: '35%', label: '9 AM' },
@@ -523,7 +551,7 @@ export const Mechanics: React.FC = () => {
                 </button>
 
                 <button
-                  onClick={() => setIsRegistering(false)}
+                  onClick={handleSaveMechanic}
                   className="flex items-center gap-2 px-6 py-2.5 bg-[#184edb] hover:bg-[#143eb3] text-white font-bold rounded-lg text-[14.5px] cursor-pointer transition-all border-none shadow-sm"
                 >
                   <Save size={16} />
@@ -1688,7 +1716,7 @@ export const Mechanics: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-[14px]">
-              {mechanicsData.map((m) => (
+              {mechanics.map((m) => (
                 <tr key={m.id} className="hover:bg-slate-50/50 transition-colors">
                   {/* ID */}
                   <td className="py-4 px-6 font-semibold text-slate-800 whitespace-nowrap">
@@ -1723,7 +1751,7 @@ export const Mechanics: React.FC = () => {
                     )}
                     {m.status === 'Busy' && (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold bg-orange-50 text-orange-600 border border-orange-100">
-                        <span className="w-1.5 h-1.5 rounded-full bg-orange-550" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
                         Busy
                       </span>
                     )}
@@ -1755,7 +1783,10 @@ export const Mechanics: React.FC = () => {
                       >
                         <ClipboardList size={16} />
                       </button>
-                      <button className="text-slate-400 hover:text-rose-600 p-0 border-none bg-transparent cursor-pointer">
+                      <button 
+                        onClick={() => handleDeleteMechanic(m.id)}
+                        className="text-slate-400 hover:text-rose-600 p-0 border-none bg-transparent cursor-pointer"
+                      >
                         <Trash2 size={16} />
                       </button>
                     </div>

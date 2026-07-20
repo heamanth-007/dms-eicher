@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Plus, 
   Search, 
@@ -43,8 +43,7 @@ export const CounterSales: React.FC = () => {
   // Bill items state initialized with the mockup items
   const [billItems, setBillItems] = useState<BillItem[]>([]);
 
-  // Product Catalog for Search/Select dropdown
-  const productCatalog = [
+  const productCatalogMock = [
     { name: "Synthetic Engine Oil (5W-40) | Part No: AC-OIL-772", code: "AC-OIL-772", price: 850.00, stock: 124, discount: 5, gst: 18, hsn: "2710" },
     { name: "High-Flow Air Filter | Part No: AF-K7-001", code: "AF-K7-001", price: 2400.00, stock: 45, discount: 5, gst: 28, hsn: "8421" },
     { name: "Periodic Maintenance Labor | Service: 20K Checkup", code: "PM-LABOR-01", price: 1500.00, stock: 80, discount: 5, gst: 18, hsn: "9987" },
@@ -56,7 +55,37 @@ export const CounterSales: React.FC = () => {
 
   // Active product entry selection
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedProduct, setSelectedProduct] = useState(productCatalog[0]);
+  const [catalog, setCatalog] = useState<any[]>(productCatalogMock);
+  const [selectedProduct, setSelectedProduct] = useState<any>(productCatalogMock[0]);
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/parts`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped = data.map((item: any) => ({
+            name: `${item.partName} | Part No: ${item.partNumber}`,
+            code: item.partNumber,
+            price: parseFloat(item.salePrice.replace(/[^0-9.]/g, '')) || 0,
+            stock: parseInt(item.stock.replace(/[^0-9]/g, ''), 10) || 0,
+            discount: 0,
+            gst: parseInt(item.gstPercent.replace(/[^0-9]/g, ''), 10) || 18,
+            hsn: item.hsnCode
+          }));
+          setCatalog(mapped);
+          setSelectedProduct(mapped[0]);
+        } else {
+          setCatalog(productCatalogMock);
+        }
+      })
+      .catch(err => {
+        console.error('Error fetching parts for catalog:', err);
+        setCatalog(productCatalogMock);
+      });
+  }, []);
+
   const [entryQty, setEntryQty] = useState<number | ''>('');
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const productSearchRef = useRef<HTMLInputElement>(null);
@@ -68,7 +97,7 @@ export const CounterSales: React.FC = () => {
   const [editDiscount, setEditDiscount] = useState(0);
 
   // Handle selecting product from dropdown
-  const handleSelectProduct = (product: typeof productCatalog[0]) => {
+  const handleSelectProduct = (product: any) => {
     setSelectedProduct(product);
     setSearchQuery(product.name);
     setShowProductDropdown(false);
@@ -195,14 +224,14 @@ export const CounterSales: React.FC = () => {
   });
 
   // Filter products for catalog search
-  const filteredCatalog = productCatalog.filter(p => 
+  const filteredCatalog = catalog.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     p.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Helper function to find matching HSN code
   const getHsnCode = (code: string) => {
-    const item = productCatalog.find(p => p.code === code);
+    const item = catalog.find(p => p.code === code);
     return item ? item.hsn : "8708"; // default automotive spare parts hsn
   };
 
