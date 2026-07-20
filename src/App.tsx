@@ -70,97 +70,38 @@ function App() {
     };
   }, []);
 
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
   // Lifted Suppliers states
-  const [suppliersList, setSuppliersList] = useState<SupplierType[]>([
-    {
-      id: 'SUP-9821',
-      name: 'AutoParts Direct Ltd.',
-      gstNumber: '27AADCA1234F1Z1',
-      phone: '+1 202-555-0156',
-      email: 'orders@autoparts.com',
-      outstanding: '$12,450.00',
-      isOutstandingPositive: true,
-      status: 'ACTIVE'
-    },
-    {
-      id: 'SUP-7742',
-      name: 'Global Engine Spares',
-      gstNumber: '19BBEDA4432A1Z9',
-      phone: '+1 555-0198-2210',
-      email: 'billing@globalspares.co',
-      outstanding: '$0.00',
-      isOutstandingPositive: false,
-      status: 'ACTIVE'
-    },
-    {
-      id: 'SUP-3321',
-      name: 'Premium Lubricants Int.',
-      gstNumber: '33CCDFA5567G2Z0',
-      phone: '+1 212-701-0099',
-      email: 'contact@premiumlubes.com',
-      outstanding: '$4,200.00',
-      isOutstandingPositive: true,
-      status: 'INACTIVE'
-    },
-    {
-      id: 'SUP-1102',
-      name: 'Zenith Tire Solutions',
-      gstNumber: '07AABBA9999K3Z2',
-      phone: '+1 415-888-0123',
-      email: 'zenith@tires.co',
-      outstanding: '$26,200.00',
-      isOutstandingPositive: true,
-      status: 'ACTIVE'
-    }
-  ]);
+  const [suppliersList, setSuppliersList] = useState<SupplierType[]>([]);
+
+  // Lifted Vehicle Sales state
+  const [salesRecords, setSalesRecords] = useState<SaleRecord[]>([]);
 
   // Lifted Service sub-tab and search state
   const [serviceSubTab, setServiceSubTab] = useState<'dashboard' | 'open-job-cards' | 'completed-jobs' | 'service-history'>('dashboard');
   const [serviceSearchTerm, setServiceSearchTerm] = useState('');
 
-  // Lifted Vehicle Sales state
-  const [salesRecords, setSalesRecords] = useState<SaleRecord[]>([
-    {
-      invoiceNo: '#INV-2023-0182',
-      customerName: 'Aditya Khanna',
-      vehicleModel: 'Eicher Pro 2049',
-      status: 'DELIVERED',
-      grandTotal: '₹17,43,450',
-      district: 'Central Valley',
-      deliveryDate: '24 Oct 2023',
-      salesExecutive: 'Vikram Singh'
-    },
-    {
-      invoiceNo: '#INV-2023-0180',
-      customerName: 'Karthik Reddy',
-      vehicleModel: 'Eicher Pro 3019',
-      status: 'DELIVERED',
-      grandTotal: '₹33,95,000',
-      district: 'Coastal Plains',
-      deliveryDate: '20 Oct 2023',
-      salesExecutive: 'Vikram Singh'
-    },
-    {
-      invoiceNo: '#INV-2023-0178',
-      customerName: 'Omkar Logistics Ltd',
-      vehicleModel: 'Eicher Pro 6028',
-      status: 'DELIVERED',
-      grandTotal: '₹54,25,000',
-      district: 'Northern Hills',
-      deliveryDate: '22 Oct 2023',
-      salesExecutive: 'Rajesh Kumar'
-    },
-    {
-      invoiceNo: '#INV-2023-0174',
-      customerName: 'Tejas Transports',
-      vehicleModel: 'Eicher Pro 6028',
-      status: 'PENDING',
-      grandTotal: '₹54,25,000',
-      district: 'Central Valley',
-      deliveryDate: 'Scheduled: 30 Oct 2023',
-      salesExecutive: 'Amit Gupta'
-    }
-  ]);
+  // Fetch initial suppliers and sales records
+  useEffect(() => {
+    fetch(`${API_URL}/api/suppliers`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setSuppliersList(data);
+        }
+      })
+      .catch((err) => console.error('Error fetching suppliers:', err));
+
+    fetch(`${API_URL}/api/sales`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setSalesRecords(data);
+        }
+      })
+      .catch((err) => console.error('Error fetching sales:', err));
+  }, []);
 
   const navigateToCustomer = (name: string) => {
     setSelectedCustomerName(name);

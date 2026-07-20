@@ -56,6 +56,9 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
   const [statusFilter, setStatusFilter] = useState('All Status');
   const [dateRange, setDateRange] = useState('');
 
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
+
   // Form Fields State
   const [formName, setFormName] = useState('');
   const [formGst, setFormGst] = useState('');
@@ -76,10 +79,6 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
   const [editZip, setEditZip] = useState('560100');
   const [editPaymentTerms, setEditPaymentTerms] = useState('Net 30 Days');
   const [editCreditLimit, setEditCreditLimit] = useState('5,000,000');
-
-
-
-
 
   const handleAddSupplier = () => {
     if (!formName || !formPhone) {
@@ -105,9 +104,18 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
       status: formStatus
     };
 
-    setSuppliersList([newSupplier, ...suppliersList]);
-    resetForm();
-    setView('list');
+    fetch(`${API_URL}/api/suppliers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newSupplier)
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setSuppliersList([data, ...suppliersList]);
+        resetForm();
+        setView('list');
+      })
+      .catch((err) => console.error('Error adding supplier:', err));
   };
 
   const resetForm = () => {
@@ -688,8 +696,16 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
           <button 
             type="button"
             onClick={() => {
+              if (!editingSupplierId) return;
               if (confirm("Are you sure you want to deactivate this supplier account?")) {
-                setView('list');
+                fetch(`${API_URL}/api/suppliers/${editingSupplierId}`, {
+                  method: 'DELETE'
+                })
+                  .then(() => {
+                    setSuppliersList(suppliersList.filter(s => s.id !== editingSupplierId));
+                    setView('list');
+                  })
+                  .catch((err) => console.error('Error deactivating supplier:', err));
               }
             }}
             className="flex items-center gap-2 text-[#dc2626] hover:text-[#b91c1c] font-bold text-[13.5px] transition-colors cursor-pointer bg-transparent border-0 outline-none"
@@ -709,8 +725,23 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
             <button
               type="button"
               onClick={() => {
-                alert('Supplier updated successfully!');
-                setView('list');
+                if (!editingSupplierId) return;
+                fetch(`${API_URL}/api/suppliers/${editingSupplierId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    name: editName,
+                    gstNumber: editGst,
+                    email: editEmail
+                  })
+                })
+                  .then((res) => res.json())
+                  .then((data) => {
+                    setSuppliersList(suppliersList.map(s => s.id === editingSupplierId ? { ...s, ...data } : s));
+                    alert('Supplier updated successfully!');
+                    setView('list');
+                  })
+                  .catch((err) => console.error('Error updating supplier:', err));
               }}
               className="flex items-center gap-2 bg-[#184edb] hover:bg-[#1544c2] text-white font-bold text-[13.5px] px-6 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer"
             >
@@ -997,7 +1028,13 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
                           <Eye size={18} />
                         </button>
                         <button 
-                          onClick={() => setView('edit')}
+                          onClick={() => {
+                            setEditingSupplierId(supplier.id);
+                            setEditName(supplier.name);
+                            setEditGst(supplier.gstNumber);
+                            setEditEmail(supplier.email);
+                            setView('edit');
+                          }}
                           title="Edit Supplier"
                           className="text-[#64748b] hover:text-[#0f172a] transition-colors cursor-pointer bg-transparent border-none p-1"
                         >

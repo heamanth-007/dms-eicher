@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Package,
   Layers,
@@ -40,6 +40,24 @@ interface PartType {
 }
 
 export const SpareParts: React.FC = () => {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const [parts, setParts] = useState<PartType[]>([]);
+
+  const fetchParts = () => {
+    fetch(`${API_URL}/api/parts`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setParts(data);
+        }
+      })
+      .catch(err => console.error('Error fetching parts:', err));
+  };
+
+  useEffect(() => {
+    fetchParts();
+  }, []);
+
   const [activeSubTab, setActiveSubTab] = useState<'history' | 'live' | 'orders'>('live');
   const [isAdding, setIsAdding] = useState(false);
   const [editingPart, setEditingPart] = useState<string | null>(null);
@@ -48,56 +66,105 @@ export const SpareParts: React.FC = () => {
   const [selectedBrand, setSelectedBrand] = useState('All Brands');
   const [statusTab, setStatusTab] = useState<'All' | 'In Stock' | 'Low Stock' | 'Out of Stock'>('All');
 
-  const partsData: PartType[] = [
-    {
-      partNumber: 'SP-99231-A',
-      partName: 'Oil Filter Premium',
+  // Find the part currently being edited to prefill fields
+  const currentEditingPartObj = parts.find(p => p.partNumber === editingPart);
+
+  const handleSavePart = () => {
+    const nameEl = document.getElementById('add-part-name') as HTMLInputElement;
+    const purchasePriceEl = document.getElementById('add-purchase-price') as HTMLInputElement;
+    const salePriceEl = document.getElementById('add-sale-price') as HTMLInputElement;
+    const hsnEl = document.getElementById('add-hsn-code') as HTMLInputElement;
+    const stockEl = document.getElementById('add-stock') as HTMLInputElement;
+
+    if (!nameEl?.value) {
+      alert('Please enter a Part Name.');
+      return;
+    }
+
+    const randomNum = `SP-${Math.floor(10000 + Math.random() * 90000)}`;
+    const parsedStock = parseInt(stockEl?.value || '0', 10);
+    const stockStatusVal = parsedStock === 0 ? 'out' : parsedStock < 15 ? 'low' : 'normal';
+
+    const newPart = {
+      partNumber: randomNum,
+      partName: nameEl.value,
       category: 'Consumables',
       brand: 'Bosch',
-      hsnCode: '842123',
+      hsnCode: hsnEl?.value || '842123',
       gstPercent: '18%',
-      purchasePrice: '$12.50',
-      salePrice: '$24.99',
-      stock: '1,240',
-      stockStatus: 'normal'
-    },
-    {
-      partNumber: 'BR-44102-X',
-      partName: 'Ceramic Brake Pads Rear',
-      category: 'Braking System',
-      brand: 'Brembo',
-      hsnCode: '870830',
-      gstPercent: '12%',
-      purchasePrice: '$85.00',
-      salePrice: '$149.00',
-      stock: '12',
-      stockStatus: 'low'
-    },
-    {
-      partNumber: 'EL-10552-C',
-      partName: 'Iridium Spark Plug (Set of 4)',
-      category: 'Electrical',
-      brand: 'NGK',
-      hsnCode: '851110',
-      gstPercent: '18%',
-      purchasePrice: '$42.20',
-      salePrice: '$78.50',
-      stock: '0',
-      stockStatus: 'out'
-    },
-    {
-      partNumber: 'SU-77021-M',
-      partName: 'Front Shock Absorber',
-      category: 'Suspension',
-      brand: 'Monroe',
-      hsnCode: '870880',
-      gstPercent: '18%',
-      purchasePrice: '$115.00',
-      salePrice: '$195.00',
-      stock: '45',
-      stockStatus: 'normal'
+      purchasePrice: purchasePriceEl?.value ? `$${purchasePriceEl.value}` : '$0.00',
+      salePrice: salePriceEl?.value ? `$${salePriceEl.value}` : '$0.00',
+      stock: parsedStock.toLocaleString(),
+      stockStatus: stockStatusVal
+    };
+
+    fetch(`${API_URL}/api/parts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newPart)
+    })
+      .then(res => res.json())
+      .then(() => {
+        fetchParts();
+        setIsAdding(false);
+      })
+      .catch(err => console.error('Error saving part:', err));
+  };
+
+  const handleUpdatePart = () => {
+    if (!editingPart) return;
+
+    const nameEl = document.getElementById('edit-part-name') as HTMLInputElement;
+    const purchasePriceEl = document.getElementById('edit-purchase-price') as HTMLInputElement;
+    const salePriceEl = document.getElementById('edit-sale-price') as HTMLInputElement;
+    const hsnEl = document.getElementById('edit-hsn-code') as HTMLInputElement;
+    const stockEl = document.getElementById('edit-stock') as HTMLInputElement;
+
+    if (!nameEl?.value) {
+      alert('Please enter a Part Name.');
+      return;
     }
-  ];
+
+    const parsedStock = parseInt(stockEl?.value || '0', 10);
+    const stockStatusVal = parsedStock === 0 ? 'out' : parsedStock < 15 ? 'low' : 'normal';
+
+    const updatedFields = {
+      partName: nameEl.value,
+      hsnCode: hsnEl?.value || '842123',
+      purchasePrice: purchasePriceEl?.value ? (purchasePriceEl.value.startsWith('$') ? purchasePriceEl.value : `$${purchasePriceEl.value}`) : '$0.00',
+      salePrice: salePriceEl?.value ? (salePriceEl.value.startsWith('$') ? salePriceEl.value : `$${salePriceEl.value}`) : '$0.00',
+      stock: parsedStock.toLocaleString(),
+      stockStatus: stockStatusVal
+    };
+
+    fetch(`${API_URL}/api/parts/${editingPart}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedFields)
+    })
+      .then(res => res.json())
+      .then(() => {
+        fetchParts();
+        setEditingPart(null);
+      })
+      .catch(err => console.error('Error updating part:', err));
+  };
+
+  const handleDeletePart = () => {
+    if (!editingPart) return;
+    if (window.confirm(`Are you sure you want to delete spare part ${editingPart}?`)) {
+      fetch(`${API_URL}/api/parts/${editingPart}`, {
+        method: 'DELETE'
+      })
+        .then(() => {
+          fetchParts();
+          setEditingPart(null);
+        })
+        .catch(err => console.error('Error deleting part:', err));
+    }
+  };
+
+  // partsData removed and connected to DB state
 
   if (editingPart) {
     return (
@@ -128,14 +195,14 @@ export const SpareParts: React.FC = () => {
               Cancel
             </button>
             <button
-              onClick={() => setEditingPart(null)}
+              onClick={handleDeletePart}
               className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-red-50 border border-red-200 text-[#dc2626] font-bold rounded-lg text-[13.5px] cursor-pointer transition-colors shadow-sm"
             >
               <Trash2 size={16} />
               <span>Delete Spare Part</span>
             </button>
             <button
-              onClick={() => setEditingPart(null)}
+              onClick={handleUpdatePart}
               className="flex items-center gap-2 px-6 py-2.5 bg-[#184edb] hover:bg-[#143eb3] text-white font-bold rounded-lg text-[13.5px] border-none shadow-sm cursor-pointer transition-colors"
             >
               <Save size={16} />
@@ -162,7 +229,8 @@ export const SpareParts: React.FC = () => {
                     <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider font-sans">Part Name</label>
                     <input
                       type="text"
-                      defaultValue="Brake Pad - Front"
+                      id="edit-part-name"
+                      defaultValue={currentEditingPartObj?.partName || 'Brake Pad - Front'}
                       className="w-full px-4 py-2.5 text-[14px] bg-[#f1f4fd] border border-slate-200 rounded-lg text-slate-800 font-semibold focus:outline-none focus:border-[#184edb] transition-colors"
                     />
                   </div>
@@ -172,8 +240,11 @@ export const SpareParts: React.FC = () => {
                     <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider font-sans">Part Number / SKU</label>
                     <input
                       type="text"
-                      defaultValue="BP-FR-2024-X"
-                      className="w-full px-4 py-2.5 text-[14px] bg-[#f1f4fd] border border-slate-200 rounded-lg text-slate-800 font-semibold focus:outline-none focus:border-[#184edb] transition-colors"
+                      id="edit-part-number"
+                      value={currentEditingPartObj?.partNumber || 'BP-FR-2024-X'}
+                      disabled
+                      readOnly
+                      className="w-full px-4 py-2.5 text-[14px] bg-[#f1f4fd] border border-slate-200 rounded-lg text-slate-500 font-semibold focus:outline-none"
                     />
                   </div>
                 </div>
@@ -244,7 +315,8 @@ export const SpareParts: React.FC = () => {
                   <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider font-sans">Purchase Price ($)</label>
                   <input
                     type="text"
-                    defaultValue="$ 45.00"
+                    id="edit-purchase-price"
+                    defaultValue={currentEditingPartObj?.purchasePrice || '$ 45.00'}
                     className="w-full px-4 py-2.5 text-[14px] bg-[#f1f4fd] border border-slate-200 rounded-lg text-slate-800 font-semibold focus:outline-none focus:border-[#184edb] transition-colors"
                   />
                 </div>
@@ -254,7 +326,8 @@ export const SpareParts: React.FC = () => {
                   <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider font-sans">Selling Price ($)</label>
                   <input
                     type="text"
-                    defaultValue="$ 89.99"
+                    id="edit-sale-price"
+                    defaultValue={currentEditingPartObj?.salePrice || '$ 89.99'}
                     className="w-full px-4 py-2.5 text-[14px] bg-[#f1f4fd] border border-slate-200 rounded-lg text-slate-800 font-semibold focus:outline-none focus:border-[#184edb] transition-colors"
                   />
                 </div>
@@ -290,7 +363,8 @@ export const SpareParts: React.FC = () => {
                   <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider font-sans">Minimum Alert Threshold</label>
                   <input
                     type="text"
-                    defaultValue="20"
+                    id="edit-stock"
+                    defaultValue={currentEditingPartObj?.stock || '20'}
                     className="w-full px-4 py-2.5 text-[14px] bg-[#f1f4fd] border border-slate-200 rounded-lg text-slate-800 font-semibold focus:outline-none focus:border-[#184edb] transition-colors"
                   />
                 </div>
@@ -400,6 +474,7 @@ export const SpareParts: React.FC = () => {
                     <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">Part Name</label>
                     <input
                       type="text"
+                      id="add-part-name"
                       placeholder="e.g. Front Brake Pads"
                       className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-255 rounded-lg text-slate-850 focus:outline-none focus:border-[#184edb] transition-colors"
                     />
@@ -475,6 +550,7 @@ export const SpareParts: React.FC = () => {
                     <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">Purchase Price ($)</label>
                     <input
                       type="text"
+                      id="add-purchase-price"
                       placeholder="0.00"
                       className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-255 rounded-lg text-slate-850 focus:outline-none focus:border-[#184edb] transition-colors"
                     />
@@ -485,6 +561,7 @@ export const SpareParts: React.FC = () => {
                     <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">Sale Price ($)</label>
                     <input
                       type="text"
+                      id="add-sale-price"
                       placeholder="0.00"
                       className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-255 rounded-lg text-slate-850 focus:outline-none focus:border-[#184edb] transition-colors"
                     />
@@ -503,6 +580,7 @@ export const SpareParts: React.FC = () => {
                     <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">HSN Code</label>
                     <input
                       type="text"
+                      id="add-hsn-code"
                       placeholder="e.g. 8708"
                       className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-255 rounded-lg text-slate-855 focus:outline-none focus:border-[#184edb] transition-colors"
                     />
@@ -543,8 +621,9 @@ export const SpareParts: React.FC = () => {
                   <div className="relative">
                     <input
                       type="text"
+                      id="add-stock"
                       placeholder="0"
-                      className="w-full pl-4 pr-16 py-2.5 text-[14px] bg-white border border-slate-255 rounded-lg text-slate-850 focus:outline-none focus:border-[#184edb] transition-colors font-semibold"
+                      className="w-full pl-4 pr-16 py-2.5 text-[14px] bg-white border border-slate-255 rounded-lg text-slate-855 focus:outline-none focus:border-[#184edb] transition-colors font-semibold"
                     />
                     <span className="absolute inset-y-0 right-4 flex items-center text-slate-450 font-bold text-[13.5px]">
                       Units
@@ -594,14 +673,14 @@ export const SpareParts: React.FC = () => {
             {/* Save Actions Panel */}
             <div className="bg-[#184edb] rounded-xl p-5 flex flex-col gap-3.5 box-border shadow-md">
               <button
-                onClick={() => setIsAdding(false)}
+                onClick={handleSavePart}
                 className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-white hover:bg-slate-50 text-[#184edb] font-bold rounded-lg text-[14px] cursor-pointer transition-colors border-none shadow-sm"
               >
                 <Save size={16} />
                 <span>Save Changes</span>
               </button>
               <button
-                onClick={() => setIsAdding(false)}
+                onClick={handleSavePart}
                 className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-[#113bb3] hover:bg-[#0c2a80] text-white font-bold rounded-lg text-[14px] cursor-pointer transition-colors border-none"
               >
                 <PlusCircle size={16} />
@@ -1213,7 +1292,7 @@ export const SpareParts: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-[14px]">
-                  {partsData.map((part) => (
+                  {parts.map((part) => (
                     <tr key={part.partNumber} className="hover:bg-slate-50/50 transition-colors">
                       {/* Part Number */}
                       <td
