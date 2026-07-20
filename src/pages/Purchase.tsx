@@ -322,7 +322,6 @@ export const Purchase: React.FC = () => {
   const [newPoSupplier, setNewPoSupplier] = useState('Precision Parts Co.');
   const [newPoDate, setNewPoDate] = useState('Oct 26, 2023');
 
-
   const [newPoTerms, setNewPoTerms] = useState('Net 30');
   const [newPoRemarks, setNewPoRemarks] = useState('');
   const [newPoAdditionalCharges, setNewPoAdditionalCharges] = useState(45.00);
@@ -389,7 +388,6 @@ export const Purchase: React.FC = () => {
 
   // List of suppliers for dropdown
   const suppliersList = ['All', 'Precision Parts Co.', 'Elite Motors Wholesale', 'Global Tyres Ltd.', 'Apex Hydraulics', 'Standard Engines Co.'];
-
 
 
   // Handle New Return Submit
