@@ -827,7 +827,7 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
           <div className="flex items-start justify-between">
             <div className="flex flex-col gap-1">
               <span className="text-[11px] font-bold text-[#64748b] tracking-wider uppercase">TOTAL SUPPLIERS</span>
-              <span className="text-[32px] font-extrabold text-[#0f172a] leading-none mt-1">284</span>
+              <span className="text-[32px] font-extrabold text-[#0f172a] leading-none mt-1">84</span>
             </div>
             <div className="bg-[#eff6ff] p-2.5 rounded-lg flex items-center justify-center">
               <Users size={20} className="text-[#184edb]" />
@@ -844,7 +844,7 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
           <div className="flex items-start justify-between">
             <div className="flex flex-col gap-1">
               <span className="text-[11px] font-bold text-[#64748b] tracking-wider uppercase">ACTIVE SUPPLIERS</span>
-              <span className="text-[32px] font-extrabold text-[#0f172a] leading-none mt-1">261</span>
+              <span className="text-[32px] font-extrabold text-[#0f172a] leading-none mt-1">78</span>
             </div>
             <div className="bg-[#eff6ff] p-2.5 rounded-lg flex items-center justify-center">
               <BadgeCheck size={20} className="text-[#184edb]" />

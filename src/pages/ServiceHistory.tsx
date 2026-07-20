@@ -181,7 +181,7 @@ export const ServiceHistory: React.FC<ServiceHistoryProps> = ({ onBack, searchTe
         <div className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/60 flex items-center justify-between min-h-[85px] box-border relative">
           <div className="flex flex-col">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Closed Jobs</span>
-            <span className="text-2xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">1,248</span>
+            <span className="text-2xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">18</span>
           </div>
           <div className="bg-blue-50 text-[#184edb] p-2.5 rounded-xl flex items-center justify-center">
             <ClipboardList size={20} />

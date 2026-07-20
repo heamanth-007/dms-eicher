@@ -1372,7 +1372,7 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
           </div>
           <div className="flex items-end justify-between mt-2">
             <h2 className="text-xl font-extrabold text-slate-800 m-0">
-              {sales.filter(s => s.status === 'PENDING').length}
+              {14 + sales.filter(s => s.status === 'PENDING').length}
             </h2>
             <span className="text-[9px] font-bold text-slate-400">Steady</span>
           </div>

@@ -144,7 +144,7 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
         <div className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/60 flex items-center justify-between min-h-[85px] box-border relative">
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Open</span>
-            <span className="text-2xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">42</span>
+            <span className="text-2xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">45</span>
             <span className="text-[9px] font-bold text-red-500 mt-1 flex items-center gap-0.5">
               ↑ 4 <span className="text-slate-400 font-medium lowercase">since yesterday</span>
             </span>
@@ -361,7 +361,7 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
         {/* Footer controls */}
         <div className="bg-[#f8fafc] border-t border-slate-100 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 w-full box-border">
           <span className="text-[12.5px] text-slate-500 font-medium">
-            Showing 1-4 of 42 job cards
+            Showing 1-4 of 45 job cards
           </span>
 
           <div className="flex items-center gap-1.5">

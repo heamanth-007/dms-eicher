@@ -459,7 +459,7 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold text-slate-400 tracking-wider">TOTAL OUTSTANDING</span>
-            <h3 className="text-2xl font-extrabold text-slate-800 m-0">₹248.5K</h3>
+            <h3 className="text-2xl font-extrabold text-slate-800 m-0">₹2.1L</h3>
             <span className="text-[10.5px] font-bold text-red-600 flex items-center gap-1 mt-0.5">
               <AlertCircle size={12} /> 8 Critical Overdue
             </span>

@@ -208,7 +208,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
         >
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Open Job Cards</span>
-            <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">42</span>
+            <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">45</span>
           </div>
           <div className="flex flex-col items-end gap-2.5">
             <div className="bg-blue-50 text-[#184edb] p-3 rounded-xl flex items-center justify-center">
@@ -308,7 +308,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
           </div>
           <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Pending Delivery</span>
-            <span className="text-lg font-bold text-slate-800 font-heading mt-0.5">5</span>
+            <span className="text-lg font-bold text-slate-800 font-heading mt-0.5">15</span>
           </div>
         </div>
 
@@ -706,7 +706,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
         {/* Footer controls */}
         <div className="bg-[#f8fafc] border-t border-slate-100 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 w-full box-border">
           <span className="text-[12.5px] text-slate-500 font-medium">
-            Showing 1-4 of 42 Job Cards
+            Showing 1-4 of 45 Job Cards
           </span>
 
           <div className="flex items-center gap-1.5">

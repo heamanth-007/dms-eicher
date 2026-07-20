@@ -35,47 +35,69 @@ interface SparePart {
 
 export const ServiceBilling: React.FC = () => {
   // Header info
-  const [billNo] = useState(() => `SB-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+  const [billNo] = useState('SB-2023-0045');
 
   // Customer & Vehicle State
-  const [customerName, setCustomerName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [jobCardNo] = useState(() => `JC-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
-  const [vehicleNo, setVehicleNo] = useState('');
-  const [model, setModel] = useState('');
-  const [serviceDate, setServiceDate] = useState(() => {
-    const today = new Date();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    const yyyy = today.getFullYear();
-    return `${mm}/${dd}/${yyyy}`;
-  });
-  const [engineNo, setEngineNo] = useState('');
-  const [chassisNo, setChassisNo] = useState('');
+  const [customerName, setCustomerName] = useState('Rahul Sharma');
+  const [phoneNumber, setPhoneNumber] = useState('+91 98765 43210');
+  const [jobCardNo] = useState('JC-2023-8842');
+  const [vehicleNo, setVehicleNo] = useState('DL 3C AW 1234');
+  const [model, setModel] = useState('Volvo XC90 B5');
+  const [serviceDate, setServiceDate] = useState('11/24/2023');
+  const [engineNo, setEngineNo] = useState('FN773429188');
+  const [chassisNo, setChassisNo] = useState('CH9921003442');
   const [assignedMechanic, setAssignedMechanic] = useState('Vikram Singh');
 
   // Mechanic Details State
-  const [serviceAdvisor, setServiceAdvisor] = useState('');
-  const [deliveryDate, setDeliveryDate] = useState(() => {
-    const today = new Date();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    const yyyy = today.getFullYear();
-    return `${mm}/${dd}/${yyyy}`;
-  });
-  const [deliveryTime, setDeliveryTime] = useState('');
+  const [serviceAdvisor, setServiceAdvisor] = useState('John Admin');
+  const [deliveryDate, setDeliveryDate] = useState('11/25/2023');
+  const [deliveryTime, setDeliveryTime] = useState('05:00 PM');
 
   // Labour Charges State
-  const [labourCharges, setLabourCharges] = useState<LabourCharge[]>([]);
+  const [labourCharges, setLabourCharges] = useState<LabourCharge[]>([
+    {
+      id: 'l-1',
+      type: 'Engine Tuning',
+      description: 'Complete engine diagnostics and optimization',
+      amount: 3000.00
+    },
+    {
+      id: 'l-2',
+      type: 'Brake Service',
+      description: 'Front brake pad cleaning and lubrication',
+      amount: 850.00
+    }
+  ]);
 
   // Spare Parts State
-  const [spareParts, setSpareParts] = useState<SparePart[]>([]);
+  const [spareParts, setSpareParts] = useState<SparePart[]>([
+    {
+      id: 'p-1',
+      partNo: 'P-VLO-9002',
+      name: 'Synthetic Engine Oil',
+      qty: 1,
+      price: 4800.00,
+      gstPercent: 18,
+      total: 5664.00,
+      stockStatus: 'Low Stock'
+    },
+    {
+      id: 'p-2',
+      partNo: 'P-FLT-8821',
+      name: 'High Performance Oil Filter',
+      qty: 1,
+      price: 1250.00,
+      gstPercent: 12,
+      total: 1400.00,
+      stockStatus: 'Available'
+    }
+  ]);
 
   // Remarks State
   const [remarks, setRemarks] = useState('');
 
   // Discount & Payment State
-  const [discountPercent, setDiscountPercent] = useState<string>('0');
+  const [discountPercent, setDiscountPercent] = useState<string>('5');
   const [paymentMode, setPaymentMode] = useState<'Cash' | 'Card' | 'UPI' | 'Net Banking'>('Cash');
 
   // Modals state
@@ -103,7 +125,7 @@ export const ServiceBilling: React.FC = () => {
 
   // --- DINAMIC CALCULATION OF TOTALS ---
   const labourTotal = labourCharges.reduce((acc, curr) => acc + curr.amount, 0);
-  
+
   // Calculate parts total dynamically based on quantity, price, and GST
   const calculatePartTotal = (qty: number, price: number, gst: number) => {
     const base = qty * price;
@@ -118,7 +140,7 @@ export const ServiceBilling: React.FC = () => {
   const subtotal = labourTotal + sparePartsTotal;
   const discountVal = parseFloat(discountPercent) || 0;
   const discountAmount = subtotal * (discountVal / 100);
-  
+
   // Combined GST is the sum of GST of parts
   const combinedGst = spareParts.reduce((acc, curr) => {
     return acc + (curr.qty * curr.price * (curr.gstPercent / 100));
@@ -261,10 +283,10 @@ export const ServiceBilling: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col lg:flex-row gap-8 p-8 bg-[#f8fafc] w-full box-border font-sans min-h-[calc(100vh-64px)]">
-      
+
       {/* LEFT COLUMN: Page Title, Stepper, and main sections */}
       <div className="flex-1 flex flex-col min-w-0 box-border">
-        
+
         {/* Breadcrumbs */}
         <div className="flex items-center gap-2 text-[13px] text-slate-400 font-semibold mb-2">
           <span>Dashboard</span>
@@ -284,10 +306,10 @@ export const ServiceBilling: React.FC = () => {
               Bill No: {billNo}
             </span>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <button
-              onClick={() => { if(window.confirm('Discard bill changes?')) window.location.reload(); }}
+              onClick={() => { if (window.confirm('Discard bill changes?')) window.location.reload(); }}
               className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-650 font-bold text-[13px] rounded-lg border border-slate-200 shadow-sm cursor-pointer transition-colors"
             >
               Cancel
@@ -311,7 +333,7 @@ export const ServiceBilling: React.FC = () => {
 
         {/* --- MAIN STEP CONTENT CARDS --- */}
         <div className="flex flex-col gap-8 w-full box-border">
-          
+
           {/* Card 1: Customer & Vehicle Information */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col gap-6">
             <h3 className="text-base font-extrabold text-slate-800 m-0 flex items-center gap-2 font-heading">
@@ -616,7 +638,7 @@ export const ServiceBilling: React.FC = () => {
                       <tr key={p.id} className="hover:bg-slate-50/30 transition-colors">
                         {/* Part No */}
                         <td className="py-4.5 px-5 font-semibold text-slate-500 whitespace-nowrap">{p.partNo}</td>
-                        
+
                         {/* Part Name with stock badge */}
                         <td className="py-4.5 px-5 whitespace-nowrap">
                           <div className="flex flex-col gap-1">
@@ -655,10 +677,10 @@ export const ServiceBilling: React.FC = () => {
 
                         {/* Price */}
                         <td className="py-4.5 px-5 text-right font-medium text-slate-650">₹{p.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                        
+
                         {/* GST */}
                         <td className="py-4.5 px-5 text-center font-semibold text-slate-600">{p.gstPercent}%</td>
-                        
+
                         {/* Total */}
                         <td className="py-4.5 px-5 text-right font-bold text-slate-900">
                           ₹{calculatePartTotal(p.qty, p.price, p.gstPercent).toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -717,7 +739,7 @@ export const ServiceBilling: React.FC = () => {
       {/* RIGHT COLUMN: Bill Summary Card */}
       <div className="w-full lg:w-96 flex-shrink-0 box-border">
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100/60 sticky top-[80px] flex flex-col gap-6 w-full box-border">
-          
+
           <h3 className="text-base font-extrabold text-slate-800 m-0 flex items-center gap-2 border-b border-slate-100 pb-3 font-heading">
             <FileText size={18} className="text-[#184edb]" />
             <span>Bill Summary</span>
@@ -729,12 +751,12 @@ export const ServiceBilling: React.FC = () => {
               <span>Labour Total:</span>
               <span className="text-slate-800 font-bold">₹{labourTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             </div>
-            
+
             <div className="flex items-center justify-between">
               <span>Spare Parts Total:</span>
               <span className="text-slate-800 font-bold">₹{sparePartsTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             </div>
-            
+
             <div className="flex items-center justify-between pt-1 border-t border-slate-50">
               <span>Subtotal:</span>
               <span className="text-slate-800 font-extrabold">₹{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
@@ -809,7 +831,7 @@ export const ServiceBilling: React.FC = () => {
             <Printer size={16} />
             <span>GENERATE & PRINT INVOICE</span>
           </button>
-          
+
           <span className="text-[11px] text-center text-slate-400 font-semibold italic mt-0.5 block">
             A digital copy will be sent to {phoneNumber}
           </span>
@@ -834,9 +856,9 @@ export const ServiceBilling: React.FC = () => {
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={handleSaveLabour} className="p-6 flex flex-col gap-4 box-border">
-              
+
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Labour Type</label>
                 <input
@@ -909,9 +931,9 @@ export const ServiceBilling: React.FC = () => {
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={handleSavePart} className="p-6 flex flex-col gap-4 box-border">
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Part Number</label>
@@ -961,7 +983,7 @@ export const ServiceBilling: React.FC = () => {
                     required
                   />
                 </div>
-                
+
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Price (₹)</label>
                   <input
@@ -1024,10 +1046,10 @@ export const ServiceBilling: React.FC = () => {
                 <X size={20} />
               </button>
             </div>
-            
+
             {/* Printable Area */}
             <div className="p-8 overflow-y-auto flex-1 text-slate-800" id="printable-invoice">
-              
+
               {/* Invoice Header */}
               <div className="flex justify-between items-start border-b border-slate-200 pb-6 mb-6">
                 <div className="flex flex-col gap-1">
