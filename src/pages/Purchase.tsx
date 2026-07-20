@@ -1171,10 +1171,6 @@ export const Purchase: React.FC = () => {
       </div>
     );
   };
-<<<<<<< HEAD
-
-=======
->>>>>>> b12301e50f130287c8fa6ed5cd7866a3caa1a0f5
   if (showFigmaInvoice) {
     return (
       <FigmaInvoiceView onBack={() => setShowFigmaInvoice(false)} />

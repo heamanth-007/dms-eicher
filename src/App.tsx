@@ -12,7 +12,7 @@ import CounterSales from './pages/CounterSales';
 import { SpareParts } from './pages/SpareParts';
 import { Suppliers } from './pages/Suppliers';
 import type { SupplierType } from './pages/Suppliers';
-import { SettingsPage } from './pages/Settings';
+import { SettingsPage } from './main page/Settings';
 import Purchase from './pages/Purchase';
 import ServiceBilling from './pages/ServiceBilling';
 import SignUp from './pages/SignUp';
