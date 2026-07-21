@@ -88,7 +88,7 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
 
     const newId = `SUP-${Math.floor(1000 + Math.random() * 9000)}`;
     const parsedOutstanding = parseFloat(formOutstanding || '0');
-    const formattedOutstanding = `$${parsedOutstanding.toLocaleString('en-US', {
+    const formattedOutstanding = `₹${parsedOutstanding.toLocaleString('en-IN', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     })}`;
@@ -237,7 +237,7 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
               {/* Row 3: Outstanding and Status */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[12.5px] font-bold text-[#475569]">Opening Outstanding ($)</label>
+                  <label className="text-[12.5px] font-bold text-[#475569]">Opening Outstanding (₹)</label>
                   <div className="relative">
                     <Wallet className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94a3b8]" size={16} />
                     <input
@@ -317,7 +317,7 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
                   }
                   const newId = `SUP-${Math.floor(1000 + Math.random() * 9000)}`;
                   const parsedOutstanding = parseFloat(formOutstanding || '0');
-                  const formattedOutstanding = `$${parsedOutstanding.toLocaleString('en-US', {
+                  const formattedOutstanding = `₹${parsedOutstanding.toLocaleString('en-IN', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
                   })}`;
@@ -860,7 +860,7 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
           <div className="flex items-start justify-between">
             <div className="flex flex-col gap-1">
               <span className="text-[11px] font-bold text-[#64748b] tracking-wider uppercase">OUTSTANDING AMOUNT</span>
-              <span className="text-[32px] font-extrabold text-[#0f172a] leading-none mt-1">$42,850</span>
+              <span className="text-[32px] font-extrabold text-[#0f172a] leading-none mt-1">₹42,850</span>
             </div>
             <div className="bg-[#fef2f2] p-2.5 rounded-lg flex items-center justify-center">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#dc2626]">
@@ -881,7 +881,7 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
           <div className="flex items-start justify-between">
             <div className="flex flex-col gap-1">
               <span className="text-[11px] font-bold text-[#64748b] tracking-wider uppercase">MONTHLY PURCHASES</span>
-              <span className="text-[32px] font-extrabold text-[#0f172a] leading-none mt-1">$128.4k</span>
+              <span className="text-[32px] font-extrabold text-[#0f172a] leading-none mt-1">₹1.28L</span>
             </div>
             <div className="bg-[#f8fafc] p-2.5 rounded-lg flex items-center justify-center border border-[#e2e8f0]">
               <ShoppingBag size={20} className="text-[#64748b]" />

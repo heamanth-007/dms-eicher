@@ -45,12 +45,14 @@ interface VehicleType {
   sellPrice: string;
   status: 'Available' | 'Reserved' | 'In Service' | 'Sold';
   imageSvg: React.ReactNode;
+  imageUrl?: string;
 }
 
 export const VehicleInventory: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [viewingDetails, setViewingDetails] = useState(false);
+  const [editingVehicleId, setEditingVehicleId] = useState('');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -232,7 +234,8 @@ export const VehicleInventory: React.FC = () => {
             price: `₹${Number(v.price).toLocaleString('en-IN')}`,
             sellPrice: `₹${Number(v.sellPrice).toLocaleString('en-IN')}`,
             status: v.status || 'Available',
-            imageSvg: getVehicleSVG(v.type)
+            imageSvg: getVehicleSVG(v.type),
+            imageUrl: v.imageUrl
           }));
           setVehicles(formatted);
         }
@@ -286,20 +289,46 @@ export const VehicleInventory: React.FC = () => {
       .catch(err => console.error(err));
   };
 
-  const handleRowClick = (_v: VehicleType) => {
+  const handleUpdateVehicle = () => {
+    const bodyPayload = {
+      modelName: vehicleModel,
+      engineNo: engineNumber,
+      chassisNo: chassisNumber
+    };
+
+    fetch(`${API_URL}/api/vehicles/${encodeURIComponent(editingVehicleId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bodyPayload)
+    })
+      .then(res => res.json())
+      .then(() => {
+        fetchVehicles();
+        setIsEditing(false);
+      })
+      .catch(err => console.error('Error updating vehicle:', err));
+  };  const [selectedVehicle, setSelectedVehicle] = useState<VehicleType | null>(null);
+
+  const handleRowClick = (v: VehicleType) => {
+    setSelectedVehicle(v);
     setViewingDetails(true);
     setIsEditing(false);
     setIsRegistering(false);
   };
 
-  // Detailed view of the Vehicle (Titan 9000-X Excavator)
-  if (viewingDetails) {
+  // Detailed view of the Vehicle
+  if (viewingDetails && selectedVehicle) {
+    const priceVal = parseFloat(selectedVehicle.price.replace(/[^\d.]/g, '')) || 0;
+    const sellPriceVal = parseFloat(selectedVehicle.sellPrice.replace(/[^\d.]/g, '')) || 0;
+    const profitMargin = sellPriceVal - priceVal;
+    const marginPercent = priceVal > 0 ? ((profitMargin / priceVal) * 100).toFixed(1) : '0.0';
+
     return (
       <div className="flex-1 p-6 md:p-8 flex flex-col gap-6 bg-[#f6f8fc] overflow-y-auto box-border max-w-full font-sans">
         {/* Navigation Breadcrumb & Back button */}
         <div className="flex items-center justify-between">
           <button
-            onClick={() => setViewingDetails(false)}
+            onClick={() => { setViewingDetails(false); setSelectedVehicle(null); }}
             className="flex items-center gap-2 text-[13px] text-slate-500 hover:text-[#184edb] font-semibold border-none bg-transparent cursor-pointer transition-colors"
           >
             <ArrowLeft size={16} />
@@ -308,16 +337,11 @@ export const VehicleInventory: React.FC = () => {
 
           <button
             onClick={() => {
-              setVehicleModel('Titan 9000-X Excavator');
-              setRegNumber('TX-900-34882-B');
-              setChassisNumber('EIC3015X2024KL9902');
-              setEngineNumber('VDA-10376');
-              setFuelType('Diesel');
-              setGvw('12,500 KG');
-              setWheelbase('4490 mm');
-              setTransmission('Hydrostatic');
-              setMfgYear('2025');
-              setOdometer('0');
+              setVehicleModel(selectedVehicle.model);
+              setRegNumber(selectedVehicle.id);
+              setChassisNumber(selectedVehicle.chs);
+              setEngineNumber(selectedVehicle.eng);
+              setEditingVehicleId(selectedVehicle.id);
               setIsEditing(true);
               setViewingDetails(false);
             }}
@@ -328,22 +352,22 @@ export const VehicleInventory: React.FC = () => {
           </button>
         </div>
 
-        {/* Crawler excavator Header details */}
+        {/* Vehicle Header details */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex flex-col gap-0.5">
-            <span className="text-[11px] font-bold text-[#184edb] tracking-wider uppercase">HEAVY DUTY • CRAWLER</span>
+            <span className="text-[11px] font-bold text-[#184edb] tracking-wider uppercase">{selectedVehicle.category} • {selectedVehicle.statusText}</span>
             <h1 className="text-2xl md:text-3xl font-bold text-slate-900 m-0 font-heading tracking-tight">
-              Titan 9000-X Excavator
+              {selectedVehicle.model}
             </h1>
             <span className="text-slate-500 text-[13px] font-medium font-mono">
-              Serial #: TX-900-34882-B
+              Chassis #: {selectedVehicle.chs}
             </span>
           </div>
 
           <div className="flex flex-col text-left sm:text-right">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">MSRP LIST PRICE</span>
             <span className="text-2xl md:text-3xl font-extrabold text-[#184edb] tracking-tight">
-              $184,500.00
+              {selectedVehicle.sellPrice}
             </span>
           </div>
         </div>
@@ -351,11 +375,21 @@ export const VehicleInventory: React.FC = () => {
         {/* Main Info Blocks (Visuals and Spec Highlights) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch w-full box-border">
           {/* Visual Container */}
-          <div className="lg:col-span-1 rounded-xl overflow-hidden border border-slate-200 relative min-h-[220px] bg-slate-100 flex items-center justify-center">
-            {ExcavatorDetailsSVG}
+          <div className="lg:col-span-1 rounded-xl overflow-hidden border border-slate-200 relative min-h-[220px] bg-slate-100 flex items-center justify-center p-4">
+            <div className="w-full h-full max-h-36 flex items-center justify-center">
+              {selectedVehicle.imageUrl ? (
+                <img src={selectedVehicle.imageUrl} alt={selectedVehicle.model} className="max-w-full max-h-full object-contain rounded-lg" />
+              ) : (
+                selectedVehicle.imageSvg
+              )}
+            </div>
             <span className="absolute top-4 right-4 bg-emerald-50 text-emerald-600 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-100 flex items-center gap-1.5 shadow-sm">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              Available
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                selectedVehicle.status === 'Available' ? 'bg-emerald-500' :
+                selectedVehicle.status === 'Reserved' ? 'bg-amber-500' :
+                selectedVehicle.status === 'In Service' ? 'bg-orange-550' : 'bg-slate-400'
+              }`} />
+              {selectedVehicle.status}
             </span>
           </div>
 
@@ -365,22 +399,22 @@ export const VehicleInventory: React.FC = () => {
               {/* Brand */}
               <div className="bg-[#f1f3fa] rounded-xl p-4 flex flex-col gap-1.5 border border-slate-150">
                 <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Brand</span>
-                <span className="text-[16px] font-bold text-slate-800">Titan Motors</span>
+                <span className="text-[16px] font-bold text-slate-800">{selectedVehicle.model.split(' ')[0]}</span>
               </div>
               {/* Year */}
               <div className="bg-[#f1f3fa] rounded-xl p-4 flex flex-col gap-1.5 border border-slate-150">
                 <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Year</span>
-                <span className="text-[16px] font-bold text-slate-800">2025</span>
+                <span className="text-[16px] font-bold text-slate-800">2024</span>
               </div>
               {/* Engine */}
               <div className="bg-[#f1f3fa] rounded-xl p-4 flex flex-col gap-1.5 border border-slate-150">
                 <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Engine</span>
-                <span className="text-[16px] font-bold text-slate-800">VDA-10376</span>
+                <span className="text-[16px] font-bold text-slate-800">{selectedVehicle.eng}</span>
               </div>
               {/* Condition */}
               <div className="bg-[#f1f3fa] rounded-xl p-4 flex flex-col gap-1.5 border border-slate-150">
                 <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Condition</span>
-                <span className="text-[16px] font-bold text-slate-800">Pristine</span>
+                <span className="text-[16px] font-bold text-slate-800">{selectedVehicle.statusText}</span>
               </div>
             </div>
 
@@ -392,11 +426,11 @@ export const VehicleInventory: React.FC = () => {
               </span>
               <span className="bg-[#eff2fc] text-slate-700 text-[13px] font-semibold px-4 py-2 rounded-lg flex items-center gap-2 border border-[#d2d9f9]">
                 <Sliders size={16} className="text-[#184edb]" />
-                450 HP Engine
+                Power Shift
               </span>
               <span className="bg-[#eff2fc] text-slate-700 text-[13px] font-semibold px-4 py-2 rounded-lg flex items-center gap-2 border border-[#d2d9f9]">
                 <Wrench size={16} className="text-[#184edb]" />
-                12,500 KG Weight
+                Registered Unit
               </span>
             </div>
           </div>
@@ -407,7 +441,7 @@ export const VehicleInventory: React.FC = () => {
           {/* Purchase Price */}
           <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-l-[#184edb] flex flex-col justify-between min-h-[96px] box-border">
             <span className="text-slate-400 text-[11px] font-bold uppercase tracking-wider">PURCHASE PRICE</span>
-            <span className="text-2xl font-bold text-slate-800 tracking-tight">₹ 28,150,000</span>
+            <span className="text-2xl font-bold text-slate-800 tracking-tight">{selectedVehicle.price}</span>
             <div className="flex items-center gap-1.5 text-slate-400 text-[11px] font-medium mt-1">
               <Info size={13} />
               <span>Incl. Tax & Logistics</span>
@@ -417,7 +451,7 @@ export const VehicleInventory: React.FC = () => {
           {/* Selling Price */}
           <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-l-[#184edb] flex flex-col justify-between min-h-[96px] box-border">
             <span className="text-slate-400 text-[11px] font-bold uppercase tracking-wider">SELLING PRICE</span>
-            <span className="text-2xl font-bold text-slate-800 tracking-tight">₹ 34,500,000</span>
+            <span className="text-2xl font-bold text-slate-800 tracking-tight">{selectedVehicle.sellPrice}</span>
             <div className="mt-1">
               <span className="bg-blue-50 text-[#184edb] text-[9.5px] font-bold px-2 py-0.5 rounded-full border border-blue-100 uppercase">
                 LATEST QUOTE
@@ -428,18 +462,18 @@ export const VehicleInventory: React.FC = () => {
           {/* Profit Margin */}
           <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-l-emerald-500 flex flex-col justify-between min-h-[96px] box-border">
             <span className="text-slate-400 text-[11px] font-bold uppercase tracking-wider">PROFIT MARGIN</span>
-            <span className="text-2xl font-bold text-emerald-600 tracking-tight">₹ 6,350,000</span>
+            <span className="text-2xl font-bold text-emerald-600 tracking-tight">₹{profitMargin.toLocaleString('en-IN')}</span>
             <span className="text-[11px] text-slate-450 font-medium mt-1">
-              ~22.5% Gross Margin
+              ~{marginPercent}% Gross Margin
             </span>
           </div>
 
           {/* Inventory Value */}
           <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-l-rose-500 flex flex-col justify-between min-h-[96px] box-border">
             <span className="text-slate-400 text-[11px] font-bold uppercase tracking-wider">INVENTORY VALUE</span>
-            <span className="text-2xl font-bold text-slate-800 tracking-tight">₹ 142.4 Cr</span>
+            <span className="text-2xl font-bold text-slate-800 tracking-tight">{selectedVehicle.price}</span>
             <span className="text-[11px] text-slate-400 font-medium mt-1">
-              Current Total Assets
+              Asset Base Value
             </span>
           </div>
         </div>
@@ -459,16 +493,16 @@ export const VehicleInventory: React.FC = () => {
             {/* Column 1 */}
             <div className="flex flex-col gap-3.5">
               <div className="flex justify-between items-center py-1.5 border-b border-slate-55">
-                <span className="text-slate-505 font-medium">Fuel Tank Capacity</span>
-                <span className="font-bold text-slate-800">450 Liters</span>
+                <span className="text-slate-550 font-medium">Engine Model</span>
+                <span className="font-bold text-slate-800">{selectedVehicle.eng}</span>
               </div>
               <div className="flex justify-between items-center py-1.5 border-b border-slate-55">
-                <span className="text-slate-505 font-medium">Transmission</span>
-                <span className="font-bold text-slate-800">Hydrostatic</span>
+                <span className="text-slate-550 font-medium">Transmission</span>
+                <span className="font-bold text-slate-800">Hydrostatic / Manual</span>
               </div>
               <div className="flex justify-between items-center py-1.5 border-b border-slate-55">
-                <span className="text-slate-505 font-medium">Emission Level</span>
-                <span className="font-bold text-slate-800">Tier 4 Final</span>
+                <span className="text-slate-550 font-medium">Emission Level</span>
+                <span className="font-bold text-slate-800">BS-VI Compliant</span>
               </div>
             </div>
 
@@ -803,7 +837,7 @@ export const VehicleInventory: React.FC = () => {
               Cancel
             </button>
             <button
-              onClick={() => { setIsEditing(false); setViewingDetails(vehicleModel === 'Titan 9000-X Excavator'); }}
+              onClick={handleUpdateVehicle}
               className="px-5 py-2 bg-[#184edb] hover:bg-[#143eb3] text-white font-semibold rounded-lg text-[13.5px] cursor-pointer transition-all border-none shadow-sm"
             >
               Update Vehicle
@@ -1111,7 +1145,7 @@ export const VehicleInventory: React.FC = () => {
         <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-l-[#184edb] flex items-center justify-between min-h-[96px] box-border">
           <div className="flex flex-col gap-1">
             <span className="text-slate-500 text-[12.5px] font-semibold uppercase tracking-wider">Total Vehicles</span>
-            <span className="text-2xl font-bold text-slate-800 tracking-tight">1,248</span>
+            <span className="text-2xl font-bold text-slate-800 tracking-tight">{vehicles.length}</span>
           </div>
           <div className="bg-[#eef2ff] text-[#184edb] p-2.5 rounded-lg flex items-center justify-center">
             <LayoutDashboard size={20} />
@@ -1122,7 +1156,9 @@ export const VehicleInventory: React.FC = () => {
         <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-l-emerald-500 flex items-center justify-between min-h-[96px] box-border">
           <div className="flex flex-col gap-1">
             <span className="text-slate-500 text-[12.5px] font-semibold uppercase tracking-wider">Available</span>
-            <span className="text-2xl font-bold text-slate-800 tracking-tight">432</span>
+            <span className="text-2xl font-bold text-slate-800 tracking-tight">
+              {vehicles.filter(v => v.status === 'Available').length}
+            </span>
           </div>
           <div className="bg-emerald-50 text-emerald-600 p-2.5 rounded-lg flex items-center justify-center">
             <CheckCircle size={20} />
@@ -1133,7 +1169,9 @@ export const VehicleInventory: React.FC = () => {
         <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-l-amber-500 flex items-center justify-between min-h-[96px] box-border">
           <div className="flex flex-col gap-1">
             <span className="text-slate-500 text-[12.5px] font-semibold uppercase tracking-wider">Reserved</span>
-            <span className="text-2xl font-bold text-slate-800 tracking-tight">156</span>
+            <span className="text-2xl font-bold text-slate-800 tracking-tight">
+              {vehicles.filter(v => v.status === 'Reserved').length}
+            </span>
           </div>
           <div className="bg-amber-50 text-amber-600 p-2.5 rounded-lg flex items-center justify-center">
             <Bookmark size={20} />
@@ -1144,7 +1182,9 @@ export const VehicleInventory: React.FC = () => {
         <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-l-sky-500 flex items-center justify-between min-h-[96px] box-border">
           <div className="flex flex-col gap-1">
             <span className="text-slate-500 text-[12.5px] font-semibold uppercase tracking-wider">Sold</span>
-            <span className="text-2xl font-bold text-slate-800 tracking-tight">620</span>
+            <span className="text-2xl font-bold text-slate-800 tracking-tight">
+              {vehicles.filter(v => v.status === 'Sold').length}
+            </span>
           </div>
           <div className="bg-sky-50 text-sky-600 p-2.5 rounded-lg flex items-center justify-center">
             <ShoppingCart size={20} />
@@ -1155,7 +1195,9 @@ export const VehicleInventory: React.FC = () => {
         <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-l-orange-500 flex items-center justify-between min-h-[96px] box-border">
           <div className="flex flex-col gap-1">
             <span className="text-slate-500 text-[12.5px] font-semibold uppercase tracking-wider">In Service</span>
-            <span className="text-2xl font-bold text-slate-800 tracking-tight">40</span>
+            <span className="text-2xl font-bold text-slate-800 tracking-tight">
+              {vehicles.filter(v => v.status === 'In Service').length}
+            </span>
           </div>
           <div className="bg-orange-50 text-orange-600 p-2.5 rounded-lg flex items-center justify-center">
             <Wrench size={20} />
@@ -1166,7 +1208,12 @@ export const VehicleInventory: React.FC = () => {
         <div className="bg-[#184edb] rounded-xl p-4 shadow-md flex items-center justify-between min-h-[96px] text-white box-border">
           <div className="flex flex-col gap-1">
             <span className="text-blue-100 text-[12.5px] font-semibold uppercase tracking-wider">Total Inventory Value</span>
-            <span className="text-2xl font-bold tracking-tight">₹14.2M</span>
+            <span className="text-2xl font-bold tracking-tight">
+              ₹{(vehicles.reduce((sum, v) => {
+                const val = parseFloat(v.price.replace(/[^\d.]/g, ''));
+                return isNaN(val) ? sum : sum + val;
+              }, 0) / 100000).toFixed(1)}L
+            </span>
           </div>
           <div className="bg-white/15 text-white p-2.5 rounded-lg flex items-center justify-center">
             <CircleDollarSign size={20} />
@@ -1307,8 +1354,12 @@ export const VehicleInventory: React.FC = () => {
                 >
                   {/* Image column */}
                   <td className="py-4 px-6 min-w-[100px]">
-                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-1.5 flex items-center justify-center w-[72px] h-[48px]">
-                      {v.imageSvg}
+                    <div className="bg-slate-50 border border-slate-100 rounded-lg overflow-hidden flex items-center justify-center w-[72px] h-[48px] p-0.5">
+                      {v.imageUrl ? (
+                        <img src={v.imageUrl} alt={v.model} className="w-full h-full object-cover rounded-md" />
+                      ) : (
+                        v.imageSvg
+                      )}
                     </div>
                   </td>
 
@@ -1380,6 +1431,7 @@ export const VehicleInventory: React.FC = () => {
                           setRegNumber(v.id);
                           setChassisNumber(v.chs);
                           setEngineNumber(v.eng);
+                          setEditingVehicleId(v.id);
                           setIsEditing(true);
                           setIsRegistering(false);
                           setViewingDetails(false);
@@ -1392,7 +1444,7 @@ export const VehicleInventory: React.FC = () => {
                       <button 
                         onClick={() => {
                           if (window.confirm(`Are you sure you want to delete vehicle ${v.id}?`)) {
-                            fetch(`${API_URL}/api/vehicles/${v.id}`, { method: 'DELETE' })
+                            fetch(`${API_URL}/api/vehicles/${encodeURIComponent(v.id)}`, { method: 'DELETE' })
                               .then(() => {
                                 fetchVehicles();
                               })
@@ -1415,7 +1467,7 @@ export const VehicleInventory: React.FC = () => {
         {/* Table Footer / Pagination */}
         <div className="bg-[#f8fafc] border-t border-slate-100 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 w-full box-border">
           <span className="text-[13px] text-slate-500 font-medium">
-            Showing 1 to 4 of 1,248 entries
+            Showing 1 to {vehicles.length} of {vehicles.length} entries
           </span>
 
           <div className="flex items-center gap-1.5">

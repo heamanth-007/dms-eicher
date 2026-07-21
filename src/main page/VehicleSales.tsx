@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
   DollarSign,
@@ -290,40 +290,65 @@ interface VehicleSalesProps {
 }
 
 export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onCustomerClick }) => {
+  const [dbVehicles, setDbVehicles] = useState<any[]>([]);
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/vehicles`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setDbVehicles(data);
+        }
+      })
+      .catch(err => console.error('Error fetching vehicles for sales:', err));
+  }, []);
 
   // Available stock items
-  const stocks = [
-    {
-      id: 'STK-01',
-      label: 'Eicher Pro 2049 - Alpine White',
-      model: 'Pro 2049',
-      type: 'Light Duty Truck',
-      engine: 'E483-CD32-901',
-      color: 'Alpine White',
-      chassis: 'ME3BAH4A2F0004522',
-      price: 1450000
-    },
-    {
-      id: 'STK-02',
-      label: 'Eicher Pro 6028 - Eicher Blue',
-      model: 'Pro 6028',
-      type: 'Heavy Duty Truck',
-      engine: 'E694-CD88-102',
-      color: 'Eicher Blue',
-      chassis: 'ME3BAH6A2F0008812',
-      price: 4550000
-    },
-    {
-      id: 'STK-03',
-      label: 'Eicher Pro 3019 - Forest Green',
-      model: 'Pro 3019',
-      type: 'Medium Duty Truck',
-      engine: 'E494-CD60-909',
-      color: 'Forest Green',
-      chassis: 'ME3BAH3A2F0003019',
-      price: 2820000
-    }
-  ];
+  const stocks = dbVehicles.length > 0
+    ? dbVehicles.filter(v => v.status === 'Available' || v.status === 'Reserved').map(v => ({
+        id: v.id,
+        label: `${v.modelName} - ${v.colorName || 'White'}`,
+        model: v.modelName,
+        type: v.type,
+        engine: v.engineNo,
+        color: v.colorName,
+        chassis: v.chassisNo,
+        price: v.sellPrice || 1500000
+      }))
+    : [
+        {
+          id: 'STK-01',
+          label: 'Eicher Pro 2049 - Alpine White',
+          model: 'Pro 2049',
+          type: 'Light Duty Truck',
+          engine: 'E483-CD32-901',
+          color: 'Alpine White',
+          chassis: 'ME3BAH4A2F0004522',
+          price: 1450000
+        },
+        {
+          id: 'STK-02',
+          label: 'Eicher Pro 6028 - Eicher Blue',
+          model: 'Pro 6028',
+          type: 'Heavy Duty Truck',
+          engine: 'E694-CD88-102',
+          color: 'Eicher Blue',
+          chassis: 'ME3BAH6A2F0008812',
+          price: 4550000
+        },
+        {
+          id: 'STK-03',
+          label: 'Eicher Pro 3019 - Forest Green',
+          model: 'Pro 3019',
+          type: 'Medium Duty Truck',
+          engine: 'E494-CD60-909',
+          color: 'Forest Green',
+          chassis: 'ME3BAH3A2F0003019',
+          price: 2820000
+        }
+      ];
 
   // States for modals & sub-pages
   const [isRegisteringSale, setIsRegisteringSale] = useState(false);
@@ -337,7 +362,14 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
   const [regAddress, setRegAddress] = useState('');
   const [regGst, setRegGst] = useState('');
   const [regEmail, setRegEmail] = useState('');
-  const [regSelectedStock, setRegSelectedStock] = useState(stocks[0].id);
+  const [regSelectedStock, setRegSelectedStock] = useState('');
+
+  useEffect(() => {
+    if (stocks.length > 0 && !regSelectedStock) {
+      setRegSelectedStock(stocks[0].id);
+    }
+  }, [dbVehicles, stocks]);
+
   const [regInsuranceProvider, setRegInsuranceProvider] = useState('ICICI Lombard GIC');
   const [regPolicyNumber, setRegPolicyNumber] = useState('POL-9921-X382');
   const [regPremiumAmount, setRegPremiumAmount] = useState('35450');
@@ -362,7 +394,6 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
   const [editExecutive, setEditExecutive] = useState('');
 
   // Handle click edit
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
   const handleEditClick = (sale: SaleRecord) => {
     setEditingSale(sale);
@@ -455,6 +486,16 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
       .then(data => {
         setSales([data, ...sales]);
         setIsRegisteringSale(false);
+
+        // Also update the vehicle's status in the database
+        if (selectedStockItem.id) {
+          fetch(`${API_URL}/api/vehicles/${encodeURIComponent(selectedStockItem.id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: forceStatus === 'DELIVERED' ? 'Sold' : 'Reserved' })
+          })
+            .catch(err => console.error('Error updating vehicle status on sale:', err));
+        }
 
         // Reset fields
         setRegFullName('');

@@ -95,7 +95,7 @@ export const EditCustomer: React.FC<EditCustomerProps> = ({ customer, onBack, on
       }
     }
 
-    fetch(`${API_URL}/api/customers/${customer.id}`, {
+    fetch(`${API_URL}/api/customers/${encodeURIComponent(customer.id)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedCustomer)

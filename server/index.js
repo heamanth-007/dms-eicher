@@ -293,43 +293,6 @@ const seedDatabase = async () => {
       console.log('Parts seeded successfully!');
     }
 
-    const mechanicCount = await Mechanic.countDocuments();
-    if (mechanicCount === 0) {
-      console.log('Seeding Mechanics...');
-      await Mechanic.insertMany([
-        {
-          id: 'MEC-101',
-          name: 'David Chen',
-          phone: '+91 98765 43211',
-          initials: 'DC',
-          avatarBg: 'bg-emerald-100 text-emerald-600',
-          experience: '8 Years',
-          status: 'Available',
-          jobs: 14
-        },
-        {
-          id: 'MEC-102',
-          name: 'Sarah Johnson',
-          phone: '+91 98765 43212',
-          initials: 'SJ',
-          avatarBg: 'bg-orange-100 text-orange-600',
-          experience: '5 Years',
-          status: 'Busy',
-          jobs: 9
-        },
-        {
-          id: 'MEC-103',
-          name: 'Marco Rossi',
-          phone: '+91 98765 43213',
-          initials: 'MR',
-          avatarBg: 'bg-rose-100 text-rose-600',
-          experience: '12 Years',
-          status: 'Inactive',
-          jobs: 22
-        }
-      ]);
-      console.log('Mechanics seeded successfully!');
-    }
 
     const saleCount = await Sale.countDocuments();
     if (saleCount === 0) {
@@ -377,6 +340,64 @@ const seedDatabase = async () => {
         }
       ]);
       console.log('Sales seeded successfully!');
+    }
+
+    const mechanicCount = await Mechanic.countDocuments();
+    if (mechanicCount === 0) {
+      console.log('Seeding Mechanics...');
+      await Mechanic.insertMany([
+        {
+          id: 'MEC-1001',
+          name: 'Amit Singh',
+          phone: '+91 98765 43210',
+          initials: 'AS',
+          avatarBg: 'bg-blue-100 text-blue-600',
+          experience: '8 Years',
+          status: 'Available',
+          jobs: 24
+        },
+        {
+          id: 'MEC-1002',
+          name: 'Suresh Gupta',
+          phone: '+91 87654 32109',
+          initials: 'SG',
+          avatarBg: 'bg-emerald-100 text-emerald-600',
+          experience: '12 Years',
+          status: 'Busy',
+          jobs: 38
+        },
+        {
+          id: 'MEC-1003',
+          name: 'Abdul Rahman',
+          phone: '+91 76543 21098',
+          initials: 'AR',
+          avatarBg: 'bg-orange-100 text-orange-600',
+          experience: '5 Years',
+          status: 'Available',
+          jobs: 15
+        },
+        {
+          id: 'MEC-1004',
+          name: 'Vikram Sharma',
+          phone: '+91 65432 10987',
+          initials: 'VS',
+          avatarBg: 'bg-rose-100 text-rose-600',
+          experience: '10 Years',
+          status: 'Busy',
+          jobs: 31
+        },
+        {
+          id: 'MEC-1005',
+          name: 'Ravi Kumar',
+          phone: '+91 54321 09876',
+          initials: 'RK',
+          avatarBg: 'bg-indigo-100 text-indigo-600',
+          experience: '3 Years',
+          status: 'Available',
+          jobs: 8
+        }
+      ]);
+      console.log('Mechanics seeded successfully!');
     }
 
     const jobCardCount = await JobCard.countDocuments();
@@ -808,6 +829,81 @@ app.delete('/api/jobcards/:jcNumber', async (req, res) => {
     res.json({ message: 'JobCard deleted successfully', jobcard: deleted });
   } catch (error) {
     res.status(500).json({ message: 'Server Error deleting jobcard', error: error.message });
+  }
+});
+
+// ─── CRUD for Mechanics ───────────────────────────────────────────────────────
+
+app.get('/api/mechanics', async (req, res) => {
+  try {
+    const mechanics = await Mechanic.find({});
+    res.json(mechanics);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error fetching mechanics' });
+  }
+});
+
+app.post('/api/mechanics', async (req, res) => {
+  try {
+    const newMechanic = new Mechanic(req.body);
+    const saved = await newMechanic.save();
+    res.status(201).json(saved);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error creating mechanic', error: error.message });
+  }
+});
+
+app.put('/api/mechanics/:id', async (req, res) => {
+  try {
+    const updated = await Mechanic.findOneAndUpdate(
+      { id: req.params.id },
+      req.body,
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ message: 'Mechanic not found' });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error updating mechanic', error: error.message });
+  }
+});
+
+// Assign a job to a mechanic — increments their job count and sets status Busy
+app.put('/api/mechanics/:id/assign-job', async (req, res) => {
+  try {
+    const updated = await Mechanic.findOneAndUpdate(
+      { id: req.params.id },
+      { $inc: { jobs: 1 }, status: 'Busy' },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ message: 'Mechanic not found' });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error assigning job to mechanic', error: error.message });
+  }
+});
+
+// Mark mechanic available again
+app.put('/api/mechanics/:id/free', async (req, res) => {
+  try {
+    const updated = await Mechanic.findOneAndUpdate(
+      { id: req.params.id },
+      { status: 'Available' },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ message: 'Mechanic not found' });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error freeing mechanic', error: error.message });
+  }
+});
+
+app.delete('/api/mechanics/:id', async (req, res) => {
+  try {
+    const deleted = await Mechanic.findOneAndDelete({ id: req.params.id });
+    if (!deleted) return res.status(404).json({ message: 'Mechanic not found' });
+    res.json({ message: 'Mechanic deleted successfully', mechanic: deleted });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error deleting mechanic', error: error.message });
   }
 });
 

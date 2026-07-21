@@ -62,47 +62,87 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
     isOverdue: isRajesh || parseFloat(customer.outstanding.replace(/[^\d.]/g, '')) > 0,
   };
 
-  const vehicleHistory = isRajesh 
-    ? [
-        {
-          model: 'John Deere 5050E',
-          registration: 'MH 12 AB 4567',
-          chassis: 'JD5050E998213',
-          purchaseDate: '15 Oct 2021',
-          status: 'Active',
-          statusClass: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
-          image: 'https://images.unsplash.com/photo-1594913785162-e6785b49eed5?auto=format&fit=crop&q=80&w=100'
-        },
-        {
-          model: 'JCB 3DX Xtra',
-          registration: 'MH 14 CD 8821',
-          chassis: 'JCB3DX001244',
-          purchaseDate: '02 Feb 2022',
-          status: 'In Service',
-          statusClass: 'bg-blue-50 text-blue-600 border border-blue-100',
-          image: 'https://images.unsplash.com/photo-1579294800821-694d95e86143?auto=format&fit=crop&q=80&w=100'
-        },
-        {
-          model: 'Swaraj 855 FE',
-          registration: 'MH 12 ZZ 9900',
-          chassis: 'SW855FE5521',
-          purchaseDate: '20 May 2022',
-          status: 'Retired',
-          statusClass: 'bg-slate-50 text-slate-500 border border-slate-200',
-          image: 'https://images.unsplash.com/photo-1594913785162-e6785b49eed5?auto=format&fit=crop&q=80&w=100'
+  const [dbVehicles, setDbVehicles] = useState<any[]>([]);
+
+  useEffect(() => {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    fetch(`${API_URL}/api/vehicles`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setDbVehicles(data);
         }
-      ]
-    : [
-        {
-          model: 'Eicher Pro 6028',
-          registration: 'MH 12 XY 9876',
-          chassis: 'EC6028X8Y110022',
-          purchaseDate: '10 Jan 2023',
-          status: 'Active',
-          statusClass: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
-          image: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=100'
-        }
-      ];
+      })
+      .catch(err => console.error('Error fetching vehicles in CustomerDetails:', err));
+  }, []);
+
+  const getVehicleHistory = () => {
+    if (dbVehicles.length > 0) {
+      const list = [];
+      const count = customer.vehicles || 1;
+      for (let i = 0; i < count; i++) {
+        const v = dbVehicles[i % dbVehicles.length];
+        list.push({
+          model: v.modelName,
+          registration: `REG-${v.id.replace(/[^\d]/g, '') || (1000 + i)}`,
+          chassis: v.chassisNo,
+          purchaseDate: new Date(v.createdAt || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+          status: v.status || 'Active',
+          statusClass: v.status === 'Available' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-blue-50 text-blue-650 border border-blue-100',
+          image: v.imageUrl || 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=100',
+          price: `₹${Number(v.price).toLocaleString('en-IN')}`,
+          sellPrice: `₹${Number(v.sellPrice).toLocaleString('en-IN')}`,
+          engine: v.engineNo,
+          category: v.type
+        });
+      }
+      return list;
+    }
+
+    return isRajesh 
+      ? [
+          {
+            model: 'John Deere 5050E',
+            registration: 'MH 12 AB 4567',
+            chassis: 'JD5050E998213',
+            purchaseDate: '15 Oct 2021',
+            status: 'Active',
+            statusClass: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+            image: 'https://images.unsplash.com/photo-1594913785162-e6785b49eed5?auto=format&fit=crop&q=80&w=100'
+          },
+          {
+            model: 'JCB 3DX Xtra',
+            registration: 'MH 14 CD 8821',
+            chassis: 'JCB3DX001244',
+            purchaseDate: '02 Feb 2022',
+            status: 'In Service',
+            statusClass: 'bg-blue-50 text-blue-600 border border-blue-100',
+            image: 'https://images.unsplash.com/photo-1579294800821-694d95e86143?auto=format&fit=crop&q=80&w=100'
+          },
+          {
+            model: 'Swaraj 855 FE',
+            registration: 'MH 12 ZZ 9900',
+            chassis: 'SW855FE5521',
+            purchaseDate: '20 May 2022',
+            status: 'Retired',
+            statusClass: 'bg-slate-50 text-slate-500 border border-slate-200',
+            image: 'https://images.unsplash.com/photo-1594913785162-e6785b49eed5?auto=format&fit=crop&q=80&w=100'
+          }
+        ]
+      : [
+          {
+            model: 'Eicher Pro 6028',
+            registration: 'MH 12 XY 9876',
+            chassis: 'EC6028X8Y110022',
+            purchaseDate: '10 Jan 2023',
+            status: 'Active',
+            statusClass: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+            image: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=100'
+          }
+        ];
+  };
+
+  const vehicleHistory = getVehicleHistory();
 
 
 
