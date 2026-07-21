@@ -175,9 +175,9 @@ export const AddCustomer: React.FC<AddCustomerProps> = ({ onBack, onSave }) => {
                 <input 
                   type="text" 
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
                   required
-                  placeholder="+91 XXXXX XXXXX"
+                  placeholder="XXXXXXXXXX"
                   className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700 placeholder-slate-400"
                 />
               </div>
@@ -187,8 +187,8 @@ export const AddCustomer: React.FC<AddCustomerProps> = ({ onBack, onSave }) => {
                 <input 
                   type="text" 
                   value={alternatePhone}
-                  onChange={(e) => setAlternatePhone(e.target.value)}
-                  placeholder="+91 XXXXX XXXXX"
+                  onChange={(e) => setAlternatePhone(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="XXXXXXXXXX"
                   className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700 placeholder-slate-400"
                 />
               </div>

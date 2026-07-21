@@ -434,7 +434,7 @@ export const Mechanics: React.FC = () => {
                     type="text"
                     placeholder="1234567890"
                     value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
                     className="w-full pl-10.5 pr-4 py-2.5 text-[14px] bg-[#fff] border border-slate-250 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
                   />
                 </div>

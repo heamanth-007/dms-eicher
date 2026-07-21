@@ -348,7 +348,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onSettingsUpdated })
             <input
               type="text"
               value={mobileNumber}
-              onChange={(e) => setMobileNumber(e.target.value)}
+              onChange={(e) => setMobileNumber(e.target.value.replace(/[^0-9]/g, ''))}
               className="w-full px-4 py-2.5 bg-white border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] font-medium focus:outline-none focus:border-[#184edb]"
             />
           </div>
@@ -357,7 +357,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onSettingsUpdated })
             <input
               type="text"
               value={phoneNum}
-              onChange={(e) => setPhoneNum(e.target.value)}
+              onChange={(e) => setPhoneNum(e.target.value.replace(/[^0-9]/g, ''))}
               className="w-full px-4 py-2.5 bg-white border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] font-medium focus:outline-none focus:border-[#184edb]"
             />
           </div>

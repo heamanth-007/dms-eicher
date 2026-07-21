@@ -141,6 +141,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
   const [showTotalBillsModal, setShowTotalBillsModal] = useState(false);
   const [showDraftsModal, setShowDraftsModal] = useState(false);
   const [searchBillsTerm, setSearchBillsTerm] = useState('');
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
   // Bill items state initialized with the mockup items
   const [billItems, setBillItems] = useState<BillItem[]>([]);
@@ -190,6 +191,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
 
   const [entryQty, setEntryQty] = useState<number | ''>('');
   const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const productSearchRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = useRef<HTMLInputElement>(null);
 
@@ -203,6 +205,10 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
     setSelectedProduct(product);
     setSearchQuery(product.name);
     setShowProductDropdown(false);
+    setTimeout(() => {
+      quantityInputRef.current?.focus();
+      quantityInputRef.current?.select();
+    }, 50);
   };
 
   // Add selected product to bill
@@ -291,6 +297,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
       setMobileNumber('');
       setSearchQuery('');
       setEntryQty('');
+      setEditingDraftId(null);
     }
   };
 
@@ -372,7 +379,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
   };
 
   // --- SAVE BILL & DRAFT HANDLERS ---
-  const handleSaveBill = () => {
+  const handleSaveBill = (shouldOpenPreview = false) => {
     if (billItems.length === 0) {
       alert('Please add at least one part item to save the bill!');
       return;
@@ -384,7 +391,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
       customerName: customerName || 'Retail Customer',
       customerType,
       mobileNumber: mobileNumber || 'N/A',
-      date: 'Oct 24, 2023',
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       billItems: [...billItems],
       subtotal: calculatedSubtotal,
       discount: calculatedDiscount,
@@ -395,27 +402,53 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
       createdAt: new Date().toLocaleDateString()
     };
 
-    setTotalBillsList([newBill, ...totalBillsList]);
+    setTotalBillsList(prev => [newBill, ...prev]);
+
+    // If saving a bill that was loaded from a draft, remove it from drafts list
+    if (editingDraftId) {
+      setDraftBillsList(prev => prev.filter(d => d.id !== editingDraftId));
+      setEditingDraftId(null);
+    }
     
     // Auto increment bill number
     const currentNum = parseInt(billNo.replace(/[^0-9]/g, ''), 10) || 8842;
     const nextBillNo = `INV-2023-${currentNum + 1}`;
     setBillNo(nextBillNo);
 
-    alert(`Counter Sales Bill ${billNo} saved successfully! Added to Total Bills list.`);
+    if (shouldOpenPreview) {
+      setShowInvoicePreview(true);
+    } else {
+      setBillItems([]);
+      setRemarks('');
+      setCustomerName('');
+      setCustomerType('Retail');
+      setMobileNumber('');
+      setSearchQuery('');
+      setEntryQty('');
+      alert(`Counter Sales Bill ${billNo} saved successfully to Total Bills!`);
+    }
   };
 
   const handleSaveDraft = () => {
-    const draftBillNo = billNo.includes('DRAFT') ? billNo : `${billNo}-DRAFT`;
-    const existingIndex = draftBillsList.findIndex(d => d.billNo === draftBillNo || d.billNo === billNo);
+    if (billItems.length === 0 && !customerName && !mobileNumber) {
+      alert('Please add customer details or product items before saving draft!');
+      return;
+    }
+
+    // Check if we are updating an existing draft that was explicitly loaded
+    const existingIndex = editingDraftId ? draftBillsList.findIndex(d => d.id === editingDraftId) : -1;
+
+    const draftBillNo = existingIndex >= 0 
+      ? draftBillsList[existingIndex].billNo 
+      : (billNo.includes('DRAFT') ? billNo : `${billNo}-DRAFT`);
 
     const draftRecord: CounterSalesRecord = {
-      id: existingIndex >= 0 ? draftBillsList[existingIndex].id : `cs-draft-${Date.now()}`,
+      id: existingIndex >= 0 ? editingDraftId! : `cs-draft-${Date.now()}`,
       billNo: draftBillNo,
       customerName: customerName || 'Draft Customer',
       customerType,
-      mobileNumber,
-      date: 'Oct 24, 2023',
+      mobileNumber: mobileNumber || '',
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       billItems: [...billItems],
       subtotal: calculatedSubtotal,
       discount: calculatedDiscount,
@@ -431,13 +464,35 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
       updated[existingIndex] = draftRecord;
       setDraftBillsList(updated);
     } else {
-      setDraftBillsList([draftRecord, ...draftBillsList]);
+      setDraftBillsList(prev => [draftRecord, ...prev]);
     }
 
-    alert(`Bill ${billNo} saved as Draft! Access your drafts anytime using the Draft badge at the top.`);
+    // Reset editing draft state
+    setEditingDraftId(null);
+
+    // Auto increment bill number so subsequent new drafts get unique numbers
+    const currentNum = parseInt(billNo.replace(/[^0-9]/g, ''), 10) || 8842;
+    const nextBillNo = `INV-2023-${currentNum + 1}`;
+    setBillNo(nextBillNo);
+
+    // Clear filled details from form
+    setBillItems([]);
+    setCustomerName('');
+    setCustomerType('Retail');
+    setMobileNumber('');
+    setRemarks('');
+    setSearchQuery('');
+    setEntryQty('');
+
+    alert(`Bill ${draftBillNo} saved as Draft and form cleared!`);
   };
 
   const handleLoadRecord = (record: CounterSalesRecord) => {
+    if (record.status === 'DRAFT') {
+      setEditingDraftId(record.id);
+    } else {
+      setEditingDraftId(null);
+    }
     setBillNo(record.billNo.replace('-DRAFT', ''));
     setCustomerName(record.customerName || '');
     setCustomerType(record.customerType || 'Retail');
@@ -750,7 +805,16 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
           </button>
 
           <button 
-            onClick={() => setShowInvoicePreview(false)}
+            onClick={() => {
+              setShowInvoicePreview(false);
+              setBillItems([]);
+              setRemarks('');
+              setCustomerName('');
+              setCustomerType('Retail');
+              setMobileNumber('');
+              setSearchQuery('');
+              setEntryQty('');
+            }}
             className="w-full bg-slate-200 hover:bg-slate-350 border-none text-slate-700 py-3 px-4 rounded-xl text-xs font-black cursor-pointer flex items-center justify-center gap-2 shadow-sm transition-all mt-4"
           >
             <ArrowLeft size={16} />
@@ -814,7 +878,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
 
           <button
             type="button"
-            onClick={handleSaveBill}
+            onClick={() => handleSaveBill()}
             className="flex items-center gap-1.5 px-4 py-2 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-[13px] border-none rounded-lg shadow-md cursor-pointer transition-colors"
           >
             <Save size={15} />
@@ -837,6 +901,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
             setRemarks('');
             setCustomerName('');
             setMobileNumber('');
+            setEditingDraftId(null);
           }}
           className="bg-[#0b46d1] hover:bg-[#093db5] rounded-xl p-4 shadow-sm flex items-center gap-3 cursor-pointer text-white transition-all transform hover:-translate-y-0.5"
         >
@@ -956,9 +1021,9 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
                 </label>
                 <input 
                   type="text"
-                  placeholder="e.g. +1 234 567 8900"
+                  placeholder="e.g. 9876543210"
                   value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value)}
+                  onChange={(e) => setMobileNumber(e.target.value.replace(/[^0-9]/g, ''))}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#184edb] focus:bg-white transition-all"
                 />
               </div>
@@ -991,15 +1056,27 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
                       onChange={(e) => {
                         setSearchQuery(e.target.value);
                         setShowProductDropdown(true);
+                        setHighlightedIndex(0);
                       }}
-                      onFocus={() => setShowProductDropdown(true)}
+                      onFocus={() => {
+                        setShowProductDropdown(true);
+                        setHighlightedIndex(0);
+                      }}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setHighlightedIndex(prev => (filteredCatalog.length > 0 ? (prev + 1) % filteredCatalog.length : 0));
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setHighlightedIndex(prev => (filteredCatalog.length > 0 ? (prev - 1 + filteredCatalog.length) % filteredCatalog.length : 0));
+                        } else if (e.key === 'Enter') {
                           e.preventDefault();
                           if (filteredCatalog.length > 0) {
-                            handleSelectProduct(filteredCatalog[0]);
+                            const prod = filteredCatalog[highlightedIndex] || filteredCatalog[0];
+                            handleSelectProduct(prod);
                           }
-                          quantityInputRef.current?.focus();
+                        } else if (e.key === 'Escape') {
+                          setShowProductDropdown(false);
                         }
                       }}
                       className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 pl-9 pr-3.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#184edb] focus:bg-white transition-all"
@@ -1009,14 +1086,17 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
                   {/* Dropdown Match Results */}
                   {showProductDropdown && searchQuery && (
                     <div className="absolute top-[56px] left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg z-30 max-h-48 overflow-y-auto box-border p-1 flex flex-col gap-0.5">
-                      {filteredCatalog.map(product => (
+                      {filteredCatalog.map((product, index) => (
                         <div 
                           key={product.code}
                           onClick={() => handleSelectProduct(product)}
-                          className="px-3 py-2 text-xs hover:bg-slate-50 cursor-pointer rounded-md flex justify-between font-medium"
+                          onMouseEnter={() => setHighlightedIndex(index)}
+                          className={`px-3 py-2 text-xs cursor-pointer rounded-md flex justify-between font-medium transition-colors ${
+                            index === highlightedIndex ? 'bg-[#184edb] text-white' : 'hover:bg-slate-50 text-slate-800'
+                          }`}
                         >
-                          <span className="text-slate-800">{product.name}</span>
-                          <span className="text-slate-400 font-extrabold">{product.code}</span>
+                          <span className={index === highlightedIndex ? 'text-white' : 'text-slate-800'}>{product.name}</span>
+                          <span className={index === highlightedIndex ? 'text-blue-100 font-extrabold' : 'text-slate-400 font-extrabold'}>{product.code}</span>
                         </div>
                       ))}
                       {filteredCatalog.length === 0 && (
@@ -1292,7 +1372,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
             {/* Print/Save Buttons */}
             <div className="flex flex-col gap-2">
               <button 
-                onClick={() => setShowInvoicePreview(true)}
+                onClick={() => handleSaveBill(true)}
                 disabled={billItems.length === 0}
                 className="w-full bg-[#184edb] hover:bg-[#143eb3] disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 px-4 rounded-lg text-xs font-extrabold border-none cursor-pointer flex items-center justify-center gap-2 shadow-md transition-colors"
               >
@@ -1301,8 +1381,8 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
               </button>
 
               <button 
-                onClick={() => alert('Bill draft saved successfully.')}
-                disabled={billItems.length === 0}
+                onClick={handleSaveDraft}
+                disabled={billItems.length === 0 && !customerName && !mobileNumber}
                 className="w-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 py-2.5 px-4 rounded-lg text-xs font-extrabold cursor-pointer flex items-center justify-center gap-2 transition-colors"
               >
                 <Save size={15} />

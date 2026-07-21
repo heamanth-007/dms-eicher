@@ -162,7 +162,7 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
                   type="text" 
                   placeholder="+91 98765 43210"
                   value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value)}
+                  onChange={(e) => setMobileNumber(e.target.value.replace(/[^0-9]/g, ''))}
                   className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none focus:border-[#184edb] text-slate-700 bg-slate-50/50 font-medium"
                 />
               </div>

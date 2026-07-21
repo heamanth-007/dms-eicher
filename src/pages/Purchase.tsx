@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ShoppingBag,
@@ -84,7 +84,26 @@ interface PurchaseItem {
   gstPercent: number;
 }
 
-export const Purchase: React.FC = () => {
+export interface SupplierType {
+  id: string;
+  name: string;
+  gstNumber: string;
+  phone: string;
+  email: string;
+  outstanding: string;
+  isOutstandingPositive: boolean;
+  status: 'ACTIVE' | 'INACTIVE';
+}
+
+interface PurchaseProps {
+  suppliersList?: SupplierType[];
+}
+
+const getTodayFormattedDate = () => {
+  return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliersList = [] }) => {
   // Sub-tabs: 'overview', 'return', 'invoice'
   const [subTab, setSubTab] = useState<'overview' | 'return' | 'invoice'>('overview');
   const [showFigmaInvoice, setShowFigmaInvoice] = useState(false);
@@ -113,105 +132,78 @@ export const Purchase: React.FC = () => {
   const [dateRange, setDateRange] = useState('All');
 
   // --- MOCK DATA ---
-  // Initial Purchases
-  const [purchases, setPurchases] = useState<PurchaseOrder[]>([
-    {
-      id: 'PO-2023-0942',
-      invoiceNo: 'INV/8842/23',
-      supplier: 'Precision Parts Co.',
-      supplierInitials: 'PP',
-      supplierBg: 'bg-indigo-50 text-indigo-600 border border-indigo-100',
-      date: 'Oct 24, 2023',
-      itemsCount: 142,
-      gstAmount: 1240.00,
-      grandTotal: 13640.00,
-      status: 'PAID'
-    },
-    {
-      id: 'PO-2023-0941',
-      invoiceNo: 'EMW/92/2023',
-      supplier: 'Elite Motors Wholesale',
-      supplierInitials: 'EM',
-      supplierBg: 'bg-purple-50 text-purple-600 border border-purple-100',
-      date: 'Oct 23, 2023',
-      itemsCount: 85,
-      gstAmount: 840.00,
-      grandTotal: 9240.00,
-      status: 'PARTIAL'
-    },
-    {
-      id: 'PO-2023-0940',
-      invoiceNo: 'GT-INV-551',
-      supplier: 'Global Tyres Ltd.',
-      supplierInitials: 'GT',
-      supplierBg: 'bg-rose-50 text-rose-600 border border-rose-100',
-      date: 'Oct 22, 2023',
-      itemsCount: 210,
-      gstAmount: 2450.00,
-      grandTotal: 26950.00,
-      status: 'PENDING'
-    },
-    {
-      id: 'PO-2023-0939',
-      invoiceNo: 'PR-920-X',
-      supplier: 'Precision Parts Co.',
-      supplierInitials: 'PP',
-      supplierBg: 'bg-indigo-50 text-indigo-600 border border-indigo-100',
-      date: 'Oct 21, 2023',
-      itemsCount: 45,
-      gstAmount: 410.00,
-      grandTotal: 4510.00,
-      status: 'PAID'
-    },
-    {
-      id: 'PO-2023-0938',
-      invoiceNo: 'INV-7731',
-      supplier: 'Apex Hydraulics',
-      supplierInitials: 'AH',
-      supplierBg: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
-      date: 'Oct 18, 2023',
-      itemsCount: 12,
-      gstAmount: 150.00,
-      grandTotal: 1800.00,
-      status: 'PAID'
-    },
-    {
-      id: 'PO-2023-0937',
-      invoiceNo: 'INV-7720',
-      supplier: 'Standard Engines Co.',
-      supplierInitials: 'SE',
-      supplierBg: 'bg-orange-50 text-orange-600 border border-orange-100',
-      date: 'Oct 15, 2023',
-      itemsCount: 3,
-      gstAmount: 1850.00,
-      grandTotal: 22150.00,
-      status: 'PENDING'
-    },
-    {
-      id: 'PO-2023-0936',
-      invoiceNo: 'EMW/88/2023',
-      supplier: 'Elite Motors Wholesale',
-      supplierInitials: 'EM',
-      supplierBg: 'bg-purple-50 text-purple-600 border border-purple-100',
-      date: 'Oct 12, 2023',
-      itemsCount: 90,
-      gstAmount: 990.00,
-      grandTotal: 10890.00,
-      status: 'PAID'
-    },
-    {
-      id: 'PO-2023-0935',
-      invoiceNo: 'GT-INV-520',
-      supplier: 'Global Tyres Ltd.',
-      supplierInitials: 'GT',
-      supplierBg: 'bg-rose-50 text-rose-600 border border-rose-100',
-      date: 'Oct 10, 2023',
-      itemsCount: 105,
-      gstAmount: 1120.00,
-      grandTotal: 12320.00,
-      status: 'PARTIAL'
-    }
-  ]);
+
+  // Initial Purchases with localStorage persistence
+  const [purchases, setPurchases] = useState<PurchaseOrder[]>(() => {
+    try {
+      const saved = localStorage.getItem('dms_purchases_list');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    const todayStr = getTodayFormattedDate();
+    return [
+      {
+        id: 'PO-2026-0943',
+        invoiceNo: 'INV/8843/26',
+        supplier: 'Precision Parts Co.',
+        supplierInitials: 'PP',
+        supplierBg: 'bg-indigo-50 text-indigo-600 border border-indigo-100',
+        date: todayStr,
+        itemsCount: 14,
+        gstAmount: 1240.00,
+        grandTotal: 13640.00,
+        status: 'PAID'
+      },
+      {
+        id: 'PO-2026-0942',
+        invoiceNo: 'EMW/92/2026',
+        supplier: 'Elite Motors Wholesale',
+        supplierInitials: 'EM',
+        supplierBg: 'bg-purple-50 text-purple-600 border border-purple-100',
+        date: todayStr,
+        itemsCount: 8,
+        gstAmount: 840.00,
+        grandTotal: 9240.00,
+        status: 'PARTIAL'
+      },
+      {
+        id: 'PO-2023-0940',
+        invoiceNo: 'GT-INV-551',
+        supplier: 'Global Tyres Ltd.',
+        supplierInitials: 'GT',
+        supplierBg: 'bg-rose-50 text-rose-600 border border-rose-100',
+        date: 'Oct 22, 2023',
+        itemsCount: 210,
+        gstAmount: 2450.00,
+        grandTotal: 26950.00,
+        status: 'PENDING'
+      },
+      {
+        id: 'PO-2023-0938',
+        invoiceNo: 'INV-7731',
+        supplier: 'Apex Hydraulics',
+        supplierInitials: 'AH',
+        supplierBg: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+        date: 'Oct 18, 2023',
+        itemsCount: 12,
+        gstAmount: 150.00,
+        grandTotal: 1800.00,
+        status: 'PAID'
+      }
+    ];
+  });
+
+  useEffect(() => {
+    try {
+      if (purchases && purchases.length > 0) {
+        localStorage.setItem('dms_purchases_list', JSON.stringify(purchases));
+      }
+    } catch (e) {}
+  }, [purchases]);
 
   // Initial Returns
   const [returns, setReturns] = useState<PurchaseReturn[]>([
@@ -316,11 +308,38 @@ export const Purchase: React.FC = () => {
   ]);
 
   // --- NEW ENTRY STATE VARIABLES ---
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const [fetchedSuppliers, setFetchedSuppliers] = useState<SupplierType[]>([]);
+
+  useEffect(() => {
+    if (propSuppliersList.length === 0) {
+      fetch(`${API_URL}/api/suppliers`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data) && data.length > 0) {
+            setFetchedSuppliers(data);
+          }
+        })
+        .catch((err) => console.error('Error fetching suppliers in Purchase component:', err));
+    }
+  }, [propSuppliersList]);
+
+  const defaultSuppliersList: SupplierType[] = [
+    { id: 'SUP-1001', name: 'Palani Sankar Auto Components', gstNumber: '33AAACP2341M1Z1', phone: '9842154321', email: 'palani@autosupplies.com', outstanding: '₹14,500.00', isOutstandingPositive: true, status: 'ACTIVE' },
+    { id: 'SUP-1002', name: 'Sri Lakshmi Spares & Lubes', gstNumber: '33BBACS9876K1Z9', phone: '9443210987', email: 'srilakshmi@spares.com', outstanding: '₹0.00', isOutstandingPositive: false, status: 'ACTIVE' },
+    { id: 'SUP-1003', name: 'Kovai Diesel Systems', gstNumber: '33CCACK4567L1Z2', phone: '9789012345', email: 'kovai@dieselsystems.in', outstanding: '₹8,200.00', isOutstandingPositive: true, status: 'ACTIVE' }
+  ];
+
+  // Use suppliers from Suppliers page (via props or API), fallback to defaults only if none exist
+  const activeSuppliersList = propSuppliersList.length > 0 
+    ? propSuppliersList 
+    : (fetchedSuppliers.length > 0 ? fetchedSuppliers : defaultSuppliersList);
+
   // Purchase form state
   const [newPoId, setNewPoId] = useState('PO-2023-0943');
   const [newPoInvoice, setNewPoInvoice] = useState('');
-  const [newPoSupplier, setNewPoSupplier] = useState('Precision Parts Co.');
-  const [newPoDate, setNewPoDate] = useState('Oct 26, 2023');
+  const [newPoSupplier, setNewPoSupplier] = useState(activeSuppliersList[0]?.name || '');
+  const [newPoDate, setNewPoDate] = useState(getTodayFormattedDate());
 
   const [newPoTerms, setNewPoTerms] = useState('Net 30');
   const [newPoRemarks, setNewPoRemarks] = useState('');
@@ -328,26 +347,48 @@ export const Purchase: React.FC = () => {
   const [newPoDiscount, setNewPoDiscount] = useState(100.00);
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
 
-  const handleItemChange = (id: string, field: keyof PurchaseItem, value: any) => {
-    setPurchaseItems(purchaseItems.map(item => {
-      if (item.id === id) {
-        return { ...item, [field]: value };
-      }
-      return item;
-    }));
-  };
+  // Inline manual product entry state & ref
+  const [quickProdName, setQuickProdName] = useState('');
+  const [quickProdQty, setQuickProdQty] = useState<number | string>(1);
+  const [quickProdRate, setQuickProdRate] = useState<number | string>('');
+  const [quickProdGst, setQuickProdGst] = useState<number>(18);
+  const quickProdNameRef = useRef<HTMLInputElement>(null);
+  const quickProdQtyRef = useRef<HTMLInputElement>(null);
+  const quickProdRateRef = useRef<HTMLInputElement>(null);
+  const quickProdGstRef = useRef<HTMLSelectElement>(null);
 
-  const handleAddItem = () => {
-    setPurchaseItems([
-      ...purchaseItems,
-      {
-        id: 'item-' + Date.now(),
-        productName: '',
-        qty: 1,
-        rate: 0,
-        gstPercent: 18
-      }
-    ]);
+  useEffect(() => {
+    if (activeSuppliersList.length > 0 && (!newPoSupplier || !activeSuppliersList.some(s => s.name === newPoSupplier))) {
+      setNewPoSupplier(activeSuppliersList[0].name);
+    }
+  }, [propSuppliersList, fetchedSuppliers, activeSuppliersList]);
+
+  const handleAddQuickProduct = () => {
+    if (!quickProdName.trim()) {
+      alert('Please enter a product name.');
+      quickProdNameRef.current?.focus();
+      return;
+    }
+    const qty = Number(quickProdQty) || 1;
+    const rate = Number(quickProdRate) || 0;
+
+    const newItem: PurchaseItem = {
+      id: 'item-' + Date.now(),
+      productName: quickProdName.trim(),
+      qty: qty,
+      rate: rate,
+      gstPercent: quickProdGst
+    };
+
+    setPurchaseItems(prev => [...prev, newItem]);
+    setQuickProdName('');
+    setQuickProdQty(1);
+    setQuickProdRate('');
+    setQuickProdGst(18);
+
+    setTimeout(() => {
+      quickProdNameRef.current?.focus();
+    }, 50);
   };
 
   const handleRemoveItem = (id: string) => {
@@ -357,7 +398,7 @@ export const Purchase: React.FC = () => {
   // Return form state
   const [newRetId, setNewRetId] = useState('RET-2023-011');
   const [newRetPoRef, setNewRetPoRef] = useState('PO-2023-0942');
-  const [newRetSupplier, setNewRetSupplier] = useState('Precision Parts Co.');
+  const [newRetSupplier, setNewRetSupplier] = useState(activeSuppliersList[0]?.name || '');
   const [newRetDate, setNewRetDate] = useState('Oct 26, 2023');
   const [newRetQty, setNewRetQty] = useState(3);
   const [newRetRefund, setNewRetRefund] = useState(150);
@@ -367,17 +408,31 @@ export const Purchase: React.FC = () => {
   // Invoice form state
   const [newInvNo, setNewInvNo] = useState('INV-8850');
   const [newInvPoRef, setNewInvPoRef] = useState('PO-2023-0942');
-  const [newInvSupplier, setNewInvSupplier] = useState('Precision Parts Co.');
+  const [newInvSupplier, setNewInvSupplier] = useState(activeSuppliersList[0]?.name || '');
   const [newInvIssueDate, setNewInvIssueDate] = useState('Oct 26, 2023');
   const [newInvDueDate, setNewInvDueDate] = useState('Nov 26, 2023');
   const [newInvAmount, setNewInvAmount] = useState(1500);
   const [newInvStatus, setNewInvStatus] = useState<'PAID' | 'PARTIAL' | 'UNPAID' | 'OVERDUE'>('UNPAID');
 
+  const isTodayPurchase = (dateStr: string) => {
+    if (!dateStr) return false;
+    const todayStr = getTodayFormattedDate();
+    const shortToday = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return (
+      dateStr === todayStr ||
+      dateStr.includes(todayStr) ||
+      dateStr.includes(shortToday) ||
+      dateStr.includes('Today') ||
+      dateStr.includes('Oct 26') ||
+      dateStr.includes('Oct 24')
+    );
+  };
+
   // --- STATS COMPUTATION ---
-  const totalPurchasesCount = purchases.length + 1276; // Adding base mock number (1284 original)
-  const todayPurchasesCount = purchases.filter(p => p.date.includes('Oct 26') || p.date.includes('Oct 24')).length + 16;
-  const totalPurchasesValue = purchases.reduce((acc, p) => acc + p.grandTotal, 0) + 368000;
-  const pendingPaymentsValue = purchases.filter(p => p.status !== 'PAID').reduce((acc, p) => acc + (p.status === 'PENDING' ? p.grandTotal : p.grandTotal * 0.5), 0) + 12000;
+  const totalPurchasesCount = purchases.length;
+  const todayPurchasesCount = purchases.filter(p => isTodayPurchase(p.date)).length;
+  const totalPurchasesValue = purchases.reduce((acc, p) => acc + p.grandTotal, 0);
+  const pendingPaymentsValue = purchases.filter(p => p.status !== 'PAID').reduce((acc, p) => acc + (p.status === 'PENDING' ? p.grandTotal : p.grandTotal * 0.5), 0);
 
   const totalReturnsCount = returns.length + 38;
   const pendingReturnsCount = returns.filter(r => r.status === 'PENDING').length;
@@ -387,7 +442,7 @@ export const Purchase: React.FC = () => {
   const totalInvoicedValue = invoices.reduce((acc, i) => acc + i.amount, 0) + 350000;
 
   // List of suppliers for dropdown
-  const suppliersList = ['All', 'Precision Parts Co.', 'Elite Motors Wholesale', 'Global Tyres Ltd.', 'Apex Hydraulics', 'Standard Engines Co.'];
+  const suppliersList = ['All', ...activeSuppliersList.map(s => s.name)];
 
 
   // Handle New Return Submit
@@ -529,38 +584,41 @@ export const Purchase: React.FC = () => {
   });
 
   if (showNewPurchaseModal) {
-    const calculatedSubtotal = purchaseItems.reduce((acc, item) => acc + (item.qty * item.rate), 0);
-    const calculatedGst = purchaseItems.reduce((acc, item) => acc + (item.qty * item.rate * (item.gstPercent / 100)), 0);
+    let itemsToSave = [...purchaseItems];
+    if (quickProdName.trim()) {
+      const qty = Number(quickProdQty) || 1;
+      const rate = Number(quickProdRate) || 0;
+      itemsToSave.push({
+        id: 'item-' + Date.now(),
+        productName: quickProdName.trim(),
+        qty: qty,
+        rate: rate,
+        gstPercent: quickProdGst
+      });
+    }
+
+    const calculatedSubtotal = itemsToSave.reduce((acc, item) => acc + (item.qty * item.rate), 0);
+    const calculatedGst = itemsToSave.reduce((acc, item) => acc + (item.qty * item.rate * (item.gstPercent / 100)), 0);
     const calculatedGrandTotal = calculatedSubtotal + calculatedGst + newPoAdditionalCharges - newPoDiscount;
 
     const handleSavePurchaseOrder = (status: 'PAID' | 'PENDING') => {
-      const supplierInitialsMap: { [key: string]: string } = {
-        'Precision Parts Co.': 'PP',
-        'Elite Motors Wholesale': 'EM',
-        'Global Tyres Ltd.': 'GT',
-        'Apex Hydraulics': 'AH',
-        'Standard Engines Co.': 'SE'
-      };
-      const supplierBgMap: { [key: string]: string } = {
-        'Precision Parts Co.': 'bg-indigo-50 text-indigo-600 border border-indigo-100',
-        'Elite Motors Wholesale': 'bg-purple-50 text-purple-600 border border-purple-100',
-        'Global Tyres Ltd.': 'bg-rose-50 text-rose-600 border border-rose-100',
-        'Apex Hydraulics': 'bg-emerald-50 text-emerald-600 border border-emerald-100',
-        'Standard Engines Co.': 'bg-orange-50 text-orange-600 border border-orange-100'
-      };
+      if (itemsToSave.length === 0) {
+        alert('Please enter at least one product before saving the purchase.');
+        return;
+      }
 
       const newPurchase: PurchaseOrder = {
         id: newPoId,
         invoiceNo: newPoInvoice || `INV/PUR-${Math.floor(1000 + Math.random() * 9000)}`,
-        supplier: newPoSupplier,
-        supplierInitials: supplierInitialsMap[newPoSupplier] || 'SU',
-        supplierBg: supplierBgMap[newPoSupplier] || 'bg-slate-50 text-slate-600 border border-slate-100',
-        date: newPoDate,
-        itemsCount: purchaseItems.reduce((acc, item) => acc + item.qty, 0),
+        supplier: newPoSupplier || (activeSuppliersList[0]?.name || 'Supplier'),
+        supplierInitials: (newPoSupplier || 'SU').substring(0, 2).toUpperCase(),
+        supplierBg: 'bg-indigo-50 text-indigo-600 border border-indigo-100',
+        date: newPoDate || getTodayFormattedDate(),
+        itemsCount: itemsToSave.reduce((acc, item) => acc + item.qty, 0),
         gstAmount: calculatedGst,
         grandTotal: calculatedGrandTotal,
         status: status === 'PAID' ? 'PAID' : 'PENDING',
-        items: purchaseItems
+        items: itemsToSave
       };
 
       setPurchases([newPurchase, ...purchases]);
@@ -577,14 +635,20 @@ export const Purchase: React.FC = () => {
       };
       setInvoices([autoInvoice, ...invoices]);
 
-      // Reset
+      // Reset Form
       setNewPoInvoice('');
       setPurchaseItems([]);
+      setQuickProdName('');
+      setQuickProdQty(1);
+      setQuickProdRate('');
       setNewPoRemarks('');
       setNewPoAdditionalCharges(45.00);
       setNewPoDiscount(100.00);
-      setNewPoId(`PO-2023-0${Number(newPoId.split('-')[2]) + 1}`);
+      setNewPoDate(getTodayFormattedDate());
+      setNewPoId(`PO-2023-0${Math.floor(1000 + Math.random() * 9000)}`);
       setShowNewPurchaseModal(false);
+
+      alert(`Purchase Order #${newPurchase.id} saved successfully! Added to Total Purchase.`);
     };
 
     return (
@@ -637,17 +701,40 @@ export const Purchase: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Supplier select */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wide">Supplier</label>
+                <div className="flex flex-col gap-1.5 md:col-span-2">
+                  <label className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wide">Supplier *</label>
                   <select
                     value={newPoSupplier}
                     onChange={(e) => setNewPoSupplier(e.target.value)}
                     className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold text-slate-700 bg-white focus:outline-none focus:border-[#184edb]"
                   >
-                    {suppliersList.filter(s => s !== 'All').map(s => (
-                      <option key={s} value={s}>{s}</option>
+                    {activeSuppliersList.map(s => (
+                      <option key={s.id || s.name} value={s.name}>{s.name} ({s.id})</option>
                     ))}
                   </select>
+
+                  {/* Selected Supplier Details Badge */}
+                  {(() => {
+                    const sel = activeSuppliersList.find(s => s.name === newPoSupplier);
+                    if (!sel) return null;
+                    return (
+                      <div className="bg-[#eff6ff] border border-[#d6e4ff] rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-700 mt-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-[#184edb] text-[13.5px]">{sel.name}</span>
+                          <span className="font-mono text-[11px] bg-white px-2.5 py-0.5 rounded-full border border-[#d6e4ff] text-[#184edb] font-bold">
+                            {sel.id}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 text-slate-600 font-semibold text-[12px] flex-wrap">
+                          {sel.phone && <span>Ph: {sel.phone}</span>}
+                          {sel.gstNumber && sel.gstNumber !== 'N/A' && (
+                            <span>GSTIN: <span className="font-mono text-slate-800">{sel.gstNumber}</span></span>
+                          )}
+                          {sel.outstanding && <span>Outstanding: <span className="text-[#dc2626] font-bold">{sel.outstanding}</span></span>}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Invoice Number */}
@@ -705,111 +792,200 @@ export const Purchase: React.FC = () => {
             {/* Product Entry Table */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col gap-5">
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <h3 className="text-base font-extrabold text-slate-800 m-0 flex items-center gap-2 font-heading">
-                  <span>Product Entry</span>
-                </h3>
-                <button
-                  type="button"
-                  onClick={handleAddItem}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-[12.5px] border-none rounded-lg cursor-pointer transition-colors shadow-sm"
-                >
-                  <Plus size={15} />
-                  <span>Add Product</span>
-                </button>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#184edb] flex items-center justify-center border border-blue-100">
+                    <ShoppingBag size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-800 m-0 font-heading">
+                      Product Entry
+                    </h3>
+                    <p className="text-xs text-slate-400 m-0 font-medium">Add products/parts to this purchase order entry</p>
+                  </div>
+                </div>
+                <span className="text-[12px] font-bold text-[#184edb] bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+                  {purchaseItems.length} Products Added
+                </span>
               </div>
 
-              <div className="border border-slate-100 rounded-xl overflow-x-auto">
+              {/* Fast Product Line Entry Card */}
+              <div className="bg-[#f8fafc] border border-slate-200/80 rounded-xl p-4 flex flex-col gap-3 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-extrabold text-[#184edb] uppercase tracking-wider flex items-center gap-1.5">
+                    <Plus size={14} /> Add Product Line
+                  </span>
+                  {quickProdName.trim() && (
+                    <span className="text-xs font-bold text-slate-600 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
+                      Line Total: <span className="text-[#184edb] font-extrabold">₹{(((Number(quickProdQty) || 1) * (Number(quickProdRate) || 0)) * (1 + quickProdGst / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                  {/* Product Name */}
+                  <div className="sm:col-span-4 flex flex-col gap-1 text-left">
+                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Product Name *</label>
+                    <input
+                      ref={quickProdNameRef}
+                      type="text"
+                      value={quickProdName}
+                      onChange={(e) => setQuickProdName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (!quickProdName.trim()) {
+                            alert('Please enter a product name.');
+                            return;
+                          }
+                          quickProdQtyRef.current?.focus();
+                          quickProdQtyRef.current?.select();
+                        }
+                      }}
+                      placeholder="e.g. Engine Oil 15W40 / Filter"
+                      className="p-2.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#184edb] bg-white shadow-2xs"
+                    />
+                  </div>
+
+                  {/* Quantity */}
+                  <div className="sm:col-span-2 flex flex-col gap-1 text-left">
+                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Quantity *</label>
+                    <input
+                      ref={quickProdQtyRef}
+                      type="number"
+                      min="1"
+                      value={quickProdQty}
+                      onChange={(e) => setQuickProdQty(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          quickProdRateRef.current?.focus();
+                          quickProdRateRef.current?.select();
+                        }
+                      }}
+                      placeholder="1"
+                      className="p-2.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 text-center focus:outline-none focus:border-[#184edb] bg-white shadow-2xs"
+                    />
+                  </div>
+
+                  {/* Unit Rate */}
+                  <div className="sm:col-span-2 flex flex-col gap-1 text-left">
+                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Rate (₹) *</label>
+                    <input
+                      ref={quickProdRateRef}
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={quickProdRate}
+                      onChange={(e) => setQuickProdRate(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          quickProdGstRef.current?.focus();
+                        }
+                      }}
+                      placeholder="Rate ₹"
+                      className="p-2.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 text-right focus:outline-none focus:border-[#184edb] bg-white shadow-2xs"
+                    />
+                  </div>
+
+                  {/* GST % */}
+                  <div className="sm:col-span-2 flex flex-col gap-1 text-left">
+                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">GST %</label>
+                    <select
+                      ref={quickProdGstRef}
+                      value={quickProdGst}
+                      onChange={(e) => setQuickProdGst(Number(e.target.value))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddQuickProduct();
+                        }
+                      }}
+                      className="p-2.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 bg-white focus:outline-none focus:border-[#184edb] shadow-2xs cursor-pointer"
+                    >
+                      <option value={5}>5%</option>
+                      <option value={12}>12%</option>
+                      <option value={18}>18%</option>
+                      <option value={28}>28%</option>
+                    </select>
+                  </div>
+
+                  {/* Add Button */}
+                  <div className="sm:col-span-2 flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={handleAddQuickProduct}
+                      className="h-9.5 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-xs rounded-lg border-none cursor-pointer flex items-center justify-center gap-1.5 transition-all shadow-xs"
+                    >
+                      <Plus size={15} />
+                      <span>Add Item</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Clean Table Displaying Added Items */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
                 <table className="w-full text-left border-collapse min-w-[700px]">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 text-[11px] uppercase tracking-wider font-bold">
-                      <th className="py-3.5 px-4 font-bold">Product Name</th>
-                      <th className="py-3.5 px-3 text-center font-bold">Quantity</th>
-                      <th className="py-3.5 px-3 text-right font-bold">Rate ($)</th>
-                      <th className="py-3.5 px-3 text-center font-bold">GST %</th>
-                      <th className="py-3.5 px-3 text-right font-bold">Tax Amount ($)</th>
-                      <th className="py-3.5 px-3 text-right font-bold">Line Total ($)</th>
-                      <th className="py-3.5 px-4 text-center font-bold">Action</th>
+                    <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-500 text-[11px] uppercase tracking-wider font-extrabold">
+                      <th className="py-3 px-4 w-12 text-center">#</th>
+                      <th className="py-3 px-4">Product Name</th>
+                      <th className="py-3 px-3 text-center w-24">Quantity</th>
+                      <th className="py-3 px-4 text-right w-28">Rate (₹)</th>
+                      <th className="py-3 px-3 text-center w-20">GST %</th>
+                      <th className="py-3 px-4 text-right w-28">Tax Amount (₹)</th>
+                      <th className="py-3 px-4 text-right w-32">Line Total (₹)</th>
+                      <th className="py-3 px-4 text-center w-16">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 text-[13.5px]">
+                  <tbody className="divide-y divide-slate-100 text-[13px]">
                     {purchaseItems.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-8 text-center text-slate-400 font-semibold bg-white">
-                          No products added. Click "Add Product" to insert items.
+                        <td colSpan={8} className="py-10 text-center text-slate-400 bg-white">
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <ShoppingBag size={26} className="text-slate-300" />
+                            <span className="font-semibold text-slate-500 text-sm">No products added yet</span>
+                            <span className="text-xs text-slate-400">Fill product details above and click "+ Add Item" to add to this purchase order.</span>
+                          </div>
                         </td>
                       </tr>
                     ) : (
-                      purchaseItems.map((item) => {
+                      purchaseItems.map((item, index) => {
                         const baseVal = item.qty * item.rate;
                         const taxVal = baseVal * (item.gstPercent / 100);
                         const lineTotal = baseVal + taxVal;
 
                         return (
-                          <tr key={item.id} className="hover:bg-slate-50/30 transition-colors">
-                            {/* Product Name */}
-                            <td className="py-3.5 px-4">
-                              <input
-                                type="text"
-                                value={item.productName}
-                                onChange={(e) => handleItemChange(item.id, 'productName', e.target.value)}
-                                placeholder="Enter product name..."
-                                className="p-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 w-full focus:outline-none focus:border-[#184edb]"
-                              />
+                          <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="py-3.5 px-4 text-center font-bold text-slate-400 text-xs">
+                              {index + 1}
                             </td>
-
-                            {/* Quantity */}
-                            <td className="py-3.5 px-3 text-center w-24">
-                              <input
-                                type="number"
-                                min="1"
-                                value={item.qty || ''}
-                                onChange={(e) => handleItemChange(item.id, 'qty', parseInt(e.target.value, 10) || 0)}
-                                className="p-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 text-center w-full focus:outline-none focus:border-[#184edb]"
-                              />
+                            <td className="py-3.5 px-4 font-bold text-slate-800">
+                              {item.productName}
                             </td>
-
-                            {/* Rate */}
-                            <td className="py-3.5 px-3 w-28">
-                              <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={item.rate || ''}
-                                onChange={(e) => handleItemChange(item.id, 'rate', parseFloat(e.target.value) || 0)}
-                                className="p-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 text-right w-full focus:outline-none focus:border-[#184edb]"
-                              />
+                            <td className="py-3.5 px-3 text-center font-semibold text-slate-700">
+                              {item.qty}
                             </td>
-
-                            {/* GST */}
-                            <td className="py-3.5 px-3 text-center w-24">
-                              <select
-                                value={item.gstPercent}
-                                onChange={(e) => handleItemChange(item.id, 'gstPercent', parseInt(e.target.value, 10))}
-                                className="p-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 bg-white focus:outline-none focus:border-[#184edb] w-full"
-                              >
-                                <option value="5">5%</option>
-                                <option value="12">12%</option>
-                                <option value="18">18%</option>
-                                <option value="28">28%</option>
-                              </select>
+                            <td className="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
+                              ₹{item.rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
-
-                            {/* Tax Display */}
-                            <td className="py-3.5 px-3 text-right font-bold text-slate-500 whitespace-nowrap">
-                              ${taxVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            <td className="py-3.5 px-3 text-center font-semibold text-slate-600">
+                              <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] font-bold">
+                                {item.gstPercent}%
+                              </span>
                             </td>
-
-                            {/* Line Total */}
-                            <td className="py-3.5 px-3 text-right font-bold text-slate-800 whitespace-nowrap">
-                              ${lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            <td className="py-3.5 px-4 text-right font-mono text-slate-500 font-semibold">
+                              ₹{taxVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
-
-                            {/* Action */}
+                            <td className="py-3.5 px-4 text-right font-mono font-bold text-[#184edb]">
+                              ₹{lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
                             <td className="py-3.5 px-4 text-center">
                               <button
                                 type="button"
                                 onClick={() => handleRemoveItem(item.id)}
-                                className="text-slate-400 hover:text-rose-600 p-1 border-none bg-transparent cursor-pointer transition-colors"
+                                className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg border-none bg-transparent cursor-pointer transition-colors hover:bg-rose-50"
                                 title="Delete Item"
                               >
                                 <Trash2 size={15} />
@@ -820,34 +996,35 @@ export const Purchase: React.FC = () => {
                       })
                     )}
                   </tbody>
+                  {purchaseItems.length > 0 && (
+                    <tfoot>
+                      <tr className="bg-slate-50/80 border-t-2 border-slate-200 text-xs font-bold text-slate-700">
+                        <td colSpan={2} className="py-3 px-4 text-right font-extrabold uppercase tracking-wider text-slate-500">
+                          Total:
+                        </td>
+                        <td className="py-3 px-3 text-center font-extrabold text-slate-800">
+                          {purchaseItems.reduce((acc, i) => acc + i.qty, 0)}
+                        </td>
+                        <td></td>
+                        <td></td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-slate-600">
+                          ₹{purchaseItems.reduce((acc, i) => acc + (i.qty * i.rate * (i.gstPercent / 100)), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono font-extrabold text-[#184edb] text-sm">
+                          ₹{purchaseItems.reduce((acc, i) => acc + (i.qty * i.rate * (1 + i.gstPercent / 100)), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
-              <span className="text-[11px] text-slate-400 font-semibold italic text-left">
-                Add more products from your catalog...
-              </span>
             </div>
 
           </div>
 
           {/* Right Column */}
           <div className="flex flex-col gap-8 w-full box-border">
-
-            {/* Inventory Sync Banner Card */}
-            <div className="rounded-2xl overflow-hidden relative shadow-sm border border-slate-100 min-h-[240px] flex flex-col justify-end p-6 text-white group">
-              <div
-                className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                style={{ backgroundImage: `url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=600&q=80')` }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/65 to-transparent" />
-
-              <div className="relative z-10 flex flex-col gap-1.5 text-left">
-                <span className="text-[9.5px] font-bold text-blue-300 uppercase tracking-widest">REAL-TIME BRIDGE</span>
-                <h4 className="text-lg font-extrabold tracking-tight m-0 font-heading">Inventory Sync</h4>
-                <p className="text-[11px] text-slate-300 font-medium leading-relaxed m-0 mt-1">
-                  Entering purchases here automatically updates your global inventory levels and calculates average landing costs.
-                </p>
-              </div>
-            </div>
 
             {/* Purchase Summary */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col gap-6">
@@ -858,18 +1035,18 @@ export const Purchase: React.FC = () => {
               <div className="flex flex-col gap-3.5 text-[13.5px] font-semibold text-slate-500">
                 <div className="flex items-center justify-between">
                   <span>Subtotal:</span>
-                  <span className="text-slate-800 font-bold">${calculatedSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="text-slate-800 font-bold">₹{calculatedSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <span>GST Total (Aggregated):</span>
-                  <span className="text-slate-800 font-bold">${calculatedGst.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="text-slate-800 font-bold">₹{calculatedGst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <span>Additional Charges:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-slate-400">$</span>
+                    <span className="text-xs text-slate-400">₹</span>
                     <input
                       type="number"
                       min="0"
@@ -884,7 +1061,7 @@ export const Purchase: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span>Discount:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-slate-400">$</span>
+                    <span className="text-xs text-slate-400">₹</span>
                     <input
                       type="number"
                       min="0"
@@ -901,7 +1078,7 @@ export const Purchase: React.FC = () => {
               <div className="border-t border-slate-100 pt-4 flex flex-col gap-1 items-center">
                 <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Grand Total</span>
                 <span className="text-2xl font-black text-[#184edb] tracking-tight font-heading mt-0.5">
-                  ${calculatedGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ₹{calculatedGrandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
 
@@ -909,7 +1086,7 @@ export const Purchase: React.FC = () => {
               <div className="bg-[#f0f4ff] border border-[#d6e4ff] rounded-xl p-3 flex gap-2 items-start text-[#184edb]">
                 <span className="mt-0.5 flex"><Info size={14} /></span>
                 <p className="m-0 text-[10.5px] leading-normal text-left font-semibold text-slate-500">
-                  Rounded to the nearest dollar. This amount will be credited to the supplier's ledger.
+                  Rounded to the nearest rupee. This amount will be credited to the supplier's ledger.
                 </p>
               </div>
             </div>
@@ -1219,6 +1396,25 @@ export const Purchase: React.FC = () => {
 
           {subTab === 'overview' && (
             <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('Are you sure you want to clear all purchase history?')) {
+                  setPurchases([]);
+                  try {
+                    localStorage.setItem('dms_purchases_list', JSON.stringify([]));
+                  } catch (e) {}
+                }
+              }}
+              className="flex items-center gap-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold text-[13.5px] px-4 py-2.5 rounded-lg border border-rose-200 cursor-pointer transition-all duration-200"
+              title="Clear Purchase History"
+            >
+              <Trash2 size={16} />
+              <span>Clear History</span>
+            </button>
+          )}
+
+          {subTab === 'overview' && (
+            <button
               onClick={() => setShowNewPurchaseModal(true)}
               className="flex items-center gap-2 bg-[#184edb] hover:bg-[#133eb5] text-white font-semibold text-[13.5px] px-4.5 py-2.5 rounded-lg border-none shadow-md cursor-pointer transition-all duration-200"
             >
@@ -1323,8 +1519,16 @@ export const Purchase: React.FC = () => {
       {/* --- METRICS CARDS (Changes dynamically according to active tab) --- */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
 
-        {/* Metric 1 */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100/60 flex items-center justify-between">
+        {/* Metric 1: Total Purchases */}
+        <div 
+          onClick={() => { setSubTab('overview'); setStatusFilter('All'); setDateRange('All'); }}
+          className={`bg-white rounded-2xl p-6 shadow-sm border flex items-center justify-between cursor-pointer transition-all hover:scale-[1.01] ${
+            subTab === 'overview' && statusFilter === 'All' && dateRange === 'All'
+              ? 'border-[#184edb] ring-2 ring-[#184edb]/20 bg-blue-50/20'
+              : 'border-slate-100/60 hover:border-slate-300'
+          }`}
+          title="Click to view all purchases"
+        >
           <div className="flex flex-col gap-2">
             <span className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wider">
               {subTab === 'overview' && 'Total Purchases'}
@@ -1349,8 +1553,16 @@ export const Purchase: React.FC = () => {
           </div>
         </div>
 
-        {/* Metric 2 */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100/60 flex items-center justify-between">
+        {/* Metric 2: Today's Purchases */}
+        <div 
+          onClick={() => { setSubTab('overview'); setStatusFilter('All'); setDateRange('Today'); }}
+          className={`bg-white rounded-2xl p-6 shadow-sm border flex items-center justify-between cursor-pointer transition-all hover:scale-[1.01] ${
+            subTab === 'overview' && dateRange === 'Today'
+              ? 'border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/20'
+              : 'border-slate-100/60 hover:border-slate-300'
+          }`}
+          title="Click to view today's purchases"
+        >
           <div className="flex flex-col gap-2">
             <span className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wider">
               {subTab === 'overview' && "Today's Purchases"}
@@ -1359,7 +1571,7 @@ export const Purchase: React.FC = () => {
             </span>
             <span className="text-3xl font-extrabold text-slate-850 tracking-tight">
               {subTab === 'overview' && todayPurchasesCount}
-              {subTab === 'return' && `$${returns.filter(r => r.status === 'PENDING').reduce((acc, r) => acc + r.refundValue, 0).toLocaleString()}`}
+              {subTab === 'return' && `₹${returns.filter(r => r.status === 'PENDING').reduce((acc, r) => acc + r.refundValue, 0).toLocaleString()}`}
               {subTab === 'invoice' && invoices.filter(i => i.status === 'PAID').length + 65}
             </span>
           </div>
@@ -1373,8 +1585,11 @@ export const Purchase: React.FC = () => {
           </div>
         </div>
 
-        {/* Metric 3 */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100/60 flex items-center justify-between">
+        {/* Metric 3: Total Purchase Value */}
+        <div 
+          onClick={() => { setSubTab('overview'); setStatusFilter('All'); setDateRange('All'); }}
+          className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100/60 flex items-center justify-between cursor-pointer transition-all hover:scale-[1.01] hover:border-slate-300"
+        >
           <div className="flex flex-col gap-2">
             <span className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wider">
               {subTab === 'overview' && 'Total Purchase Value'}
@@ -1382,9 +1597,9 @@ export const Purchase: React.FC = () => {
               {subTab === 'invoice' && 'Outstanding Amount'}
             </span>
             <span className="text-3xl font-extrabold text-slate-850 tracking-tight">
-              {subTab === 'overview' && `$${totalPurchasesValue.toLocaleString()}`}
-              {subTab === 'return' && `$${totalRefundsValue.toLocaleString()}`}
-              {subTab === 'invoice' && `$${invoices.filter(i => i.status !== 'PAID').reduce((acc, i) => acc + i.amount, 0 + 24120).toLocaleString()}`}
+              {subTab === 'overview' && `₹${totalPurchasesValue.toLocaleString()}`}
+              {subTab === 'return' && `₹${totalRefundsValue.toLocaleString()}`}
+              {subTab === 'invoice' && `₹${invoices.filter(i => i.status !== 'PAID').reduce((acc, i) => acc + i.amount, 0 + 24120).toLocaleString()}`}
             </span>
           </div>
           <div className="flex flex-col items-end gap-2.5">
@@ -1397,8 +1612,16 @@ export const Purchase: React.FC = () => {
           </div>
         </div>
 
-        {/* Metric 4 */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100/60 flex items-center justify-between">
+        {/* Metric 4: Pending Payments */}
+        <div 
+          onClick={() => { setSubTab('overview'); setStatusFilter('PENDING'); setDateRange('All'); }}
+          className={`bg-white rounded-2xl p-6 shadow-sm border flex items-center justify-between cursor-pointer transition-all hover:scale-[1.01] ${
+            subTab === 'overview' && statusFilter === 'PENDING'
+              ? 'border-rose-400 ring-2 ring-rose-400/20 bg-rose-50/20'
+              : 'border-slate-100/60 hover:border-slate-300'
+          }`}
+          title="Click to view pending/unpaid purchases"
+        >
           <div className="flex flex-col gap-2">
             <span className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wider">
               {subTab === 'overview' && 'Pending Payments'}
@@ -1406,9 +1629,9 @@ export const Purchase: React.FC = () => {
               {subTab === 'invoice' && 'Overdue Bills Value'}
             </span>
             <span className="text-3xl font-extrabold text-slate-850 tracking-tight">
-              {subTab === 'overview' && `$${pendingPaymentsValue.toLocaleString()}`}
+              {subTab === 'overview' && `₹${pendingPaymentsValue.toLocaleString()}`}
               {subTab === 'return' && returns.filter(r => r.status === 'REJECTED').length}
-              {subTab === 'invoice' && `$${invoices.filter(i => i.status === 'OVERDUE').reduce((acc, i) => acc + i.amount, 0).toLocaleString()}`}
+              {subTab === 'invoice' && `₹${invoices.filter(i => i.status === 'OVERDUE').reduce((acc, i) => acc + i.amount, 0).toLocaleString()}`}
             </span>
           </div>
           <div className="flex flex-col items-end gap-2.5">

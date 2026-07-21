@@ -214,7 +214,7 @@ export const EditCustomer: React.FC<EditCustomerProps> = ({ customer, onBack, on
                   <input 
                     type="text" 
                     value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
                     required
                     placeholder="9876543210"
                     className="flex-1 border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700"

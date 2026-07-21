@@ -668,7 +668,7 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
                 <input
                   type="text"
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
                   className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold text-slate-700 focus:outline-none focus:border-[#184edb]"
                 />
               </div>
