@@ -78,12 +78,61 @@ function App() {
   // Lifted Vehicle Sales state
   const [salesRecords, setSalesRecords] = useState<SaleRecord[]>([]);
 
+  // Default settings
+  const DEFAULT_SETTINGS = {
+    companyName: 'AutoPro Elite Motors',
+    dealerName: 'Alexander Sterling',
+    gstNumber: '22AAAAA0000A1Z5',
+    panNumber: 'ABCDE1234F',
+    streetAddress: 'Industrial Park West, Sector 12, Block C',
+    city: 'Automotive City',
+    stateName: 'California',
+    pinCode: '90210',
+    mobileNumber: '+1 (555) 012-3456',
+    phoneNum: '+1 (555) 987-6543',
+    emailAddress: 'contact@autopro-elite.com',
+    websiteUrl: 'www.autopro-elite.com',
+    logoUrl: ''
+  };
+
+  // Company Settings state (initialized from localStorage if available)
+  const [companySettings, setCompanySettings] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem('dms_company_settings');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return DEFAULT_SETTINGS;
+  });
+
   // Lifted Service sub-tab and search state
   const [serviceSubTab, setServiceSubTab] = useState<'dashboard' | 'open-job-cards' | 'completed-jobs' | 'service-history'>('dashboard');
   const [serviceSearchTerm, setServiceSearchTerm] = useState('');
 
-  // Fetch initial suppliers and sales records
+  const updateCompanySettingsState = (newSettings: any) => {
+    setCompanySettings(newSettings);
+    try {
+      localStorage.setItem('dms_company_settings', JSON.stringify(newSettings));
+    } catch (e) {}
+  };
+
+  const fetchSettings = (updatedData?: any) => {
+    if (updatedData) {
+      updateCompanySettingsState(updatedData);
+    }
+    fetch(`${API_URL}/api/settings`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && (data.companyName || data.dealerName)) {
+          updateCompanySettingsState(data);
+        }
+      })
+      .catch((err) => console.error('Error fetching settings in App:', err));
+  };
+
+  // Fetch initial suppliers, sales records, and company settings
   useEffect(() => {
+    fetchSettings();
+
     fetch(`${API_URL}/api/suppliers`)
       .then((res) => res.json())
       .then((data) => {
@@ -124,7 +173,13 @@ function App() {
 
   return (
     <div className="flex min-h-screen w-full bg-[#f6f8fc] m-0 p-0 box-border font-sans">
-      <Sidebar activeTab={activeTab} setActiveTab={handleSetActiveTab} />
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={handleSetActiveTab}
+        companyName={companySettings.companyName}
+        dealerName={companySettings.dealerName}
+        logoUrl={companySettings.logoUrl}
+      />
       <div className="flex-1 flex flex-col min-w-0 box-border">
         <Navbar
           activeTab={activeTab}
@@ -163,7 +218,7 @@ function App() {
           ) : activeTab === 'mechanics' ? (
             <Mechanics />
           ) : activeTab === 'counter-sales' ? (
-            <CounterSales />
+            <CounterSales companySettings={companySettings} />
           ) : activeTab === 'parts' ? (
             <SpareParts />
           ) : activeTab === 'suppliers' ? (
@@ -172,11 +227,11 @@ function App() {
               setSuppliersList={setSuppliersList}
             />
           ) : activeTab === 'settings' ? (
-            <SettingsPage />
+            <SettingsPage onSettingsUpdated={fetchSettings} />
           ) : activeTab === 'purchase' ? (
             <Purchase />
           ) : activeTab === 'billing' ? (
-            <ServiceBilling />
+            <ServiceBilling companySettings={companySettings} />
           ) : (
             <div className="p-10 text-center text-slate-500 flex flex-col items-center justify-center min-h-[50vh]">
               <h2 className="text-2xl text-slate-800 mb-2 font-bold font-heading">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('-', ' ')} Page</h2>

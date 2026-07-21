@@ -10,7 +10,11 @@ import {
   User,
   Wrench,
   ShoppingBag,
-  FileText
+  FileText,
+  Clock,
+  Search,
+  CheckCircle,
+  FolderOpen
 } from 'lucide-react';
 
 // Interfaces
@@ -33,14 +37,57 @@ interface SparePart {
   imageUrl?: string;
 }
 
-export const ServiceBilling: React.FC = () => {
+export interface ServiceBillRecord {
+  id: string;
+  billNo: string;
+  jobCardNo: string;
+  customerName: string;
+  phoneNumber: string;
+  vehicleNo: string;
+  model: string;
+  serviceDate: string;
+  engineNo?: string;
+  chassisNo?: string;
+  assignedMechanic?: string;
+  serviceAdvisor?: string;
+  deliveryDate?: string;
+  deliveryTime?: string;
+  labourCharges: LabourCharge[];
+  spareParts: SparePart[];
+  remarks?: string;
+  discountPercent?: string;
+  paymentMode?: 'Cash' | 'Card' | 'UPI' | 'Net Banking';
+  grandTotal: number;
+  status: 'PAID' | 'PARTIAL' | 'PENDING' | 'DRAFT';
+  createdAt: string;
+}
+
+export interface ServiceBillingProps {
+  companySettings?: {
+    companyName: string;
+    dealerName: string;
+    gstNumber: string;
+    panNumber: string;
+    streetAddress: string;
+    city: string;
+    stateName: string;
+    pinCode: string;
+    mobileNumber: string;
+    phoneNum: string;
+    emailAddress: string;
+    websiteUrl: string;
+    logoUrl: string;
+  };
+}
+
+export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings }) => {
   // Header info
-  const [billNo] = useState('SB-2023-0045');
+  const [billNo, setBillNo] = useState('SB-2023-0045');
 
   // Customer & Vehicle State
   const [customerName, setCustomerName] = useState('Rahul Sharma');
   const [phoneNumber, setPhoneNumber] = useState('+91 98765 43210');
-  const [jobCardNo] = useState('JC-2023-8842');
+  const [jobCardNo, setJobCardNo] = useState('JC-2023-8842');
   const [vehicleNo, setVehicleNo] = useState('DL 3C AW 1234');
   const [model, setModel] = useState('Volvo XC90 B5');
   const [serviceDate, setServiceDate] = useState('11/24/2023');
@@ -52,6 +99,120 @@ export const ServiceBilling: React.FC = () => {
   const [serviceAdvisor, setServiceAdvisor] = useState('John Admin');
   const [deliveryDate, setDeliveryDate] = useState('11/25/2023');
   const [deliveryTime, setDeliveryTime] = useState('05:00 PM');
+
+  // Total Bills & Draft Lists
+  const [totalBillsList, setTotalBillsList] = useState<ServiceBillRecord[]>([
+    {
+      id: 'sb-101',
+      billNo: 'SB-2023-0044',
+      jobCardNo: 'JC-2023-8841',
+      customerName: 'Anand Kumar',
+      phoneNumber: '+91 98401 23456',
+      vehicleNo: 'TN 09 CB 4321',
+      model: 'Eicher Pro 2049',
+      serviceDate: '11/23/2023',
+      engineNo: 'ENG-998822',
+      chassisNo: 'CHS-112233',
+      assignedMechanic: 'Ramesh Patel',
+      serviceAdvisor: 'John Admin',
+      deliveryDate: '11/23/2023',
+      deliveryTime: '04:00 PM',
+      labourCharges: [
+        { id: 'l-m1', type: 'Full Service', description: 'General periodic service', amount: 3500 }
+      ],
+      spareParts: [],
+      remarks: 'Payment cleared in cash',
+      discountPercent: '5',
+      paymentMode: 'Cash',
+      grandTotal: 14200.00,
+      status: 'PAID',
+      createdAt: '11/23/2023'
+    },
+    {
+      id: 'sb-102',
+      billNo: 'SB-2023-0043',
+      jobCardNo: 'JC-2023-8839',
+      customerName: 'Venkatesh Logistics',
+      phoneNumber: '+91 97890 12345',
+      vehicleNo: 'TN 22 BK 9876',
+      model: 'Eicher Pro 3015',
+      serviceDate: '11/22/2023',
+      engineNo: 'ENG-445511',
+      chassisNo: 'CHS-778899',
+      assignedMechanic: 'Suresh Kumar',
+      serviceAdvisor: 'John Admin',
+      deliveryDate: '11/22/2023',
+      deliveryTime: '06:00 PM',
+      labourCharges: [],
+      spareParts: [],
+      remarks: 'Card transaction',
+      discountPercent: '0',
+      paymentMode: 'Card',
+      grandTotal: 8650.00,
+      status: 'PAID',
+      createdAt: '11/22/2023'
+    },
+    {
+      id: 'sb-103',
+      billNo: 'SB-2023-0042',
+      jobCardNo: 'JC-2023-8835',
+      customerName: 'Karthik Transport',
+      phoneNumber: '+91 94440 55667',
+      vehicleNo: 'TN 10 AW 5544',
+      model: 'Eicher Pro 6028',
+      serviceDate: '11/20/2023',
+      engineNo: 'ENG-123456',
+      chassisNo: 'CHS-654321',
+      assignedMechanic: 'Vikram Singh',
+      serviceAdvisor: 'John Admin',
+      deliveryDate: '11/20/2023',
+      deliveryTime: '05:00 PM',
+      labourCharges: [],
+      spareParts: [],
+      remarks: 'Partial payment made via UPI',
+      discountPercent: '10',
+      paymentMode: 'UPI',
+      grandTotal: 22400.00,
+      status: 'PARTIAL',
+      createdAt: '11/20/2023'
+    }
+  ]);
+
+  const [draftBillsList, setDraftBillsList] = useState<ServiceBillRecord[]>([
+    {
+      id: 'draft-1',
+      billNo: 'SB-2023-0046-DRAFT',
+      jobCardNo: 'JC-2023-8845',
+      customerName: 'Rajesh Heavy Motors',
+      phoneNumber: '+91 98112 33445',
+      vehicleNo: 'KA 04 MP 1122',
+      model: 'Eicher Pro 2059',
+      serviceDate: '11/24/2023',
+      engineNo: 'ENG-771122',
+      chassisNo: 'CHS-334455',
+      assignedMechanic: 'Vikram Singh',
+      serviceAdvisor: 'John Admin',
+      deliveryDate: '11/26/2023',
+      deliveryTime: '03:00 PM',
+      labourCharges: [
+        { id: 'l-d1', type: 'Oil Change', description: 'Engine oil drain & replacement', amount: 900 }
+      ],
+      spareParts: [
+        { id: 'p-d1', partNo: 'P-OIL-01', name: 'Engine Oil 5L', qty: 1, price: 4500, gstPercent: 18, total: 5310, stockStatus: 'Available' }
+      ],
+      remarks: 'Draft pending final inspection',
+      discountPercent: '5',
+      paymentMode: 'Cash',
+      grandTotal: 6210.00,
+      status: 'DRAFT',
+      createdAt: '11/24/2023'
+    }
+  ]);
+
+  // Modals for Total Bills & Drafts
+  const [showTotalBillsModal, setShowTotalBillsModal] = useState(false);
+  const [showDraftsModal, setShowDraftsModal] = useState(false);
+  const [searchBillsTerm, setSearchBillsTerm] = useState('');
 
   // Labour Charges State
   const [labourCharges, setLabourCharges] = useState<LabourCharge[]>([
@@ -281,6 +442,119 @@ export const ServiceBilling: React.FC = () => {
     }
   };
 
+  // --- SAVE BILL & DRAFT HANDLERS ---
+  const handleSaveBill = () => {
+    const newBill: ServiceBillRecord = {
+      id: `sb-${Date.now()}`,
+      billNo,
+      jobCardNo,
+      customerName,
+      phoneNumber,
+      vehicleNo,
+      model,
+      serviceDate,
+      engineNo,
+      chassisNo,
+      assignedMechanic,
+      serviceAdvisor,
+      deliveryDate,
+      deliveryTime,
+      labourCharges: [...labourCharges],
+      spareParts: [...spareParts],
+      remarks,
+      discountPercent,
+      paymentMode,
+      grandTotal,
+      status: 'PAID',
+      createdAt: new Date().toLocaleDateString()
+    };
+
+    setTotalBillsList([newBill, ...totalBillsList]);
+    
+    // Auto-increment bill number
+    const currentNum = parseInt(billNo.replace(/[^0-9]/g, ''), 10) || 45;
+    const nextBillNo = `SB-2023-00${currentNum + 1}`;
+    setBillNo(nextBillNo);
+
+    alert(`Service Bill ${billNo} saved successfully! Added to Total Bills list.`);
+  };
+
+  const handleSaveDraft = () => {
+    const draftBillNo = billNo.includes('DRAFT') ? billNo : `${billNo}-DRAFT`;
+    const existingIndex = draftBillsList.findIndex(d => d.billNo === draftBillNo || d.billNo === billNo);
+    
+    const draftRecord: ServiceBillRecord = {
+      id: existingIndex >= 0 ? draftBillsList[existingIndex].id : `draft-${Date.now()}`,
+      billNo: draftBillNo,
+      jobCardNo,
+      customerName: customerName || 'Draft Customer',
+      phoneNumber,
+      vehicleNo: vehicleNo || 'Draft Vehicle',
+      model,
+      serviceDate,
+      engineNo,
+      chassisNo,
+      assignedMechanic,
+      serviceAdvisor,
+      deliveryDate,
+      deliveryTime,
+      labourCharges: [...labourCharges],
+      spareParts: [...spareParts],
+      remarks,
+      discountPercent,
+      paymentMode,
+      grandTotal,
+      status: 'DRAFT',
+      createdAt: new Date().toLocaleDateString()
+    };
+
+    if (existingIndex >= 0) {
+      const updated = [...draftBillsList];
+      updated[existingIndex] = draftRecord;
+      setDraftBillsList(updated);
+    } else {
+      setDraftBillsList([draftRecord, ...draftBillsList]);
+    }
+
+    alert(`Service Bill ${billNo} saved as Draft! You can view and restore it anytime using the Draft badge at the top.`);
+  };
+
+  const handleLoadRecord = (record: ServiceBillRecord) => {
+    setBillNo(record.billNo.replace('-DRAFT', ''));
+    if (record.jobCardNo) setJobCardNo(record.jobCardNo);
+    setCustomerName(record.customerName || '');
+    setPhoneNumber(record.phoneNumber || '');
+    setVehicleNo(record.vehicleNo || '');
+    setModel(record.model || '');
+    setServiceDate(record.serviceDate || '');
+    setEngineNo(record.engineNo || '');
+    setChassisNo(record.chassisNo || '');
+    setAssignedMechanic(record.assignedMechanic || 'Vikram Singh');
+    setServiceAdvisor(record.serviceAdvisor || 'John Admin');
+    setDeliveryDate(record.deliveryDate || '');
+    setDeliveryTime(record.deliveryTime || '05:00 PM');
+    setLabourCharges(record.labourCharges || []);
+    setSpareParts(record.spareParts || []);
+    setRemarks(record.remarks || '');
+    setDiscountPercent(record.discountPercent || '5');
+    setPaymentMode(record.paymentMode || 'Cash');
+
+    setShowTotalBillsModal(false);
+    setShowDraftsModal(false);
+  };
+
+  const handleDeleteBill = (id: string) => {
+    if (window.confirm('Are you sure you want to delete this service bill from records?')) {
+      setTotalBillsList(totalBillsList.filter(b => b.id !== id));
+    }
+  };
+
+  const handleDeleteDraft = (id: string) => {
+    if (window.confirm('Are you sure you want to delete this draft?')) {
+      setDraftBillsList(draftBillsList.filter(d => d.id !== id));
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col lg:flex-row gap-8 p-8 bg-[#f8fafc] w-full box-border font-sans min-h-[calc(100vh-64px)]">
 
@@ -291,8 +565,6 @@ export const ServiceBilling: React.FC = () => {
         <div className="flex items-center gap-2 text-[13px] text-slate-400 font-semibold mb-2">
           <span>Dashboard</span>
           <span>/</span>
-          <span>Service</span>
-          <span>/</span>
           <span className="text-[#184edb]">New Service Bill</span>
         </div>
 
@@ -302,19 +574,55 @@ export const ServiceBilling: React.FC = () => {
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight m-0 font-heading">
               Create New Service Bill
             </h1>
-            <span className="text-[14px] text-[#184edb] font-bold">
-              Bill No: {billNo}
-            </span>
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
+              <span className="text-[14px] text-[#184edb] font-bold">
+                Bill No: {billNo}
+              </span>
+              <span className="text-slate-300">•</span>
+
+              {/* Clickable Total Bills Badge */}
+              <button
+                type="button"
+                onClick={() => setShowTotalBillsModal(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-[#184edb] border border-blue-200 rounded-md text-[12px] font-bold shadow-xs cursor-pointer transition-colors"
+                title="Click to view all Total Bills"
+              >
+                <FileText size={13} />
+                <span>Total Bills: {totalBillsList.length}</span>
+              </button>
+
+              {/* Clickable Drafts Badge */}
+              <button
+                type="button"
+                onClick={() => setShowDraftsModal(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-md text-[12px] font-bold shadow-xs cursor-pointer transition-colors"
+                title="Click to view all saved Drafts"
+              >
+                <Clock size={13} />
+                <span>Draft: {draftBillsList.length}</span>
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
             <button
+              type="button"
+              onClick={handleSaveDraft}
+              className="flex items-center gap-1.5 px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-[13px] rounded-lg border border-amber-200 shadow-sm cursor-pointer transition-colors"
+              title="Save current bill as Draft"
+            >
+              <Clock size={15} />
+              <span>Draft</span>
+            </button>
+            <button
+              type="button"
               onClick={() => { if (window.confirm('Discard bill changes?')) window.location.reload(); }}
               className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-650 font-bold text-[13px] rounded-lg border border-slate-200 shadow-sm cursor-pointer transition-colors"
             >
               Cancel
             </button>
             <button
+              type="button"
               onClick={() => setShowInvoicePreview(true)}
               className="flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-slate-50 text-slate-650 font-bold text-[13px] rounded-lg border border-slate-200 shadow-sm cursor-pointer transition-colors"
             >
@@ -322,7 +630,8 @@ export const ServiceBilling: React.FC = () => {
               <span>Preview</span>
             </button>
             <button
-              onClick={() => alert(`Service Bill ${billNo} saved successfully!`)}
+              type="button"
+              onClick={handleSaveBill}
               className="flex items-center gap-1.5 px-4 py-2 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-[13px] border-none rounded-lg shadow-md cursor-pointer transition-colors"
             >
               <Save size={15} />
@@ -1052,10 +1361,24 @@ export const ServiceBilling: React.FC = () => {
 
               {/* Invoice Header */}
               <div className="flex justify-between items-start border-b border-slate-200 pb-6 mb-6">
-                <div className="flex flex-col gap-1">
-                  <span className="text-xl font-extrabold tracking-wide uppercase text-[#184edb]">DMS Pro Heavy Machinery</span>
-                  <span className="text-[12px] text-slate-400 font-medium">Workshop ERP & Service Division</span>
-                  <span className="text-[12.5px] text-slate-500 font-medium mt-1">Regd: DL 3C AW 1234 • Model: {model}</span>
+                <div className="flex items-start gap-4">
+                  {companySettings?.logoUrl && (
+                    <img src={companySettings.logoUrl} alt="Logo" className="w-14 h-14 object-contain rounded-lg border border-slate-200 p-1 bg-white" />
+                  )}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xl font-extrabold tracking-wide uppercase text-[#184edb]">
+                      {companySettings?.companyName || 'DMS Pro Heavy Machinery'}
+                    </span>
+                    <span className="text-[12px] text-slate-400 font-medium">
+                      {companySettings?.dealerName ? `${companySettings.dealerName} • ` : ''}Workshop ERP & Service Division
+                    </span>
+                    <span className="text-[12.5px] text-slate-500 font-medium mt-1">
+                      {companySettings?.streetAddress ? `${companySettings.streetAddress}, ${companySettings.city}, ${companySettings.stateName} ${companySettings.pinCode} • ` : ''}GSTIN: {companySettings?.gstNumber || '22AAAAA0000A1Z5'}
+                    </span>
+                    <span className="text-[11.5px] text-slate-400 font-medium">
+                      Ph: {companySettings?.mobileNumber || companySettings?.phoneNum || '+1 (555) 012-3456'} • Email: {companySettings?.emailAddress || 'service@company.com'}
+                    </span>
+                  </div>
                 </div>
                 <div className="text-right flex flex-col gap-1">
                   <span className="text-2xl font-black text-slate-850">INVOICE</span>
@@ -1194,6 +1517,213 @@ export const ServiceBilling: React.FC = () => {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* 4. TOTAL BILLS LIST MODAL */}
+      {showTotalBillsModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100 animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-100 text-[#184edb] rounded-lg">
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 m-0 font-heading">Total Service Bills</h3>
+                  <p className="text-xs text-slate-500 m-0 font-medium">Showing {totalBillsList.length} total generated bills in the system</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowTotalBillsModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Search & Stats Bar */}
+            <div className="p-4 border-b border-slate-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="relative w-full sm:w-72">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search by Bill No, Customer, Vehicle..."
+                  value={searchBillsTerm}
+                  onChange={(e) => setSearchBillsTerm(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-lg font-semibold text-slate-700 focus:outline-none focus:border-[#184edb]"
+                />
+              </div>
+              <div className="text-xs font-bold text-[#184edb] bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+                Total Revenue: ₹{totalBillsList.reduce((acc, b) => acc + b.grandTotal, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+
+            {/* Table Body */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {totalBillsList.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 font-semibold">
+                  No service bills generated yet. Save a bill to see it here!
+                </div>
+              ) : (
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-3">Bill No</th>
+                      <th className="py-3 px-3">Customer Name</th>
+                      <th className="py-3 px-3">Vehicle No</th>
+                      <th className="py-3 px-3">Date</th>
+                      <th className="py-3 px-3 text-right">Grand Total</th>
+                      <th className="py-3 px-3 text-center">Status</th>
+                      <th className="py-3 px-3 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                    {totalBillsList
+                      .filter(b =>
+                        b.billNo.toLowerCase().includes(searchBillsTerm.toLowerCase()) ||
+                        b.customerName.toLowerCase().includes(searchBillsTerm.toLowerCase()) ||
+                        b.vehicleNo.toLowerCase().includes(searchBillsTerm.toLowerCase())
+                      )
+                      .map((b) => (
+                        <tr key={b.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-3 px-3 font-bold text-[#184edb]">{b.billNo}</td>
+                          <td className="py-3 px-3 font-bold text-slate-800">{b.customerName}</td>
+                          <td className="py-3 px-3 font-mono text-slate-600">{b.vehicleNo}</td>
+                          <td className="py-3 px-3 text-slate-500">{b.serviceDate}</td>
+                          <td className="py-3 px-3 text-right font-bold text-slate-900">₹{b.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                          <td className="py-3 px-3 text-center">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                              b.status === 'PAID' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' :
+                              b.status === 'PARTIAL' ? 'bg-amber-50 text-amber-600 border border-amber-200' :
+                              'bg-slate-100 text-slate-600'
+                            }`}>
+                              {b.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => handleLoadRecord(b)}
+                                className="flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-[#184edb] font-bold text-[11px] rounded border border-blue-100 cursor-pointer transition-colors"
+                              >
+                                <FolderOpen size={12} />
+                                <span>Open</span>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteBill(b.id)}
+                                className="p-1 text-rose-500 hover:bg-rose-50 rounded cursor-pointer transition-colors"
+                                title="Delete Bill"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+              <button
+                onClick={() => setShowTotalBillsModal(false)}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. DRAFTS LIST MODAL */}
+      {showDraftsModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100 animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-amber-50/50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-100 text-amber-700 rounded-lg">
+                  <Clock size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 m-0 font-heading">Saved Draft Bills</h3>
+                  <p className="text-xs text-slate-500 m-0 font-medium">Click "Load Draft" to restore any saved draft into the billing form</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDraftsModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Table Body */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {draftBillsList.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 font-semibold">
+                  No saved drafts found. Click the "Draft" button at the top to save your work in progress.
+                </div>
+              ) : (
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-3">Draft Ref</th>
+                      <th className="py-3 px-3">Customer Name</th>
+                      <th className="py-3 px-3">Vehicle No</th>
+                      <th className="py-3 px-3">Date</th>
+                      <th className="py-3 px-3 text-right">Draft Total</th>
+                      <th className="py-3 px-3 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                    {draftBillsList.map((d) => (
+                      <tr key={d.id} className="hover:bg-amber-50/30 transition-colors">
+                        <td className="py-3 px-3 font-bold text-amber-800">{d.billNo}</td>
+                        <td className="py-3 px-3 font-bold text-slate-800">{d.customerName}</td>
+                        <td className="py-3 px-3 font-mono text-slate-600">{d.vehicleNo}</td>
+                        <td className="py-3 px-3 text-slate-500">{d.serviceDate}</td>
+                        <td className="py-3 px-3 text-right font-bold text-slate-900">₹{d.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                        <td className="py-3 px-3 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleLoadRecord(d)}
+                              className="flex items-center gap-1 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] rounded shadow-xs cursor-pointer transition-colors"
+                            >
+                              <FolderOpen size={13} />
+                              <span>Load Draft</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteDraft(d.id)}
+                              className="p-1 text-rose-500 hover:bg-rose-50 rounded cursor-pointer transition-colors"
+                              title="Delete Draft"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+              <button
+                onClick={() => setShowDraftsModal(false)}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

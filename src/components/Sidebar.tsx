@@ -15,9 +15,12 @@ import {
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  companyName?: string;
+  dealerName?: string;
+  logoUrl?: string;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, companyName, dealerName, logoUrl }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'customers', label: 'Customers', icon: Users },
@@ -36,16 +39,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
     <aside className="w-64 min-w-[16rem] bg-gradient-to-b from-[#184edb] to-[#0d287a] text-white/75 flex flex-col h-screen sticky top-0 p-6 shadow-xl box-border font-heading">
       <div className="mb-8 px-2">
         <div className="flex items-center gap-3">
-          <div className="bg-white/15 p-2 rounded-lg flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 17L12 22L22 17" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 12L12 17L22 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+          <div className="bg-white/15 p-1 rounded-lg flex items-center justify-center flex-shrink-0 w-9 h-9 overflow-hidden">
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="w-full h-full object-contain rounded" />
+            ) : (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
           </div>
-          <div>
-            <h2 className="color-white text-xl font-bold m-0 tracking-wide">DMS Pro</h2>
-            <span className="text-[11px] text-white/50 uppercase tracking-widest block mt-0.5">Heavy Machinery</span>
+          <div className="min-w-0">
+            <h2 className="text-white text-lg font-bold m-0 tracking-wide truncate">
+              {companyName || 'DMS Pro'}
+            </h2>
+            <span className="text-[11px] text-white/60 uppercase tracking-widest block mt-0.5 truncate">
+              {dealerName || 'Heavy Machinery'}
+            </span>
           </div>
         </div>
       </div>

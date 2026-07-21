@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Building2,
   MapPin,
@@ -6,28 +6,92 @@ import {
   Upload,
   Save,
   CheckCircle2,
-  X
+  X,
+  Loader2,
+  Trash2
 } from 'lucide-react';
 
-export const SettingsPage: React.FC = () => {
+export interface SettingsPageProps {
+  onSettingsUpdated?: (updatedData?: any) => void;
+}
+
+export const SettingsPage: React.FC<SettingsPageProps> = ({ onSettingsUpdated }) => {
   // Toast state
-  const [showToast, setShowToast] = useState(true);
+  const [showToast, setShowToast] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Form states
-  const [companyName, setCompanyName] = useState('AutoPro Elite Motors');
-  const [dealerName, setDealerName] = useState('Alexander Sterling');
-  const [gstNumber, setGstNumber] = useState('22AAAAA0000A1Z5');
-  const [panNumber, setPanNumber] = useState('ABCDE1234F');
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+  // Form states initialized with local storage if present
+  const getInitialValue = (key: string, defaultVal: string) => {
+    try {
+      const saved = localStorage.getItem('dms_company_settings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed[key] !== undefined) return parsed[key];
+      }
+    } catch (e) {}
+    return defaultVal;
+  };
+
+  const [companyName, setCompanyName] = useState(() => getInitialValue('companyName', 'AutoPro Elite Motors'));
+  const [dealerName, setDealerName] = useState(() => getInitialValue('dealerName', 'Alexander Sterling'));
+  const [gstNumber, setGstNumber] = useState(() => getInitialValue('gstNumber', '22AAAAA0000A1Z5'));
+  const [panNumber, setPanNumber] = useState(() => getInitialValue('panNumber', 'ABCDE1234F'));
   
-  const [streetAddress, setStreetAddress] = useState('Industrial Park West, Sector 12, Block C');
-  const [city, setCity] = useState('Automotive City');
-  const [stateName, setStateName] = useState('California');
-  const [pinCode, setPinCode] = useState('90210');
+  const [streetAddress, setStreetAddress] = useState(() => getInitialValue('streetAddress', 'Industrial Park West, Sector 12, Block C'));
+  const [city, setCity] = useState(() => getInitialValue('city', 'Automotive City'));
+  const [stateName, setStateName] = useState(() => getInitialValue('stateName', 'California'));
+  const [pinCode, setPinCode] = useState(() => getInitialValue('pinCode', '90210'));
 
-  const [mobileNumber, setMobileNumber] = useState('+1 (555) 012-3456');
-  const [phoneNum, setPhoneNum] = useState('+1 (555) 987-6543');
-  const [emailAddress, setEmailAddress] = useState('contact@autopro-elite.com');
-  const [websiteUrl, setWebsiteUrl] = useState('www.autopro-elite.com');
+  const [mobileNumber, setMobileNumber] = useState(() => getInitialValue('mobileNumber', '+1 (555) 012-3456'));
+  const [phoneNum, setPhoneNum] = useState(() => getInitialValue('phoneNum', '+1 (555) 987-6543'));
+  const [emailAddress, setEmailAddress] = useState(() => getInitialValue('emailAddress', 'contact@autopro-elite.com'));
+  const [websiteUrl, setWebsiteUrl] = useState(() => getInitialValue('websiteUrl', 'www.autopro-elite.com'));
+  const [logoUrl, setLogoUrl] = useState(() => getInitialValue('logoUrl', ''));
+
+  // Fetch settings from backend on mount
+  useEffect(() => {
+    fetch(`${API_URL}/api/settings`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data) {
+          if (data.companyName) setCompanyName(data.companyName);
+          if (data.dealerName) setDealerName(data.dealerName);
+          if (data.gstNumber) setGstNumber(data.gstNumber);
+          if (data.panNumber) setPanNumber(data.panNumber);
+          if (data.streetAddress) setStreetAddress(data.streetAddress);
+          if (data.city) setCity(data.city);
+          if (data.stateName) setStateName(data.stateName);
+          if (data.pinCode) setPinCode(data.pinCode);
+          if (data.mobileNumber) setMobileNumber(data.mobileNumber);
+          if (data.phoneNum) setPhoneNum(data.phoneNum);
+          if (data.emailAddress) setEmailAddress(data.emailAddress);
+          if (data.websiteUrl) setWebsiteUrl(data.websiteUrl);
+          if (data.logoUrl) setLogoUrl(data.logoUrl);
+          try {
+            localStorage.setItem('dms_company_settings', JSON.stringify(data));
+          } catch (e) {}
+        }
+      })
+      .catch((err) => console.error('Error fetching settings from backend:', err));
+  }, [API_URL]);
+
+  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size exceeds 5MB limit');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleReset = () => {
     setCompanyName('AutoPro Elite Motors');
@@ -42,24 +106,62 @@ export const SettingsPage: React.FC = () => {
     setPhoneNum('+1 (555) 987-6543');
     setEmailAddress('contact@autopro-elite.com');
     setWebsiteUrl('www.autopro-elite.com');
+    setLogoUrl('');
   };
 
-  const handleSave = () => {
-    setShowToast(true);
-    alert('Settings saved successfully!');
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const payload = {
+        companyName,
+        dealerName,
+        gstNumber,
+        panNumber,
+        streetAddress,
+        city,
+        stateName,
+        pinCode,
+        mobileNumber,
+        phoneNum,
+        emailAddress,
+        websiteUrl,
+        logoUrl
+      };
+
+      try {
+        localStorage.setItem('dms_company_settings', JSON.stringify(payload));
+      } catch (e) {}
+
+      if (onSettingsUpdated) {
+        onSettingsUpdated(payload);
+      }
+
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 4000);
+
+      await fetch(`${API_URL}/api/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch (error) {
+      console.warn('Backend connection warning during settings save:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="flex-1 flex flex-col p-8 gap-6 bg-[#f6f8fc] min-w-0 font-sans relative">
+    <div className="flex-1 flex flex-col p-8 gap-6 bg-[#f6f8fc] min-w-0 font-sans">
       
-      {/* Toast Alert Banner */}
+      {/* Toast Alert Banner - fixed at top center so it's always visible */}
       {showToast && (
-        <div className="absolute top-6 right-8 z-50 bg-white border-l-[4px] border-[#10b981] rounded-lg shadow-lg p-4 flex items-center justify-between gap-4 max-w-[380px] animate-fade-in transition-all">
+        <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[9999] bg-white border-l-[4px] border-[#10b981] rounded-lg shadow-2xl p-4 flex items-center justify-between gap-4 min-w-[340px] max-w-[480px] animate-fade-in transition-all">
           <div className="flex items-start gap-3">
             <CheckCircle2 className="text-[#10b981] flex-shrink-0 mt-0.5" size={20} />
             <div className="flex flex-col">
               <span className="text-[14px] font-bold text-[#0f172a]">Settings Updated</span>
-              <span className="text-[12px] text-[#64748b] mt-0.5">Company settings updated successfully.</span>
+              <span className="text-[12px] text-[#64748b] mt-0.5">Company settings and logo updated across system.</span>
             </div>
           </div>
           <button 
@@ -70,6 +172,15 @@ export const SettingsPage: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* Hidden File Input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleLogoSelect}
+        accept="image/*"
+        className="hidden"
+      />
 
       {/* Breadcrumbs */}
       <div className="flex items-center gap-1.5 text-[13px] font-semibold text-[#64748b]">
@@ -82,21 +193,47 @@ export const SettingsPage: React.FC = () => {
       <div className="flex flex-col gap-1">
         <h1 className="text-[28px] font-bold text-[#0f172a] font-heading tracking-tight leading-tight">Company Profile</h1>
         <p className="text-[13.5px] text-[#64748b]">
-          Manage your dealership's identity and contact information for invoices and reports.
+          Manage your dealership's identity, logo, and contact information for invoices and receipts.
         </p>
       </div>
 
       {/* Company Logo Section */}
       <div className="flex flex-col gap-2">
         <span className="text-[11px] font-bold text-[#475569] tracking-wider uppercase">COMPANY LOGO</span>
-        <div className="border border-dashed border-[#cbd5e1] hover:border-[#184edb] bg-white rounded-xl p-8 flex flex-col items-center justify-center gap-3 transition-colors cursor-pointer min-h-[140px]">
-          <div className="bg-[#eff6ff] p-3 rounded-lg text-[#184edb] flex items-center justify-center">
-            <Upload size={22} className="stroke-[2.5px]" />
-          </div>
-          <div className="text-center">
-            <span className="text-[13.5px] font-bold text-[#0f172a] block">Click or drag to upload logo</span>
-            <span className="text-[12px] text-[#64748b] block mt-1">PNG, JPG up to 5MB (Recomm. 400×120px)</span>
-          </div>
+        <div 
+          onClick={() => fileInputRef.current?.click()}
+          className="border border-dashed border-[#cbd5e1] hover:border-[#184edb] bg-white rounded-xl p-6 flex flex-col sm:flex-row items-center justify-center gap-6 transition-all cursor-pointer min-h-[140px] shadow-xs group"
+        >
+          {logoUrl ? (
+            <div className="flex items-center gap-6">
+              <img src={logoUrl} alt="Company Logo Preview" className="h-16 w-auto object-contain rounded-lg border border-slate-200 p-2 bg-slate-50" />
+              <div className="flex flex-col gap-1">
+                <span className="text-[13.5px] font-bold text-[#0f172a]">Uploaded Logo Preview</span>
+                <span className="text-[12px] text-[#184edb] font-semibold">Click to replace logo</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLogoUrl('');
+                  }}
+                  className="flex items-center gap-1 text-xs text-rose-500 hover:text-rose-700 font-bold mt-1 border-none bg-transparent cursor-pointer"
+                >
+                  <Trash2 size={13} />
+                  <span>Remove Logo</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="bg-[#eff6ff] p-3 rounded-lg text-[#184edb] flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Upload size={22} className="stroke-[2.5px]" />
+              </div>
+              <div className="text-center sm:text-left">
+                <span className="text-[13.5px] font-bold text-[#0f172a] block">Click or drag to upload logo</span>
+                <span className="text-[12px] text-[#64748b] block mt-1">PNG, JPG up to 5MB (Recomm. 400×120px)</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -252,13 +389,15 @@ export const SettingsPage: React.FC = () => {
       <div className="flex gap-3.5 mt-4 pt-4 border-t border-[#e2e8f0]">
         <button
           onClick={handleSave}
-          className="flex items-center gap-2 bg-[#184edb] hover:bg-[#1544c2] text-white font-bold text-[13.5px] px-6 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer border-0"
+          disabled={loading}
+          className="flex items-center gap-2 bg-[#184edb] hover:bg-[#1544c2] disabled:opacity-70 text-white font-bold text-[13.5px] px-6 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer border-0"
         >
-          <Save size={16} />
-          <span>Save Changes</span>
+          {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+          <span>{loading ? 'Saving...' : 'Save Changes'}</span>
         </button>
         <button
           onClick={handleReset}
+          disabled={loading}
           className="bg-white hover:bg-slate-50 text-[#64748b] font-bold text-[13.5px] px-6 py-2.5 rounded-lg border border-[#cbd5e1] transition-all cursor-pointer"
         >
           Reset

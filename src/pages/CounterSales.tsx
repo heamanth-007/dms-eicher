@@ -11,13 +11,14 @@ import {
   FileText,
   DollarSign,
   TrendingUp,
-  Hash,
   ShoppingBag,
   Info,
   Users,
   Mail,
   Download,
-  ArrowLeft
+  ArrowLeft,
+  Clock,
+  FolderOpen
 } from 'lucide-react';
 
 interface BillItem {
@@ -30,15 +31,116 @@ interface BillItem {
   gstPercent: number; // e.g. 18 for 18%
 }
 
-export const CounterSales: React.FC = () => {
+export interface CounterSalesRecord {
+  id: string;
+  billNo: string;
+  customerName: string;
+  customerType: string;
+  mobileNumber: string;
+  date: string;
+  billItems: BillItem[];
+  subtotal: number;
+  discount: number;
+  gst: number;
+  grandTotal: number;
+  remarks: string;
+  status: 'PAID' | 'DRAFT' | 'PENDING';
+  createdAt: string;
+}
+
+export interface CounterSalesProps {
+  companySettings?: {
+    companyName: string;
+    dealerName: string;
+    gstNumber: string;
+    panNumber: string;
+    streetAddress: string;
+    city: string;
+    stateName: string;
+    pinCode: string;
+    mobileNumber: string;
+    phoneNum: string;
+    emailAddress: string;
+    websiteUrl: string;
+    logoUrl: string;
+  };
+}
+
+export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) => {
   // Navigation overlay toggle
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const [billNo, setBillNo] = useState('INV-2023-8842');
 
   // Customer details state
   const [customerName, setCustomerName] = useState('');
   const [customerType, setCustomerType] = useState('Retail');
   const [mobileNumber, setMobileNumber] = useState('');
   const [remarks, setRemarks] = useState('');
+
+  // Total Bills & Draft Lists
+  const [totalBillsList, setTotalBillsList] = useState<CounterSalesRecord[]>([
+    {
+      id: 'cs-101',
+      billNo: 'INV-2023-8841',
+      customerName: 'Sri Balaji Logistics',
+      customerType: 'Commercial',
+      mobileNumber: '+91 98765 11223',
+      date: 'Oct 23, 2023',
+      billItems: [
+        { id: 'bi-1', name: 'Synthetic Engine Oil (5W-40)', code: 'AC-OIL-772', qty: 2, unitPrice: 850, discountPercent: 5, gstPercent: 18 }
+      ],
+      subtotal: 1700,
+      discount: 85,
+      gst: 290.7,
+      grandTotal: 1905.7,
+      remarks: 'Paid via Cash',
+      status: 'PAID',
+      createdAt: 'Oct 23, 2023'
+    },
+    {
+      id: 'cs-102',
+      billNo: 'INV-2023-8840',
+      customerName: 'Ramu Transport',
+      customerType: 'Retail',
+      mobileNumber: '+91 94433 88776',
+      date: 'Oct 22, 2023',
+      billItems: [
+        { id: 'bi-2', name: 'High-Flow Air Filter', code: 'AF-K7-001', qty: 1, unitPrice: 2400, discountPercent: 5, gstPercent: 28 }
+      ],
+      subtotal: 2400,
+      discount: 120,
+      gst: 638.4,
+      grandTotal: 2918.4,
+      remarks: 'UPI Payment',
+      status: 'PAID',
+      createdAt: 'Oct 22, 2023'
+    }
+  ]);
+
+  const [draftBillsList, setDraftBillsList] = useState<CounterSalesRecord[]>([
+    {
+      id: 'cs-draft-1',
+      billNo: 'INV-2023-8843-DRAFT',
+      customerName: 'City Motors Garage',
+      customerType: 'Commercial',
+      mobileNumber: '+91 99880 44556',
+      date: 'Oct 24, 2023',
+      billItems: [
+        { id: 'bi-3', name: 'Brake Pad Set - Front Performance', code: 'BP-992-FR', qty: 4, unitPrice: 120, discountPercent: 10, gstPercent: 18 }
+      ],
+      subtotal: 480,
+      discount: 48,
+      gst: 77.76,
+      grandTotal: 509.76,
+      remarks: 'Customer will confirm stock in 1 hour',
+      status: 'DRAFT',
+      createdAt: 'Oct 24, 2023'
+    }
+  ]);
+
+  const [showTotalBillsModal, setShowTotalBillsModal] = useState(false);
+  const [showDraftsModal, setShowDraftsModal] = useState(false);
+  const [searchBillsTerm, setSearchBillsTerm] = useState('');
 
   // Bill items state initialized with the mockup items
   const [billItems, setBillItems] = useState<BillItem[]>([]);
@@ -269,6 +371,96 @@ export const CounterSales: React.FC = () => {
     return result + ' Only';
   };
 
+  // --- SAVE BILL & DRAFT HANDLERS ---
+  const handleSaveBill = () => {
+    if (billItems.length === 0) {
+      alert('Please add at least one part item to save the bill!');
+      return;
+    }
+
+    const newBill: CounterSalesRecord = {
+      id: `cs-${Date.now()}`,
+      billNo,
+      customerName: customerName || 'Retail Customer',
+      customerType,
+      mobileNumber: mobileNumber || 'N/A',
+      date: 'Oct 24, 2023',
+      billItems: [...billItems],
+      subtotal: calculatedSubtotal,
+      discount: calculatedDiscount,
+      gst: calculatedGst,
+      grandTotal: calculatedGrandTotal,
+      remarks,
+      status: 'PAID',
+      createdAt: new Date().toLocaleDateString()
+    };
+
+    setTotalBillsList([newBill, ...totalBillsList]);
+    
+    // Auto increment bill number
+    const currentNum = parseInt(billNo.replace(/[^0-9]/g, ''), 10) || 8842;
+    const nextBillNo = `INV-2023-${currentNum + 1}`;
+    setBillNo(nextBillNo);
+
+    alert(`Counter Sales Bill ${billNo} saved successfully! Added to Total Bills list.`);
+  };
+
+  const handleSaveDraft = () => {
+    const draftBillNo = billNo.includes('DRAFT') ? billNo : `${billNo}-DRAFT`;
+    const existingIndex = draftBillsList.findIndex(d => d.billNo === draftBillNo || d.billNo === billNo);
+
+    const draftRecord: CounterSalesRecord = {
+      id: existingIndex >= 0 ? draftBillsList[existingIndex].id : `cs-draft-${Date.now()}`,
+      billNo: draftBillNo,
+      customerName: customerName || 'Draft Customer',
+      customerType,
+      mobileNumber,
+      date: 'Oct 24, 2023',
+      billItems: [...billItems],
+      subtotal: calculatedSubtotal,
+      discount: calculatedDiscount,
+      gst: calculatedGst,
+      grandTotal: calculatedGrandTotal,
+      remarks,
+      status: 'DRAFT',
+      createdAt: new Date().toLocaleDateString()
+    };
+
+    if (existingIndex >= 0) {
+      const updated = [...draftBillsList];
+      updated[existingIndex] = draftRecord;
+      setDraftBillsList(updated);
+    } else {
+      setDraftBillsList([draftRecord, ...draftBillsList]);
+    }
+
+    alert(`Bill ${billNo} saved as Draft! Access your drafts anytime using the Draft badge at the top.`);
+  };
+
+  const handleLoadRecord = (record: CounterSalesRecord) => {
+    setBillNo(record.billNo.replace('-DRAFT', ''));
+    setCustomerName(record.customerName || '');
+    setCustomerType(record.customerType || 'Retail');
+    setMobileNumber(record.mobileNumber || '');
+    setRemarks(record.remarks || '');
+    setBillItems(record.billItems || []);
+
+    setShowTotalBillsModal(false);
+    setShowDraftsModal(false);
+  };
+
+  const handleDeleteBill = (id: string) => {
+    if (window.confirm('Are you sure you want to delete this sales bill from records?')) {
+      setTotalBillsList(totalBillsList.filter(b => b.id !== id));
+    }
+  };
+
+  const handleDeleteDraft = (id: string) => {
+    if (window.confirm('Are you sure you want to delete this draft?')) {
+      setDraftBillsList(draftBillsList.filter(d => d.id !== id));
+    }
+  };
+
   // If in Preview view, render the full-screen Tax Invoice page overlay
   if (showInvoicePreview) {
     return (
@@ -307,22 +499,33 @@ export const CounterSales: React.FC = () => {
             {/* Top Corporate Brand Row */}
             <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b border-slate-100 pb-6 w-full">
               <div className="flex gap-3 items-start">
-                <div className="bg-[#184edb] text-white p-2.5 rounded-lg flex items-center justify-center">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M2 17L12 22L22 17" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M2 12L12 17L22 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                <div className="bg-[#184edb] text-white p-2 rounded-lg flex items-center justify-center min-w-[44px] h-[44px] overflow-hidden">
+                  {companySettings?.logoUrl ? (
+                    <img src={companySettings.logoUrl} alt="Logo" className="w-full h-full object-contain bg-white rounded p-0.5" />
+                  ) : (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M2 17L12 22L22 17" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M2 12L12 17L22 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-lg font-black text-slate-800 font-heading tracking-wide">AutoCore DMS</span>
-                  <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase mt-0.5">Premium Automotive Solutions</span>
+                  <span className="text-lg font-black text-slate-800 font-heading tracking-wide">
+                    {companySettings?.companyName || 'AutoPro Elite Motors'}
+                  </span>
+                  <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase mt-0.5">
+                    {companySettings?.dealerName || 'Authorized Dealership'}
+                  </span>
                   
                   <div className="text-[11px] text-slate-400 font-semibold mt-3 flex flex-col gap-0.5 leading-relaxed">
-                    <span>128 Tech Park, Sector 45</span>
-                    <span>Bangalore, KA 560001, India</span>
-                    <span>GSTIN: 29AAAAA0000A1Z5</span>
-                    <span>Ph: +91 80 4567 8900</span>
+                    <span>{companySettings?.streetAddress || 'Industrial Park West, Sector 12'}</span>
+                    <span>
+                      {companySettings?.city || 'Automotive City'}, {companySettings?.stateName || 'California'} {companySettings?.pinCode || '90210'}
+                    </span>
+                    <span>GSTIN: {companySettings?.gstNumber || '22AAAAA0000A1Z5'} • PAN: {companySettings?.panNumber || 'ABCDE1234F'}</span>
+                    <span>Ph: {companySettings?.mobileNumber || companySettings?.phoneNum || '+1 (555) 012-3456'} • Email: {companySettings?.emailAddress || 'contact@company.com'}</span>
+                    {companySettings?.websiteUrl && <span>Website: {companySettings.websiteUrl}</span>}
                   </div>
                 </div>
               </div>
@@ -569,20 +772,58 @@ export const CounterSales: React.FC = () => {
           <h1 className="text-2xl font-extrabold text-[#111827] m-0 tracking-tight font-heading flex items-center gap-2">
             Generate New Bill
           </h1>
-          <p className="text-xs text-slate-400 font-semibold mt-1 uppercase tracking-wider">
-            Spare Parts Direct Sales Terminal
-          </p>
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
+            <p className="text-xs text-slate-400 font-semibold m-0 uppercase tracking-wider">
+              Spare Parts Direct Sales Terminal
+            </p>
+            <span className="text-slate-300">•</span>
+            {/* Clickable Total Bills Badge */}
+            <button
+              type="button"
+              onClick={() => setShowTotalBillsModal(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-[#184edb] border border-blue-200 rounded-md text-[12px] font-bold shadow-xs cursor-pointer transition-colors"
+              title="Click to view all Total Bills"
+            >
+              <FileText size={13} />
+              <span>Total Bills: {totalBillsList.length}</span>
+            </button>
+
+            {/* Clickable Drafts Badge */}
+            <button
+              type="button"
+              onClick={() => setShowDraftsModal(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-md text-[12px] font-bold shadow-xs cursor-pointer transition-colors"
+              title="Click to view all saved Drafts"
+            >
+              <Clock size={13} />
+              <span>Draft: {draftBillsList.length}</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className="text-right">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Current Date</span>
-            <span className="text-xs font-extrabold text-slate-700 mt-0.5 block">Oct 24, 2023</span>
-          </div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleSaveDraft}
+            className="flex items-center gap-1.5 px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-[13px] rounded-lg border border-amber-200 shadow-sm cursor-pointer transition-colors"
+            title="Save current bill as Draft"
+          >
+            <Clock size={15} />
+            <span>Draft</span>
+          </button>
 
-          <div className="bg-[#184edb] text-white px-5 py-2.5 rounded-lg flex flex-col items-center justify-center shadow-md">
+          <button
+            type="button"
+            onClick={handleSaveBill}
+            className="flex items-center gap-1.5 px-4 py-2 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-[13px] border-none rounded-lg shadow-md cursor-pointer transition-colors"
+          >
+            <Save size={15} />
+            <span>Save Bill</span>
+          </button>
+
+          <div className="bg-[#184edb] text-white px-4 py-2 rounded-lg flex flex-col items-center justify-center shadow-md">
             <span className="text-[8px] font-extrabold uppercase tracking-widest text-blue-100">Bill Number</span>
-            <span className="text-sm font-extrabold tracking-tight mt-0.5">#INV-2023-8842</span>
+            <span className="text-sm font-extrabold tracking-tight mt-0.5">#{billNo}</span>
           </div>
         </div>
       </div>
@@ -594,6 +835,8 @@ export const CounterSales: React.FC = () => {
           onClick={() => {
             setBillItems([]);
             setRemarks('');
+            setCustomerName('');
+            setMobileNumber('');
           }}
           className="bg-[#0b46d1] hover:bg-[#093db5] rounded-xl p-4 shadow-sm flex items-center gap-3 cursor-pointer text-white transition-all transform hover:-translate-y-0.5"
         >
@@ -613,40 +856,46 @@ export const CounterSales: React.FC = () => {
           </div>
           <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Today's Sales</span>
-            <span className="text-sm font-extrabold text-slate-800 tracking-tight mt-0.5">$12,450.00</span>
+            <span className="text-sm font-extrabold text-slate-800 tracking-tight mt-0.5">₹{totalBillsList.reduce((acc, b) => acc + b.grandTotal, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
           </div>
         </div>
 
-        {/* Total Bills */}
-        <div className="bg-white rounded-xl p-4 shadow-xs border border-slate-100 flex items-center gap-3">
+        {/* Total Bills (CLICKABLE CARD) */}
+        <div 
+          onClick={() => setShowTotalBillsModal(true)}
+          className="bg-white hover:bg-blue-50/50 rounded-xl p-4 shadow-xs border border-slate-100 hover:border-blue-200 flex items-center gap-3 cursor-pointer transition-all"
+        >
           <div className="bg-indigo-50 text-indigo-600 p-2 rounded-lg flex items-center justify-center">
             <FileText size={18} />
           </div>
           <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total Bills</span>
-            <span className="text-sm font-extrabold text-slate-800 tracking-tight mt-0.5">42</span>
+            <span className="text-sm font-extrabold text-slate-800 tracking-tight mt-0.5">{totalBillsList.length} Bills</span>
           </div>
         </div>
 
-        {/* Total Amount */}
-        <div className="bg-white rounded-xl p-4 shadow-xs border border-slate-100 flex items-center gap-3">
-          <div className="bg-emerald-50 text-emerald-600 p-2 rounded-lg flex items-center justify-center">
-            <DollarSign size={18} />
+        {/* Drafts (CLICKABLE CARD) */}
+        <div 
+          onClick={() => setShowDraftsModal(true)}
+          className="bg-white hover:bg-amber-50/50 rounded-xl p-4 shadow-xs border border-slate-100 hover:border-amber-200 flex items-center gap-3 cursor-pointer transition-all"
+        >
+          <div className="bg-amber-50 text-amber-600 p-2 rounded-lg flex items-center justify-center">
+            <Clock size={18} />
           </div>
           <div className="flex flex-col">
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total Amount</span>
-            <span className="text-sm font-extrabold text-slate-800 tracking-tight mt-0.5">$142,880.50</span>
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Drafts</span>
+            <span className="text-sm font-extrabold text-slate-800 tracking-tight mt-0.5">{draftBillsList.length} Drafts</span>
           </div>
         </div>
 
         {/* GST Collection */}
         <div className="bg-white rounded-xl p-4 shadow-xs border border-slate-100 flex items-center gap-3">
-          <div className="bg-amber-50 text-amber-600 p-2 rounded-lg flex items-center justify-center">
-            <Hash size={18} />
+          <div className="bg-emerald-50 text-emerald-600 p-2 rounded-lg flex items-center justify-center">
+            <DollarSign size={18} />
           </div>
           <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">GST Collection</span>
-            <span className="text-sm font-extrabold text-slate-800 tracking-tight mt-0.5">$2,241.00</span>
+            <span className="text-sm font-extrabold text-slate-800 tracking-tight mt-0.5">₹{totalBillsList.reduce((acc, b) => acc + b.gst, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
           </div>
         </div>
       </div>
@@ -1147,6 +1396,209 @@ export const CounterSales: React.FC = () => {
         </div>
 
       </div>
+
+      {/* TOTAL BILLS MODAL */}
+      {showTotalBillsModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100 animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-100 text-[#184edb] rounded-lg">
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 m-0 font-heading">Total Counter Sales Bills</h3>
+                  <p className="text-xs text-slate-500 m-0 font-medium">Showing {totalBillsList.length} total generated sales bills</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowTotalBillsModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Search & Stats Bar */}
+            <div className="p-4 border-b border-slate-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="relative w-full sm:w-72">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search by Bill No, Customer, Mobile..."
+                  value={searchBillsTerm}
+                  onChange={(e) => setSearchBillsTerm(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-lg font-semibold text-slate-700 focus:outline-none focus:border-[#184edb]"
+                />
+              </div>
+              <div className="text-xs font-bold text-[#184edb] bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+                Total Revenue: ₹{totalBillsList.reduce((acc, b) => acc + b.grandTotal, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+
+            {/* Table Body */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {totalBillsList.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 font-semibold">
+                  No counter sales bills generated yet. Save a bill to see it here!
+                </div>
+              ) : (
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-3">Bill No</th>
+                      <th className="py-3 px-3">Customer Name</th>
+                      <th className="py-3 px-3">Type</th>
+                      <th className="py-3 px-3">Mobile No</th>
+                      <th className="py-3 px-3 text-right">Grand Total</th>
+                      <th className="py-3 px-3 text-center">Status</th>
+                      <th className="py-3 px-3 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                    {totalBillsList
+                      .filter(b =>
+                        b.billNo.toLowerCase().includes(searchBillsTerm.toLowerCase()) ||
+                        b.customerName.toLowerCase().includes(searchBillsTerm.toLowerCase()) ||
+                        b.mobileNumber.toLowerCase().includes(searchBillsTerm.toLowerCase())
+                      )
+                      .map((b) => (
+                        <tr key={b.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-3 px-3 font-bold text-[#184edb]">{b.billNo}</td>
+                          <td className="py-3 px-3 font-bold text-slate-800">{b.customerName}</td>
+                          <td className="py-3 px-3 text-slate-500">{b.customerType}</td>
+                          <td className="py-3 px-3 font-mono text-slate-600">{b.mobileNumber}</td>
+                          <td className="py-3 px-3 text-right font-bold text-slate-900">₹{b.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                          <td className="py-3 px-3 text-center">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-600 border border-emerald-200">
+                              {b.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => handleLoadRecord(b)}
+                                className="flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-[#184edb] font-bold text-[11px] rounded border border-blue-100 cursor-pointer transition-colors"
+                              >
+                                <FolderOpen size={12} />
+                                <span>Open</span>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteBill(b.id)}
+                                className="p-1 text-rose-500 hover:bg-rose-50 rounded cursor-pointer transition-colors"
+                                title="Delete Bill"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+              <button
+                onClick={() => setShowTotalBillsModal(false)}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DRAFTS LIST MODAL */}
+      {showDraftsModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100 animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-amber-50/50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-100 text-amber-700 rounded-lg">
+                  <Clock size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 m-0 font-heading">Saved Sales Drafts</h3>
+                  <p className="text-xs text-slate-500 m-0 font-medium">Click "Load Draft" to restore any saved draft into the billing form</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDraftsModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Table Body */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {draftBillsList.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 font-semibold">
+                  No saved drafts found. Click the "Draft" button at the top to save your work in progress.
+                </div>
+              ) : (
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-3">Draft Ref</th>
+                      <th className="py-3 px-3">Customer Name</th>
+                      <th className="py-3 px-3">Mobile No</th>
+                      <th className="py-3 px-3 text-right">Items</th>
+                      <th className="py-3 px-3 text-right">Draft Total</th>
+                      <th className="py-3 px-3 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                    {draftBillsList.map((d) => (
+                      <tr key={d.id} className="hover:bg-amber-50/30 transition-colors">
+                        <td className="py-3 px-3 font-bold text-amber-800">{d.billNo}</td>
+                        <td className="py-3 px-3 font-bold text-slate-800">{d.customerName}</td>
+                        <td className="py-3 px-3 font-mono text-slate-600">{d.mobileNumber || 'N/A'}</td>
+                        <td className="py-3 px-3 text-right text-slate-500">{d.billItems.length} parts</td>
+                        <td className="py-3 px-3 text-right font-bold text-slate-900">₹{d.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                        <td className="py-3 px-3 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleLoadRecord(d)}
+                              className="flex items-center gap-1 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] rounded shadow-xs cursor-pointer transition-colors"
+                            >
+                              <FolderOpen size={13} />
+                              <span>Load Draft</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteDraft(d.id)}
+                              className="p-1 text-rose-500 hover:bg-rose-50 rounded cursor-pointer transition-colors"
+                              title="Delete Draft"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+              <button
+                onClick={() => setShowDraftsModal(false)}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
