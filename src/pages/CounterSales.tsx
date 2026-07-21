@@ -1158,7 +1158,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider">Unit Price</span>
-                  <span className="text-xs font-bold text-slate-700 mt-0.5">${selectedProduct.price.toFixed(2)}</span>
+                  <span className="text-xs font-bold text-slate-700 mt-0.5">₹{selectedProduct.price.toFixed(2)}</span>
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider">Discount %</span>
@@ -1227,7 +1227,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
 
                         {/* Unit Price */}
                         <td className="py-3.5 px-3 whitespace-nowrap text-slate-700 font-semibold">
-                          ${item.unitPrice.toFixed(2)}
+                          ₹{item.unitPrice.toFixed(2)}
                         </td>
 
                         {/* Discount */}
@@ -1246,7 +1246,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
                             </div>
                           ) : (
                             <div className="flex flex-col">
-                              <span className="text-red-500 font-bold">-${vals.discountAmount.toFixed(2)}</span>
+                              <span className="text-red-500 font-bold">-₹{vals.discountAmount.toFixed(2)}</span>
                               {item.discountPercent > 0 && (
                                 <span className="text-[9px] text-slate-400 font-semibold">({item.discountPercent}%)</span>
                               )}
@@ -1257,14 +1257,14 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
                         {/* Tax (GST) */}
                         <td className="py-3.5 px-3 whitespace-nowrap">
                           <div className="flex flex-col">
-                            <span className="text-slate-700 font-semibold">${vals.gstAmount.toFixed(2)}</span>
+                            <span className="text-slate-700 font-semibold">₹{vals.gstAmount.toFixed(2)}</span>
                             <span className="text-[9px] text-slate-400 font-semibold">({item.gstPercent}%)</span>
                           </div>
                         </td>
 
                         {/* Total */}
                         <td className="py-3.5 px-3 whitespace-nowrap font-extrabold text-[#184edb]">
-                          ${vals.total.toFixed(2)}
+                          ₹{vals.total.toFixed(2)}
                         </td>
 
                         {/* Actions */}
@@ -1349,15 +1349,15 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
             <div className="flex flex-col gap-2.5 text-xs font-semibold text-slate-600 border-b border-slate-100 pb-4">
               <div className="flex justify-between">
                 <span>Sub Total</span>
-                <span className="text-slate-800 font-bold">${calculatedSubtotal.toFixed(2)}</span>
+                <span className="text-slate-800 font-bold">₹{calculatedSubtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Total Discount</span>
-                <span className="text-red-500 font-bold">-${calculatedDiscount.toFixed(2)}</span>
+                <span className="text-red-500 font-bold">-₹{calculatedDiscount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Total GST (18%)</span>
-                <span className="text-slate-800 font-bold">${calculatedGst.toFixed(2)}</span>
+                <span className="text-slate-800 font-bold">₹{calculatedGst.toFixed(2)}</span>
               </div>
             </div>
 
@@ -1365,7 +1365,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
             <div className="flex flex-col gap-1 items-center py-2">
               <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Grand Total</span>
               <span className="text-3xl font-extrabold text-[#184edb] tracking-tight font-heading mt-0.5">
-                ${calculatedGrandTotal.toFixed(2)}
+                ₹{calculatedGrandTotal.toFixed(2)}
               </span>
             </div>
 
@@ -1438,7 +1438,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
               >
                 <div className="flex flex-col">
                   <span className="text-xs font-bold text-slate-800">Oil Filter - V6 Engine</span>
-                  <span className="text-[9px] text-slate-400 font-semibold mt-0.5">OF-V6-33 | Price: $35.00</span>
+                  <span className="text-[9px] text-slate-400 font-semibold mt-0.5">OF-V6-33 | Price: ₹35.00</span>
                 </div>
                 <button className="p-1 bg-blue-50 text-[#184edb] rounded-full border-none cursor-pointer flex items-center justify-center">
                   <Plus size={14} />
@@ -1451,7 +1451,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
               >
                 <div className="flex flex-col">
                   <span className="text-xs font-bold text-slate-800">Standard Spark Plug</span>
-                  <span className="text-[9px] text-slate-400 font-semibold mt-0.5">SP-STD-02 | Price: $15.00</span>
+                  <span className="text-[9px] text-slate-400 font-semibold mt-0.5">SP-STD-02 | Price: ₹15.00</span>
                 </div>
                 <button className="p-1 bg-blue-50 text-[#184edb] rounded-full border-none cursor-pointer flex items-center justify-center">
                   <Plus size={14} />
@@ -1464,7 +1464,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
               >
                 <div className="flex flex-col">
                   <span className="text-xs font-bold text-slate-800">Coolant 1L - Green</span>
-                  <span className="text-[9px] text-slate-400 font-semibold mt-0.5">CL-GR-01 | Price: $25.00</span>
+                  <span className="text-[9px] text-slate-400 font-semibold mt-0.5">CL-GR-01 | Price: ₹25.00</span>
                 </div>
                 <button className="p-1 bg-blue-50 text-[#184edb] rounded-full border-none cursor-pointer flex items-center justify-center">
                   <Plus size={14} />

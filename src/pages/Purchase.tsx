@@ -428,6 +428,25 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     );
   };
 
+  const isLast7Days = (dateStr: string) => {
+    if (!dateStr) return false;
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return false;
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(today.getDate() - 7);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+    return date >= sevenDaysAgo && date <= today;
+  };
+
+  const isOct2023 = (dateStr: string) => {
+    if (!dateStr) return false;
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return false;
+    return date.getFullYear() === 2023 && date.getMonth() === 9; // October is index 9
+  };
+
   // --- STATS COMPUTATION ---
   const totalPurchasesCount = purchases.length;
   const todayPurchasesCount = purchases.filter(p => isTodayPurchase(p.date)).length;
@@ -543,6 +562,15 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
   const filteredPurchases = purchases.filter(p => {
     if (supplierFilter !== 'All' && p.supplier !== supplierFilter) return false;
     if (statusFilter !== 'All' && p.status !== statusFilter) return false;
+    if (dateRange !== 'All') {
+      if (dateRange === 'Today') {
+        if (!isTodayPurchase(p.date)) return false;
+      } else if (dateRange === 'Last 7 Days') {
+        if (!isLast7Days(p.date)) return false;
+      } else if (dateRange === 'Oct 01 - Oct 31, 2023') {
+        if (!isOct2023(p.date)) return false;
+      }
+    }
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       return (
@@ -557,6 +585,15 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
   const filteredReturns = returns.filter(r => {
     if (supplierFilter !== 'All' && r.supplier !== supplierFilter) return false;
     if (statusFilter !== 'All' && r.status !== statusFilter) return false;
+    if (dateRange !== 'All') {
+      if (dateRange === 'Today') {
+        if (!isTodayPurchase(r.date)) return false;
+      } else if (dateRange === 'Last 7 Days') {
+        if (!isLast7Days(r.date)) return false;
+      } else if (dateRange === 'Oct 01 - Oct 31, 2023') {
+        if (!isOct2023(r.date)) return false;
+      }
+    }
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       return (
@@ -571,7 +608,22 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
   const filteredInvoices = invoices.filter(i => {
     if (supplierFilter !== 'All' && i.supplier !== supplierFilter) return false;
-    if (statusFilter !== 'All' && i.status !== statusFilter) return false;
+    if (statusFilter !== 'All') {
+      if (statusFilter === 'OUTSTANDING') {
+        if (i.status === 'PAID') return false;
+      } else {
+        if (i.status !== statusFilter) return false;
+      }
+    }
+    if (dateRange !== 'All') {
+      if (dateRange === 'Today') {
+        if (!isTodayPurchase(i.issueDate)) return false;
+      } else if (dateRange === 'Last 7 Days') {
+        if (!isLast7Days(i.issueDate)) return false;
+      } else if (dateRange === 'Oct 01 - Oct 31, 2023') {
+        if (!isOct2023(i.issueDate)) return false;
+      }
+    }
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       return (
@@ -1281,24 +1333,24 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
               const numberToWords = (num: number) => {
                 const integerPart = Math.floor(num);
                 const decimalPart = Math.round((num - integerPart) * 100);
-                return `${integerPart.toLocaleString()} and ${decimalPart}/100 Dollars Only`;
+                return `${integerPart.toLocaleString()} and ${decimalPart}/100 Rupees Only`;
               };
 
               return (
                 <div className="flex flex-col gap-2.5 font-semibold text-slate-500 text-xs">
                   <div className="flex items-center justify-between pl-12">
                     <span>Subtotal:</span>
-                    <span className="text-slate-800 font-bold">${subtotalVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="text-slate-800 font-bold">₹{subtotalVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   
                   <div className="flex items-center justify-between pl-12">
                     <span>Total GST:</span>
-                    <span className="text-slate-800 font-bold">${gstVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="text-slate-800 font-bold">₹{gstVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
 
                   <div className="flex items-center justify-between pl-12 border-t border-slate-100 pt-2.5">
                     <span className="text-sm font-black text-slate-900 uppercase tracking-tight font-heading">Grand Total:</span>
-                    <span className="text-xl font-black text-[#184edb] font-heading">${grandTotalVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="text-xl font-black text-[#184edb] font-heading">₹{grandTotalVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
 
                   {/* Amount In Words */}
@@ -1507,7 +1559,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
             <span className="text-[11.5px] font-bold text-slate-400 uppercase tracking-widest">SUB-TAB SELECTION</span>
             <span className="text-lg font-bold text-slate-800 tracking-tight">Invoices</span>
             <span className="text-[13px] text-slate-500 font-semibold mt-0.5">
-              ${totalInvoicedValue.toLocaleString()} Invoiced • {unpaidInvoicesCount} Unpaid Bills
+              ₹{totalInvoicedValue.toLocaleString()} Invoiced • {unpaidInvoicesCount} Unpaid Bills
             </span>
           </div>
           {subTab === 'invoice' && (
@@ -1519,15 +1571,15 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
       {/* --- METRICS CARDS (Changes dynamically according to active tab) --- */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
 
-        {/* Metric 1: Total Purchases */}
+        {/* Metric 1: Total Purchases / Total Returns / Total Invoices */}
         <div 
-          onClick={() => { setSubTab('overview'); setStatusFilter('All'); setDateRange('All'); }}
+          onClick={() => { setStatusFilter('All'); setDateRange('All'); }}
           className={`bg-white rounded-2xl p-6 shadow-sm border flex items-center justify-between cursor-pointer transition-all hover:scale-[1.01] ${
-            subTab === 'overview' && statusFilter === 'All' && dateRange === 'All'
+            statusFilter === 'All' && (subTab !== 'overview' || dateRange === 'All')
               ? 'border-[#184edb] ring-2 ring-[#184edb]/20 bg-blue-50/20'
               : 'border-slate-100/60 hover:border-slate-300'
           }`}
-          title="Click to view all purchases"
+          title="Click to view all"
         >
           <div className="flex flex-col gap-2">
             <span className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wider">
@@ -1553,15 +1605,26 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
           </div>
         </div>
 
-        {/* Metric 2: Today's Purchases */}
+        {/* Metric 2: Today's Purchases / Pending Refund Value / Paid Invoices */}
         <div 
-          onClick={() => { setSubTab('overview'); setStatusFilter('All'); setDateRange('Today'); }}
+          onClick={() => {
+            if (subTab === 'overview') {
+              setDateRange('Today');
+              setStatusFilter('All');
+            } else if (subTab === 'return') {
+              setStatusFilter('PENDING');
+            } else if (subTab === 'invoice') {
+              setStatusFilter('PAID');
+            }
+          }}
           className={`bg-white rounded-2xl p-6 shadow-sm border flex items-center justify-between cursor-pointer transition-all hover:scale-[1.01] ${
-            subTab === 'overview' && dateRange === 'Today'
+            (subTab === 'overview' && dateRange === 'Today') ||
+            (subTab === 'return' && statusFilter === 'PENDING') ||
+            (subTab === 'invoice' && statusFilter === 'PAID')
               ? 'border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/20'
               : 'border-slate-100/60 hover:border-slate-300'
           }`}
-          title="Click to view today's purchases"
+          title="Click to view details"
         >
           <div className="flex flex-col gap-2">
             <span className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wider">
@@ -1579,16 +1642,37 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
             <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
               <Calendar size={20} />
             </div>
-            <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[11px] font-bold ${subTab === 'overview' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-slate-50 text-slate-500'}`}>
+            <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[11px] font-bold ${
+              (subTab === 'overview' && dateRange === 'Today') ||
+              (subTab === 'return' && statusFilter === 'PENDING') ||
+              (subTab === 'invoice' && statusFilter === 'PAID')
+                ? 'bg-blue-50 text-blue-600 border border-blue-100'
+                : 'bg-slate-50 text-slate-500'
+            }`}>
               {subTab === 'overview' ? 'Today' : 'Active'}
             </span>
           </div>
         </div>
 
-        {/* Metric 3: Total Purchase Value */}
+        {/* Metric 3: Total Purchase Value / Completed Refund Value / Outstanding Amount */}
         <div 
-          onClick={() => { setSubTab('overview'); setStatusFilter('All'); setDateRange('All'); }}
-          className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100/60 flex items-center justify-between cursor-pointer transition-all hover:scale-[1.01] hover:border-slate-300"
+          onClick={() => {
+            if (subTab === 'overview') {
+              setStatusFilter('All');
+              setDateRange('All');
+            } else if (subTab === 'return') {
+              setStatusFilter('COMPLETED');
+            } else if (subTab === 'invoice') {
+              setStatusFilter('OUTSTANDING');
+            }
+          }}
+          className={`bg-white rounded-2xl p-6 shadow-sm border flex items-center justify-between cursor-pointer transition-all hover:scale-[1.01] ${
+            (subTab === 'return' && statusFilter === 'COMPLETED') ||
+            (subTab === 'invoice' && statusFilter === 'OUTSTANDING')
+              ? 'border-purple-500 ring-2 ring-purple-500/20 bg-purple-50/20'
+              : 'border-slate-100/60 hover:border-slate-300'
+          }`}
+          title="Click to view details"
         >
           <div className="flex flex-col gap-2">
             <span className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wider">
@@ -1606,21 +1690,37 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
             <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
               <TrendingUp size={20} />
             </div>
-            <span className="inline-flex items-center gap-0.5 bg-slate-550 text-slate-600 px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-50">
+            <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[11px] font-bold ${
+              (subTab === 'return' && statusFilter === 'COMPLETED') ||
+              (subTab === 'invoice' && statusFilter === 'OUTSTANDING')
+                ? 'bg-[#8b5cf6]/10 text-[#8b5cf6] border border-[#8b5cf6]/20'
+                : 'bg-slate-50 text-slate-500'
+            }`}>
               Total Value
             </span>
           </div>
         </div>
 
-        {/* Metric 4: Pending Payments */}
+        {/* Metric 4: Pending Payments / Rejected Return Cases / Overdue Bills Value */}
         <div 
-          onClick={() => { setSubTab('overview'); setStatusFilter('PENDING'); setDateRange('All'); }}
+          onClick={() => {
+            if (subTab === 'overview') {
+              setStatusFilter('PENDING');
+              setDateRange('All');
+            } else if (subTab === 'return') {
+              setStatusFilter('REJECTED');
+            } else if (subTab === 'invoice') {
+              setStatusFilter('OVERDUE');
+            }
+          }}
           className={`bg-white rounded-2xl p-6 shadow-sm border flex items-center justify-between cursor-pointer transition-all hover:scale-[1.01] ${
-            subTab === 'overview' && statusFilter === 'PENDING'
+            (subTab === 'overview' && statusFilter === 'PENDING') ||
+            (subTab === 'return' && statusFilter === 'REJECTED') ||
+            (subTab === 'invoice' && statusFilter === 'OVERDUE')
               ? 'border-rose-400 ring-2 ring-rose-400/20 bg-rose-50/20'
               : 'border-slate-100/60 hover:border-slate-300'
           }`}
-          title="Click to view pending/unpaid purchases"
+          title="Click to view details"
         >
           <div className="flex flex-col gap-2">
             <span className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wider">
@@ -1635,11 +1735,23 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
             </span>
           </div>
           <div className="flex flex-col items-end gap-2.5">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${subTab === 'overview' && pendingPaymentsValue > 0 ? 'bg-rose-50 text-rose-600' : 'bg-slate-50 text-slate-500'}`}>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+              (subTab === 'overview' && pendingPaymentsValue > 0) ||
+              (subTab === 'return' && returns.filter(r => r.status === 'REJECTED').length > 0) ||
+              (subTab === 'invoice' && invoices.filter(i => i.status === 'OVERDUE').length > 0)
+                ? 'bg-rose-50 text-rose-600'
+                : 'bg-slate-50 text-slate-500'
+            }`}>
               <AlertCircle size={20} />
             </div>
-            <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[11px] font-bold ${subTab === 'overview' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-slate-50 text-slate-500'}`}>
-              {subTab === 'overview' ? 'Pending' : 'Reconciled'}
+            <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[11px] font-bold ${
+              (subTab === 'overview' && statusFilter === 'PENDING') ||
+              (subTab === 'return' && statusFilter === 'REJECTED') ||
+              (subTab === 'invoice' && statusFilter === 'OVERDUE')
+                ? 'bg-rose-50 text-rose-600 border border-rose-100'
+                : 'bg-slate-50 text-slate-500'
+            }`}>
+              {subTab === 'overview' ? 'Pending' : 'Alert'}
             </span>
           </div>
         </div>
@@ -1726,6 +1838,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
               )}
               {subTab === 'invoice' && (
                 <>
+                  <option value="OUTSTANDING">OUTSTANDING</option>
                   <option value="PAID">PAID</option>
                   <option value="PARTIAL">PARTIAL</option>
                   <option value="UNPAID">UNPAID</option>
@@ -1843,12 +1956,12 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
                       {/* GST Amount */}
                       <td className="py-4 px-5 text-slate-500 text-right font-medium whitespace-nowrap">
-                        ${p.gstAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ₹{p.gstAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
 
                       {/* Grand Total */}
                       <td className="py-4 px-5 text-slate-900 text-right font-bold whitespace-nowrap">
-                        ${p.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ₹{p.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
 
                       {/* Status */}
@@ -1967,7 +2080,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
                       {/* Refund Value */}
                       <td className="py-4 px-5 text-slate-900 text-right font-bold whitespace-nowrap">
-                        ${r.refundValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        ₹{r.refundValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
 
                       {/* Reason */}
@@ -2074,7 +2187,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
                       {/* Amount */}
                       <td className="py-4 px-5 text-slate-900 text-right font-bold whitespace-nowrap">
-                        ${i.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        ₹{i.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
 
                       {/* Payment Status */}
@@ -2678,9 +2791,9 @@ const FigmaInvoiceView: React.FC<FigmaInvoiceViewProps> = ({ onBack }) => {
                 </TableCell>
                 <TableCell sx={{ fontWeight: 650, color: '#334155', fontSize: '12.5px', px: 1 }}>TC-882-VNT</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>02</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, color: '#334155', fontSize: '13.5px', px: 1 }}>$3,450.00</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600, color: '#334155', fontSize: '13.5px', px: 1 }}>$1,242.00</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>$8,142.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: '#334155', fontSize: '13.5px', px: 1 }}>₹3,450.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: '#334155', fontSize: '13.5px', px: 1 }}>₹1,242.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>₹8,142.00</TableCell>
               </TableRow>
               {/* Row 2 */}
               <TableRow sx={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -2695,9 +2808,9 @@ const FigmaInvoiceView: React.FC<FigmaInvoiceViewProps> = ({ onBack }) => {
                 </TableCell>
                 <TableCell sx={{ fontWeight: 650, color: '#334155', fontSize: '12.5px', px: 1 }}>FP-CR-2K-9</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>01</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, color: '#334155', fontSize: '13.5px', px: 1 }}>$2,100.00</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600, color: '#334155', fontSize: '13.5px', px: 1 }}>$378.00</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>$2,478.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: '#334155', fontSize: '13.5px', px: 1 }}>₹2,100.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: '#334155', fontSize: '13.5px', px: 1 }}>₹378.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>₹2,478.00</TableCell>
               </TableRow>
               {/* Row 3 */}
               <TableRow sx={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -2712,9 +2825,9 @@ const FigmaInvoiceView: React.FC<FigmaInvoiceViewProps> = ({ onBack }) => {
                 </TableCell>
                 <TableCell sx={{ fontWeight: 650, color: '#334155', fontSize: '12.5px', px: 1 }}>BP-CC-F-4X</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>04</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, color: '#334155', fontSize: '13.5px', px: 1 }}>$1,250.00</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600, color: '#334155', fontSize: '13.5px', px: 1 }}>$900.00</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>$5,900.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: '#334155', fontSize: '13.5px', px: 1 }}>₹1,250.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: '#334155', fontSize: '13.5px', px: 1 }}>₹900.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>₹5,900.00</TableCell>
               </TableRow>
               {/* Row 4 */}
               <TableRow sx={{ borderBottom: '2px solid #e2e8f0' }}>
@@ -2729,9 +2842,9 @@ const FigmaInvoiceView: React.FC<FigmaInvoiceViewProps> = ({ onBack }) => {
                 </TableCell>
                 <TableCell sx={{ fontWeight: 650, color: '#334155', fontSize: '12.5px', px: 1 }}>PS-FRG-050</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>01</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, color: '#334155', fontSize: '13.5px', px: 1 }}>$3,850.00</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600, color: '#334155', fontSize: '13.5px', px: 1 }}>$693.00</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>$4,543.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: '#334155', fontSize: '13.5px', px: 1 }}>₹3,850.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: '#334155', fontSize: '13.5px', px: 1 }}>₹693.00</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: '#0f172a', fontSize: '13.5px', px: 1 }}>₹4,543.00</TableCell>
               </TableRow>
             </TableBody>
           </Table>
@@ -2770,15 +2883,15 @@ const FigmaInvoiceView: React.FC<FigmaInvoiceViewProps> = ({ onBack }) => {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, px: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 650 }}>Subtotal:</Typography>
-                <Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 800 }}>$16,650.00</Typography>
+                <Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 800 }}>₹16,650.00</Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 650 }}>Total GST (18%):</Typography>
-                <Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 800 }}>$3,213.00</Typography>
+                <Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 800 }}>₹3,213.00</Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="body2" sx={{ color: '#ef4444', fontWeight: 800 }}>Corporate Discount (5%):</Typography>
-                <Typography variant="body2" sx={{ color: '#ef4444', fontWeight: 800 }}>-$993.15</Typography>
+                <Typography variant="body2" sx={{ color: '#ef4444', fontWeight: 800 }}>-₹993.15</Typography>
               </Box>
             </Box>
 
@@ -2795,7 +2908,7 @@ const FigmaInvoiceView: React.FC<FigmaInvoiceViewProps> = ({ onBack }) => {
                   fontFamily: 'system-ui, sans-serif'
                 }}
               >
-                $18,869.85
+                ₹18,869.85
               </Typography>
             </Box>
 
@@ -2813,7 +2926,7 @@ const FigmaInvoiceView: React.FC<FigmaInvoiceViewProps> = ({ onBack }) => {
                 AMOUNT IN WORDS
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 800, color: '#334155', fontSize: '11px', lineHeight: 1.4 }}>
-                Eighteen Thousand Eight Hundred Sixty Nine and<br />85/100 Dollars Only
+                Eighteen Thousand Eight Hundred Sixty Nine and<br />85/100 Rupees Only
               </Typography>
             </Box>
           </Grid>

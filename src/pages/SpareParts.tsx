@@ -1089,7 +1089,7 @@ export const SpareParts: React.FC = () => {
               <div className="flex flex-col gap-4 mt-6">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-[10px] font-extrabold text-blue-200 uppercase tracking-widest">CURRENT BALANCE</span>
-                  <span className="text-[32px] font-extrabold text-white tracking-tight">$1,245,800.00</span>
+                  <span className="text-[32px] font-extrabold text-white tracking-tight">₹1,245,800.00</span>
                 </div>
 
                 {/* Overlapping Avatars and footer text */}
@@ -1185,7 +1185,7 @@ export const SpareParts: React.FC = () => {
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-slate-500 text-[12px] font-bold">Inventory Value</span>
-                  <span className="text-xl font-bold text-slate-800 tracking-tight">$842k</span>
+                  <span className="text-xl font-bold text-slate-800 tracking-tight">₹842k</span>
                 </div>
               </div>
             </div>

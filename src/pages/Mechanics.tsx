@@ -501,7 +501,7 @@ export const Mechanics: React.FC = () => {
 
               {/* Annual Salary */}
               <div className="flex flex-col gap-2">
-                <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">ANNUAL SALARY (USD) *</label>
+                <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">ANNUAL SALARY (INR) *</label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
                     <Banknote size={18} />
