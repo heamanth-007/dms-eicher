@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 import connectDB from './db.js';
 import Customer from './models/Customer.js';
 import Transaction from './models/Transaction.js';
@@ -10,6 +11,7 @@ import Part from './models/Part.js';
 import Mechanic from './models/Mechanic.js';
 import Sale from './models/Sale.js';
 import JobCard from './models/JobCard.js';
+import Setting from './models/Setting.js';
 
 dotenv.config();
 console.log("MONGO_URI =", process.env.MONGO_URI);
@@ -832,6 +834,55 @@ app.delete('/api/jobcards/:jcNumber', async (req, res) => {
   }
 });
 
+// In-memory fallback for Settings
+let settingsInMemory = {
+  companyName: 'AutoPro Elite Motors',
+  dealerName: 'Alexander Sterling',
+  gstNumber: '22AAAAA0000A1Z5',
+  panNumber: 'ABCDE1234F',
+  streetAddress: 'Industrial Park West, Sector 12, Block C',
+  city: 'Automotive City',
+  stateName: 'California',
+  pinCode: '90210',
+  mobileNumber: '+1 (555) 012-3456',
+  phoneNum: '+1 (555) 987-6543',
+  emailAddress: 'contact@autopro-elite.com',
+  websiteUrl: 'www.autopro-elite.com'
+};
+
+// CRUD for Settings
+app.get('/api/settings', async (req, res) => {
+  try {
+    if (mongoose.connection.readyState === 1) {
+      let settings = await Setting.findOne({});
+      if (!settings) {
+        settings = await Setting.create(settingsInMemory);
+      }
+      return res.json(settings);
+    }
+  } catch (error) {
+    console.warn('DB fetch warning for settings, using memory fallback:', error.message);
+  }
+  res.json(settingsInMemory);
+});
+
+app.put('/api/settings', async (req, res) => {
+  try {
+    settingsInMemory = { ...settingsInMemory, ...req.body };
+    if (mongoose.connection.readyState === 1) {
+      let settings = await Setting.findOne({});
+      if (!settings) {
+        settings = new Setting(req.body);
+      } else {
+        Object.assign(settings, req.body);
+      }
+      const updated = await settings.save();
+      return res.json(updated);
+    }
+  } catch (error) {
+    console.warn('DB update warning for settings, using memory fallback:', error.message);
+  }
+  res.json(settingsInMemory);
 // ─── CRUD for Mechanics ───────────────────────────────────────────────────────
 
 app.get('/api/mechanics', async (req, res) => {
@@ -908,6 +959,7 @@ app.delete('/api/mechanics/:id', async (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
+  await connectDB(MONGO_URI);
 });
