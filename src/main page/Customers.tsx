@@ -84,7 +84,7 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
     fetch(`${API_URL}/api/customers`)
       .then(res => res.json())
       .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           setCustomers(data);
           localStorage.setItem('dms_customers', JSON.stringify(data));
         } else {
@@ -101,7 +101,7 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
     setCustomers(updatedList);
     localStorage.setItem('dms_customers', JSON.stringify(updatedList));
 
-    fetch(`${API_URL}/api/customers/${updatedCustomer.id}`, {
+    fetch(`${API_URL}/api/customers/${encodeURIComponent(updatedCustomer.id)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedCustomer)
@@ -128,7 +128,7 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
       setCustomers(updatedList);
       localStorage.setItem('dms_customers', JSON.stringify(updatedList));
 
-      fetch(`${API_URL}/api/customers/${customer.id}`, {
+      fetch(`${API_URL}/api/customers/${encodeURIComponent(customer.id)}`, {
         method: 'DELETE'
       })
         .then(res => {
@@ -209,6 +209,16 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
     if (district !== 'All Districts' && c.district !== district) return false;
     return true;
   });
+
+  const totalOutstanding = customers.reduce((sum, c) => {
+    if (!c.outstanding) return sum;
+    const value = parseFloat(c.outstanding.replace(/[^\d.]/g, ''));
+    return isNaN(value) ? sum : sum + value;
+  }, 0);
+
+  const outstandingStr = totalOutstanding >= 100000 
+    ? `₹${(totalOutstanding / 100000).toFixed(2)}L` 
+    : `₹${totalOutstanding.toLocaleString('en-IN')}`;
 
   if (selectedCustomer) {
     return <CustomerDetails customer={selectedCustomer} onBack={() => setSelectedCustomer(null)} />;
@@ -459,9 +469,9 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold text-slate-400 tracking-wider">TOTAL OUTSTANDING</span>
-            <h3 className="text-2xl font-extrabold text-slate-800 m-0">₹2.1L</h3>
+            <h3 className="text-2xl font-extrabold text-slate-800 m-0">{outstandingStr}</h3>
             <span className="text-[10.5px] font-bold text-red-600 flex items-center gap-1 mt-0.5">
-              <AlertCircle size={12} /> 8 Critical Overdue
+              <AlertCircle size={12} /> Live Balance
             </span>
           </div>
         </div>

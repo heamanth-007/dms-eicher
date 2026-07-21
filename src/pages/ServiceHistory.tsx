@@ -18,6 +18,8 @@ import {
 interface ServiceHistoryProps {
   onBack: () => void;
   searchTerm: string;
+  jobCards?: any[];
+  onDeleteJc?: (num: string) => void;
 }
 
 interface HistoryRecord {
@@ -35,11 +37,11 @@ interface HistoryRecord {
   status: 'DELIVERED' | 'CLOSED';
 }
 
-export const ServiceHistory: React.FC<ServiceHistoryProps> = ({ onBack, searchTerm }) => {
+export const ServiceHistory: React.FC<ServiceHistoryProps> = ({ onBack, searchTerm, jobCards: propJobCards, onDeleteJc }) => {
   const [timeFilter, setTimeFilter] = useState('Last 30 Days');
   const [mechanicFilter, setMechanicFilter] = useState('All Mechanics');
-  
-  const [historyList, setHistoryList] = useState<HistoryRecord[]>([
+
+  const staticHistory: HistoryRecord[] = [
     {
       jcNumber: '#JC-EIC-9821',
       customerName: 'Aditya Transports',
@@ -110,11 +112,30 @@ export const ServiceHistory: React.FC<ServiceHistoryProps> = ({ onBack, searchTe
       amount: '₹5,400.00',
       status: 'CLOSED'
     }
-  ]);
+  ];
+
+  const historyList: HistoryRecord[] = (propJobCards && propJobCards.length > 0)
+    ? propJobCards.filter(jc => jc.status === 'COMPLETED').map(jc => ({
+        jcNumber: jc.jcNumber,
+        customerName: jc.customerName,
+        customerPhone: jc.customerPhone || '+91 00000',
+        customerCode: jc.customerCode || '00000',
+        vehicleNo: jc.vehicleReg,
+        vehicleModel: jc.vehicleModel,
+        vehicleType: jc.vehicleType || 'Heavy Duty',
+        serviceDate: new Date(jc.createdAt || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+        deliveryDate: new Date(jc.updatedAt || jc.expectedDelivery || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+        mechanic: jc.mechanicName || 'Unassigned',
+        amount: jc.amount || '₹0.00',
+        status: 'DELIVERED' as const
+      }))
+    : staticHistory;
 
   const handleDelete = (num: string) => {
     if (window.confirm(`Are you sure you want to delete history record ${num}?`)) {
-      setHistoryList(historyList.filter(rec => rec.jcNumber !== num));
+      if (onDeleteJc) {
+        onDeleteJc(num);
+      }
     }
   };
 

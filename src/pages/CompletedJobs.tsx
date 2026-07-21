@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   ArrowLeft, 
   Filter, 
@@ -16,57 +16,69 @@ interface CompletedJobsProps {
   onBack: () => void;
   onNewJobCard: () => void;
   searchTerm: string;
+  jobCards?: any[];
 }
 
-interface CompletedJobRecord {
-  jcNumber: string;
-  customerName: string;
-  vehicleModel: string;
-  vehicleReg: string;
-  leadMechanic: string;
-  mechanicInitials: string;
-  completionTime: string;
-  amount: string;
-  status: 'COMPLETED';
-}
 
-export const CompletedJobs: React.FC<CompletedJobsProps> = ({ onBack, onNewJobCard, searchTerm }) => {
+export const CompletedJobs: React.FC<CompletedJobsProps> = ({ 
+  onBack, 
+  onNewJobCard, 
+  searchTerm,
+  jobCards: propJobCards 
+}) => {
   
-  const [completedList] = useState<CompletedJobRecord[]>([
-    {
-      jcNumber: '#JC-2024-001',
-      customerName: 'Amit Sharma',
-      vehicleModel: 'Eicher Pro 2049',
-      vehicleReg: 'MH-12-PQ-9876',
-      leadMechanic: 'Mukesh K.',
-      mechanicInitials: 'MK',
-      completionTime: 'Oct 24, 2023 14:20 PM',
-      amount: '₹12,450',
-      status: 'COMPLETED'
-    },
-    {
-      jcNumber: '#JC-2024-005',
-      customerName: 'Logistics Corp',
-      vehicleModel: 'Eicher Pro 6028',
-      vehicleReg: 'KA-01-LM-4321',
-      leadMechanic: 'Suresh S.',
-      mechanicInitials: 'SS',
-      completionTime: 'Oct 24, 2023 11:05 AM',
-      amount: '₹45,800',
-      status: 'COMPLETED'
-    },
-    {
-      jcNumber: '#JC-2024-009',
-      customerName: 'Prakash V.',
-      vehicleModel: 'Eicher Skyline Pro',
-      vehicleReg: 'DL-02-XY-1234',
-      leadMechanic: 'Abdul J.',
-      mechanicInitials: 'AJ',
-      completionTime: 'Oct 23, 2023 17:45 PM',
-      amount: '₹8,900',
-      status: 'COMPLETED'
+  const getCompletedJobs = () => {
+    if (propJobCards && propJobCards.length > 0) {
+      return propJobCards.filter(jc => jc.status === 'COMPLETED').map(jc => ({
+        jcNumber: jc.jcNumber,
+        customerName: jc.customerName,
+        vehicleModel: jc.vehicleModel,
+        vehicleReg: jc.vehicleReg,
+        leadMechanic: jc.mechanicName || 'Suresh S.',
+        mechanicInitials: jc.mechanicInitials || 'SS',
+        completionTime: new Date(jc.updatedAt || jc.createdAt || Date.now()).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        amount: jc.amount || '₹12,450',
+        status: 'COMPLETED' as const
+      }));
     }
-  ]);
+    return [
+      {
+        jcNumber: '#JC-2024-001',
+        customerName: 'Amit Sharma',
+        vehicleModel: 'Eicher Pro 2049',
+        vehicleReg: 'MH-12-PQ-9876',
+        leadMechanic: 'Mukesh K.',
+        mechanicInitials: 'MK',
+        completionTime: 'Oct 24, 2023 14:20 PM',
+        amount: '₹12,450',
+        status: 'COMPLETED'
+      },
+      {
+        jcNumber: '#JC-2024-005',
+        customerName: 'Logistics Corp',
+        vehicleModel: 'Eicher Pro 6028',
+        vehicleReg: 'KA-01-LM-4321',
+        leadMechanic: 'Suresh S.',
+        mechanicInitials: 'SS',
+        completionTime: 'Oct 24, 2023 11:05 AM',
+        amount: '₹45,800',
+        status: 'COMPLETED'
+      },
+      {
+        jcNumber: '#JC-2024-009',
+        customerName: 'Prakash V.',
+        vehicleModel: 'Eicher Skyline Pro',
+        vehicleReg: 'DL-02-XY-1234',
+        leadMechanic: 'Abdul J.',
+        mechanicInitials: 'AJ',
+        completionTime: 'Oct 23, 2023 17:45 PM',
+        amount: '₹8,900',
+        status: 'COMPLETED'
+      }
+    ];
+  };
+
+  const completedList = getCompletedJobs();
 
   const filteredJobs = completedList.filter(job => {
     if (!searchTerm) return true;

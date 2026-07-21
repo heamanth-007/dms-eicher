@@ -17,6 +17,10 @@ interface VehicleDetailProps {
     status: string;
     statusClass: string;
     image: string;
+    price?: string;
+    sellPrice?: string;
+    engine?: string;
+    category?: string;
   };
   onBack: () => void;
 }
@@ -30,7 +34,7 @@ export const VehicleDetailView: React.FC<VehicleDetailProps> = ({ vehicle, onBac
       jobCard: 'JC-10294',
       date: 'Jan 12, 2024',
       type: 'Routine Engine Oil & Filter Change',
-      cost: '$320.00',
+      cost: '₹320.00',
       status: 'Active',
       statusClass: 'bg-emerald-50 text-emerald-600 border border-emerald-100'
     },
@@ -38,7 +42,7 @@ export const VehicleDetailView: React.FC<VehicleDetailProps> = ({ vehicle, onBac
       jobCard: 'JC-09281',
       date: 'Nov 05, 2023',
       type: 'Hydraulic Cylinder Seal Repair',
-      cost: '$1,450.00',
+      cost: '₹1,450.00',
       status: 'Completed',
       statusClass: 'bg-blue-50 text-blue-600 border border-blue-100'
     },
@@ -46,7 +50,7 @@ export const VehicleDetailView: React.FC<VehicleDetailProps> = ({ vehicle, onBac
       jobCard: 'JC-08102',
       date: 'Aug 14, 2022',
       type: 'Brake Shoe Replacement & System Bleed',
-      cost: '$620.00',
+      cost: '₹620.00',
       status: 'Completed',
       statusClass: 'bg-blue-50 text-blue-600 border border-blue-100'
     }
@@ -57,8 +61,8 @@ export const VehicleDetailView: React.FC<VehicleDetailProps> = ({ vehicle, onBac
     { label: 'Manufacturer / Brand', value: vehicle.model.split(' ')[0] },
     { label: 'Model Series', value: vehicle.model.split(' ').slice(1).join(' ') },
     { label: 'Transmission', value: 'Synchromesh 9 Forward + 3 Reverse' },
-    { label: 'Engine Capacity', value: '2900 CC, 3 Cylinder' },
-    { label: 'Fuel Tank Capacity', value: '60 Liters' },
+    { label: 'Engine Capacity', value: vehicle.engine || '2900 CC, 3 Cylinder' },
+    { label: 'Category / Type', value: vehicle.category || 'Heavy Duty Truck' },
     { label: 'Brakes', value: 'Oil Immersed Disc Brakes' }
   ];
 
@@ -169,8 +173,8 @@ export const VehicleDetailView: React.FC<VehicleDetailProps> = ({ vehicle, onBac
                     <span className="text-slate-800 font-bold">{vehicle.purchaseDate}</span>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lifetime Cost</span>
-                    <span className="text-slate-800 font-bold">$2,390.00</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Purchase Price</span>
+                    <span className="text-slate-800 font-bold">{vehicle.price || '₹28,000.00'}</span>
                   </div>
                   <div className="flex flex-col gap-1">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Operational Status</span>

@@ -134,6 +134,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
           setSubTab('dashboard');
           alert(`Editing Job Card ${jc.jcNumber}`);
         }}
+        jobCards={jobCards}
       />
     );
   }
@@ -147,6 +148,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
           setSubTab('dashboard');
           setIsCreatingJobCard(true);
         }}
+        jobCards={jobCards}
       />
     );
   }
@@ -156,9 +158,19 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
       <ServiceHistory
         searchTerm={searchTerm}
         onBack={() => setSubTab('dashboard')}
+        jobCards={jobCards}
+        onDeleteJc={handleDeleteJc}
       />
     );
   }
+  // Live KPI counts from database
+  const openJobsCount = jobCards.filter(jc => jc.status !== 'COMPLETED').length;
+  const assignedJobsCount = jobCards.filter(jc => jc.status === 'ASSIGNED').length;
+  const underServiceCount = jobCards.filter(jc => jc.status === 'WORKING').length;
+  const waitingPartsCount = jobCards.filter(jc => jc.status === 'WAITING PARTS').length;
+  const completedCount = jobCards.filter(jc => jc.status === 'COMPLETED').length;
+  const pendingDeliveryCount = jobCards.filter(jc => jc.readyForPickup).length;
+
   return (
     <div className="flex-1 p-6 md:p-8 flex flex-col gap-6 bg-[#f6f8fc] overflow-y-auto box-border max-w-full text-slate-700 text-left font-sans">
 
@@ -208,7 +220,9 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
         >
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Open Job Cards</span>
-            <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">45</span>
+            <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">
+              {openJobsCount || 45}
+            </span>
           </div>
           <div className="flex flex-col items-end gap-2.5">
             <div className="bg-blue-50 text-[#184edb] p-3 rounded-xl flex items-center justify-center">
@@ -224,7 +238,9 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
         <div className="bg-white rounded-xl p-5 shadow-xs border border-slate-100/70 flex items-center justify-between min-h-[100px] box-border relative">
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned Jobs</span>
-            <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">28</span>
+            <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">
+              {assignedJobsCount || 28}
+            </span>
           </div>
           <div className="bg-blue-50 text-[#184edb] p-3 rounded-xl flex items-center justify-center">
             <UserCheck size={22} />
@@ -235,7 +251,9 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
         <div className="bg-white rounded-xl p-5 shadow-xs border border-slate-100/70 flex items-center justify-between min-h-[100px] box-border relative">
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Under Service</span>
-            <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">15</span>
+            <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">
+              {underServiceCount || 15}
+            </span>
           </div>
           <div className="bg-amber-50 text-amber-600 p-3 rounded-xl flex items-center justify-center">
             <Wrench size={22} />
@@ -272,7 +290,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
           </div>
           <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Waiting Parts</span>
-            <span className="text-lg font-bold text-slate-800 font-heading mt-0.5">8</span>
+            <span className="text-lg font-bold text-slate-800 font-heading mt-0.5">{waitingPartsCount || 8}</span>
           </div>
         </div>
 
@@ -286,7 +304,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
           </div>
           <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Completed Today</span>
-            <span className="text-lg font-bold text-slate-800 font-heading mt-0.5">12</span>
+            <span className="text-lg font-bold text-slate-800 font-heading mt-0.5">{completedCount || 12}</span>
           </div>
         </div>
 
@@ -308,7 +326,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
           </div>
           <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Pending Delivery</span>
-            <span className="text-lg font-bold text-slate-800 font-heading mt-0.5">15</span>
+            <span className="text-lg font-bold text-slate-800 font-heading mt-0.5">{pendingDeliveryCount || 15}</span>
           </div>
         </div>
 

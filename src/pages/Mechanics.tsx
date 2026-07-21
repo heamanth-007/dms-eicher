@@ -81,6 +81,72 @@ export const Mechanics: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [expFilter, setExpFilter] = useState('Any');
 
+  // Assign Job form state
+  const [assignMechanicId, setAssignMechanicId] = useState('');
+  const [assignCustomer, setAssignCustomer] = useState('');
+  const [assignVehicle, setAssignVehicle] = useState('');
+  const [assignServiceType, setAssignServiceType] = useState('');
+  const [assignDeliveryDate, setAssignDeliveryDate] = useState('');
+  const [assignNotes, setAssignNotes] = useState('');
+
+  // Customers and job cards from backend for dropdowns
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [jobCards, setJobCards] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/customers`)
+      .then(res => res.json())
+      .then(data => { if (Array.isArray(data)) setCustomers(data); })
+      .catch(err => console.error('Error fetching customers:', err));
+
+    fetch(`${API_URL}/api/jobcards`)
+      .then(res => res.json())
+      .then(data => { if (Array.isArray(data)) setJobCards(data); })
+      .catch(err => console.error('Error fetching jobcards:', err));
+  }, []);
+
+  const handleAssignJob = () => {
+    const mechanic = mechanics.find(m => m.id === assignMechanicId);
+    if (!mechanic || !assignCustomer || !assignVehicle) {
+      alert('Please select a Mechanic, Customer and Vehicle.');
+      return;
+    }
+    const jcNumber = `JC-${Date.now().toString().slice(-6)}`;
+    const newJc = {
+      jcNumber,
+      inTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      customerName: assignCustomer,
+      vehicleModel: assignVehicle,
+      vehicleReg: assignVehicle,
+      complaintSummary: assignServiceType || 'General Service',
+      mechanicName: mechanic.name,
+      mechanicInitials: mechanic.initials,
+      status: 'ASSIGNED',
+      expectedDelivery: assignDeliveryDate || 'TBD',
+      isDelayed: false,
+      readyForPickup: false
+    };
+    fetch(`${API_URL}/api/jobcards`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newJc)
+    })
+      .then(() => fetch(`${API_URL}/api/mechanics/${assignMechanicId}/assign-job`, { method: 'PUT' }))
+      .then(() => {
+        fetchMechanics();
+        setAssignMechanicId('');
+        setAssignCustomer('');
+        setAssignVehicle('');
+        setAssignServiceType('');
+        setAssignDeliveryDate('');
+        setAssignNotes('');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 4000);
+        setCurrentView('jobs');
+      })
+      .catch(err => console.error('Error assigning job:', err));
+  };
+
   const historyJobs = [
     {
       id: '#JOB-22481',
@@ -129,32 +195,6 @@ export const Mechanics: React.FC = () => {
     }
   ];
 
-  const technicians = [
-    {
-      name: 'David Chen',
-      role: 'Master Technician',
-      status: 'READY',
-      statusColor: 'text-emerald-600',
-      dotColor: 'bg-emerald-500',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100'
-    },
-    {
-      name: 'Sarah Johnson',
-      role: 'EV Specialist',
-      status: '15 MIN',
-      statusColor: 'text-orange-500',
-      dotColor: 'bg-orange-400',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=100'
-    },
-    {
-      name: 'Marco Rossi',
-      role: 'Chassis Tech',
-      status: 'BUSY',
-      statusColor: 'text-rose-500',
-      dotColor: 'bg-rose-500',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=100'
-    }
-  ];
 
   const queueJobs = [
     {
@@ -1004,9 +1044,14 @@ export const Mechanics: React.FC = () => {
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="m21 21-4.3-4.3" /><circle cx="15" cy="11" r="4" /></svg>
                     </span>
                     <select
-                      className="w-full appearance-none bg-white border border-slate-255 rounded-lg py-2.5 pl-10.5 pr-10 text-[14px] text-slate-500 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
+                      value={assignMechanicId}
+                      onChange={e => setAssignMechanicId(e.target.value)}
+                      className="w-full appearance-none bg-white border border-slate-255 rounded-lg py-2.5 pl-10.5 pr-10 text-[14px] text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
                     >
-                      <option>Search available mechanics...</option>
+                      <option value="">Search available mechanics...</option>
+                      {mechanics.filter(m => m.status === 'Available').map(m => (
+                        <option key={m.id} value={m.id}>{m.name} — {m.experience}</option>
+                      ))}
                     </select>
                     <span className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 pointer-events-none">
                       <ChevronDown size={18} />
@@ -1022,9 +1067,14 @@ export const Mechanics: React.FC = () => {
                       <User size={18} />
                     </span>
                     <select
-                      className="w-full appearance-none bg-white border border-slate-255 rounded-lg py-2.5 pl-10.5 pr-10 text-[14px] text-slate-500 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
+                      value={assignCustomer}
+                      onChange={e => setAssignCustomer(e.target.value)}
+                      className="w-full appearance-none bg-white border border-slate-255 rounded-lg py-2.5 pl-10.5 pr-10 text-[14px] text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
                     >
-                      <option>Search customer records...</option>
+                      <option value="">Search customer records...</option>
+                      {customers.map(c => (
+                        <option key={c.id} value={c.name}>{c.name}</option>
+                      ))}
                     </select>
                     <span className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 pointer-events-none">
                       <ChevronDown size={18} />
@@ -1034,15 +1084,22 @@ export const Mechanics: React.FC = () => {
 
                 {/* Select Vehicle */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">SELECT VEHICLE</label>
+                  <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">SELECT VEHICLE / JOB CARD</label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
                       <Car size={18} />
                     </span>
                     <select
-                      className="w-full appearance-none bg-white border border-slate-255 rounded-lg py-2.5 pl-10.5 pr-10 text-[14px] text-slate-500 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
+                      value={assignVehicle}
+                      onChange={e => setAssignVehicle(e.target.value)}
+                      className="w-full appearance-none bg-white border border-slate-255 rounded-lg py-2.5 pl-10.5 pr-10 text-[14px] text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
                     >
-                      <option>Identify vehicle VIN/Plate...</option>
+                      <option value="">Identify vehicle VIN/Plate...</option>
+                      {jobCards.filter(jc => jc.status !== 'COMPLETED').map(jc => (
+                        <option key={jc.jcNumber} value={`${jc.vehicleModel} • ${jc.vehicleReg}`}>
+                          {jc.vehicleModel} • {jc.vehicleReg} ({jc.customerName})
+                        </option>
+                      ))}
                     </select>
                     <span className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 pointer-events-none">
                       <ChevronDown size={18} />
@@ -1056,6 +1113,8 @@ export const Mechanics: React.FC = () => {
                   <input
                     type="text"
                     placeholder="e.g., Brake Pad Replacement"
+                    value={assignServiceType}
+                    onChange={e => setAssignServiceType(e.target.value)}
                     className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-255 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
                   />
                 </div>
@@ -1090,8 +1149,9 @@ export const Mechanics: React.FC = () => {
                       <Calendar size={18} />
                     </span>
                     <input
-                      type="text"
-                      placeholder="mm/dd/yyyy"
+                      type="date"
+                      value={assignDeliveryDate}
+                      onChange={e => setAssignDeliveryDate(e.target.value)}
                       className="w-full pl-10.5 pr-4 py-2.5 text-[14px] bg-[#fff] border border-slate-255 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
                     />
                   </div>
@@ -1103,6 +1163,8 @@ export const Mechanics: React.FC = () => {
                   <textarea
                     placeholder="Add specific technical notes for the mechanic..."
                     rows={2}
+                    value={assignNotes}
+                    onChange={e => setAssignNotes(e.target.value)}
                     className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-255 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors resize-none font-sans"
                   />
                 </div>
@@ -1120,7 +1182,7 @@ export const Mechanics: React.FC = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={() => setCurrentView('jobs')}
+                  onClick={handleAssignJob}
                   className="px-7 py-2.5 bg-[#184edb] hover:bg-[#143eb3] text-white font-bold rounded-lg text-[14.5px] cursor-pointer border-none shadow-sm transition-colors"
                 >
                   Assign Job
@@ -1141,19 +1203,25 @@ export const Mechanics: React.FC = () => {
               </div>
 
               <div className="flex flex-col gap-3.5">
-                {technicians.map((t, idx) => (
+                {mechanics.slice(0, 3).map((m, idx) => (
                   <div key={idx} className="flex items-center justify-between bg-white p-2 rounded-lg hover:bg-slate-50/50 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="relative">
-                        <img className="w-10 h-10 rounded-full object-cover" src={t.avatar} alt={t.name} />
-                        <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${t.dotColor}`} />
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${m.avatarBg}`}>
+                          {m.initials}
+                        </div>
+                        <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
+                          m.status === 'Available' ? 'bg-emerald-500' : m.status === 'Busy' ? 'bg-orange-400' : 'bg-slate-400'
+                        }`} />
                       </div>
                       <div className="flex flex-col">
-                        <span className="font-bold text-slate-850 text-[14px]">{t.name}</span>
-                        <span className="text-slate-400 text-[12px] font-semibold">{t.role}</span>
+                        <span className="font-bold text-slate-850 text-[14px]">{m.name}</span>
+                        <span className="text-slate-400 text-[12px] font-semibold">{m.experience} exp.</span>
                       </div>
                     </div>
-                    <span className={`text-[12.5px] font-bold ${t.statusColor}`}>{t.status}</span>
+                    <span className={`text-[12.5px] font-bold ${
+                      m.status === 'Available' ? 'text-emerald-600' : m.status === 'Busy' ? 'text-orange-500' : 'text-slate-400'
+                    }`}>{m.status.toUpperCase()}</span>
                   </div>
                 ))}
               </div>

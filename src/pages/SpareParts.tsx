@@ -92,8 +92,8 @@ export const SpareParts: React.FC = () => {
       brand: 'Bosch',
       hsnCode: hsnEl?.value || '842123',
       gstPercent: '18%',
-      purchasePrice: purchasePriceEl?.value ? `$${purchasePriceEl.value}` : '$0.00',
-      salePrice: salePriceEl?.value ? `$${salePriceEl.value}` : '$0.00',
+      purchasePrice: purchasePriceEl?.value ? `₹${purchasePriceEl.value}` : '₹0.00',
+      salePrice: salePriceEl?.value ? `₹${salePriceEl.value}` : '₹0.00',
       stock: parsedStock.toLocaleString(),
       stockStatus: stockStatusVal
     };
@@ -131,8 +131,8 @@ export const SpareParts: React.FC = () => {
     const updatedFields = {
       partName: nameEl.value,
       hsnCode: hsnEl?.value || '842123',
-      purchasePrice: purchasePriceEl?.value ? (purchasePriceEl.value.startsWith('$') ? purchasePriceEl.value : `$${purchasePriceEl.value}`) : '$0.00',
-      salePrice: salePriceEl?.value ? (salePriceEl.value.startsWith('$') ? salePriceEl.value : `$${salePriceEl.value}`) : '$0.00',
+      purchasePrice: purchasePriceEl?.value ? (purchasePriceEl.value.startsWith('₹') ? purchasePriceEl.value : `₹${purchasePriceEl.value}`) : '₹0.00',
+      salePrice: salePriceEl?.value ? (salePriceEl.value.startsWith('₹') ? salePriceEl.value : `₹${salePriceEl.value}`) : '₹0.00',
       stock: parsedStock.toLocaleString(),
       stockStatus: stockStatusVal
     };
@@ -312,22 +312,22 @@ export const SpareParts: React.FC = () => {
               <div className="flex flex-col gap-4.5">
                 {/* Purchase Price */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider font-sans">Purchase Price ($)</label>
+                  <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider font-sans">Purchase Price (₹)</label>
                   <input
                     type="text"
                     id="edit-purchase-price"
-                    defaultValue={currentEditingPartObj?.purchasePrice || '$ 45.00'}
+                    defaultValue={currentEditingPartObj?.purchasePrice || '₹45.00'}
                     className="w-full px-4 py-2.5 text-[14px] bg-[#f1f4fd] border border-slate-200 rounded-lg text-slate-800 font-semibold focus:outline-none focus:border-[#184edb] transition-colors"
                   />
                 </div>
 
                 {/* Selling Price */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider font-sans">Selling Price ($)</label>
+                  <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider font-sans">Selling Price (₹)</label>
                   <input
                     type="text"
                     id="edit-sale-price"
-                    defaultValue={currentEditingPartObj?.salePrice || '$ 89.99'}
+                    defaultValue={currentEditingPartObj?.salePrice || '₹89.99'}
                     className="w-full px-4 py-2.5 text-[14px] bg-[#f1f4fd] border border-slate-200 rounded-lg text-slate-800 font-semibold focus:outline-none focus:border-[#184edb] transition-colors"
                   />
                 </div>
@@ -547,7 +547,7 @@ export const SpareParts: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5.5">
                   {/* Purchase Price */}
                   <div className="flex flex-col gap-2">
-                    <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">Purchase Price ($)</label>
+                    <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">Purchase Price (₹)</label>
                     <input
                       type="text"
                       id="add-purchase-price"
@@ -558,7 +558,7 @@ export const SpareParts: React.FC = () => {
 
                   {/* Sale Price */}
                   <div className="flex flex-col gap-2">
-                    <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">Sale Price ($)</label>
+                    <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">Sale Price (₹)</label>
                     <input
                       type="text"
                       id="add-sale-price"

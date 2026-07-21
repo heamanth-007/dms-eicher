@@ -95,7 +95,7 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
             </div>
           </div>
           <div className="mt-3.5">
-            <span className="text-[26px] font-extrabold text-[#0f172a] leading-none">$124,580.00</span>
+            <span className="text-[26px] font-extrabold text-[#0f172a] leading-none">₹1,24,580.00</span>
             <span className="block text-[10.5px] font-bold text-[#64748b] tracking-wider uppercase mt-1.5">TOTAL PURCHASE</span>
           </div>
         </div>
@@ -109,7 +109,7 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
             <span className="text-[11.5px] font-semibold text-[#64748b]">Last 30 Days</span>
           </div>
           <div className="mt-3.5">
-            <span className="text-[26px] font-extrabold text-[#0f172a] leading-none">$98,240.00</span>
+            <span className="text-[26px] font-extrabold text-[#0f172a] leading-none">₹98,240.00</span>
             <span className="block text-[10.5px] font-bold text-[#64748b] tracking-wider uppercase mt-1.5">TOTAL PAID</span>
           </div>
         </div>
@@ -127,7 +127,7 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
           </div>
           <div className="mt-3.5">
             <span className="text-[26px] font-extrabold text-[#dc2626] leading-none">
-              {selectedSupplier?.outstanding || '$0.00'}
+              {selectedSupplier?.outstanding || '₹0.00'}
             </span>
             <span className="block text-[10.5px] font-bold text-[#64748b] tracking-wider uppercase mt-1.5">OUTSTANDING BALANCE</span>
           </div>
@@ -142,7 +142,7 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
             <span className="text-[11px] font-bold text-[#a4c2ff] tracking-wide">OCT 15, 2023</span>
           </div>
           <div className="mt-3.5">
-            <span className="text-[26px] font-extrabold text-white leading-none">$12,400.00</span>
+            <span className="text-[26px] font-extrabold text-white leading-none">₹12,400.00</span>
             <span className="block text-[10.5px] font-bold text-[#a4c2ff] tracking-wider uppercase mt-1.5">LAST PAYMENT MADE</span>
           </div>
         </div>
@@ -225,9 +225,9 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
                 <th className="py-4.5 px-6 text-[12px] font-extrabold text-[#475569] tracking-wider uppercase">Reference No</th>
                 <th className="py-4.5 px-6 text-[12px] font-extrabold text-[#475569] tracking-wider uppercase">Type</th>
                 <th className="py-4.5 px-6 text-[12px] font-extrabold text-[#475569] tracking-wider uppercase">Description</th>
-                <th className="py-4.5 px-6 text-[12px] font-extrabold text-[#475569] tracking-wider uppercase">Debit ($)</th>
-                <th className="py-4.5 px-6 text-[12px] font-extrabold text-[#475569] tracking-wider uppercase">Credit ($)</th>
-                <th className="py-4.5 px-6 text-[12px] font-extrabold text-[#475569] tracking-wider uppercase">Balance ($)</th>
+                <th className="py-4.5 px-6 text-[12px] font-extrabold text-[#475569] tracking-wider uppercase">Debit (₹)</th>
+                <th className="py-4.5 px-6 text-[12px] font-extrabold text-[#475569] tracking-wider uppercase">Credit (₹)</th>
+                <th className="py-4.5 px-6 text-[12px] font-extrabold text-[#475569] tracking-wider uppercase">Balance (₹)</th>
                 <th className="py-4.5 px-6 text-[12px] font-extrabold text-[#475569] tracking-wider uppercase">Payment Mode</th>
                 <th className="py-4.5 px-6 text-[12px] font-extrabold text-[#475569] tracking-wider uppercase">Remarks</th>
               </tr>

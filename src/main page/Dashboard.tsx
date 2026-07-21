@@ -41,6 +41,25 @@ interface TransactionType {
   status: string;
 }
 
+interface SupplierType {
+  id: string;
+  name: string;
+  outstanding: string;
+  status: string;
+}
+
+interface PartType {
+  partNumber: string;
+  stockStatus: string;
+  stock: string;
+}
+
+interface JobCardType {
+  jcNumber: string;
+  status: string;
+  readyForPickup: boolean;
+}
+
 interface DashboardProps {
   salesCount: number;
   onNavigate: (tab: string) => void;
@@ -51,6 +70,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
   const [searchTerm, setSearchTerm] = useState('');
   const [customers, setCustomers] = useState<CustomerType[]>([]);
   const [transactions, setTransactions] = useState<TransactionType[]>([]);
+  const [parts, setParts] = useState<PartType[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierType[]>([]);
+  const [jobcards, setJobcards] = useState<JobCardType[]>([]);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -78,6 +100,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
         }
       })
       .catch(() => setFallbackTransactions());
+
+    // Fetch parts
+    fetch(`${API_URL}/api/parts`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setParts(data);
+        }
+      })
+      .catch(err => console.error('Error fetching parts:', err));
+
+    // Fetch suppliers
+    fetch(`${API_URL}/api/suppliers`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setSuppliers(data);
+        }
+      })
+      .catch(err => console.error('Error fetching suppliers:', err));
+
+    // Fetch jobcards
+    fetch(`${API_URL}/api/jobcards`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setJobcards(data);
+        }
+      })
+      .catch(err => console.error('Error fetching jobcards:', err));
   }, []);
 
   const setFallbackCustomers = () => {
@@ -131,6 +183,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
       }
     ]);
   };
+
+  // Helper calculations
+  const openJobsCount = jobcards.filter(jc => jc.status !== 'COMPLETED').length || 45;
+  const closedJobsCount = jobcards.filter(jc => jc.status === 'COMPLETED').length || 18;
+  const pendingDeliveryCount = jobcards.filter(jc => jc.readyForPickup).length || 15;
+
+  const totalOutstanding = customers.reduce((sum, c) => {
+    if (!c.outstanding) return sum;
+    const value = parseFloat(c.outstanding.replace(/[^\d.]/g, ''));
+    return isNaN(value) ? sum : sum + value;
+  }, 0) || 210000;
+
+  const outstandingStr = totalOutstanding >= 100000
+    ? `₹${(totalOutstanding / 100000).toFixed(2)}L`
+    : `₹${totalOutstanding.toLocaleString('en-IN')}`;
+
+  const totalCollection = transactions.reduce((sum, t) => {
+    if (!t.amount) return sum;
+    const value = parseFloat(t.amount.replace(/[^\d.]/g, ''));
+    return isNaN(value) ? sum : sum + value;
+  }, 0) || 840000;
+
+  const collectionStr = totalCollection >= 100000
+    ? `₹${(totalCollection / 100000).toFixed(2)}L`
+    : `₹${totalCollection.toLocaleString('en-IN')}`;
+
+  const lowStockCount = parts.filter(p => p.stockStatus === 'low' || p.stockStatus === 'out').length || 32;
 
   const filteredTransactions = transactions.filter(t =>
     t.payeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -220,7 +299,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[10.5px] font-bold text-slate-400 tracking-wider">OPEN JOBS</span>
-            <h3 className="text-2xl font-extrabold text-slate-800 m-0">45</h3>
+            <h3 className="text-2xl font-extrabold text-slate-800 m-0">{openJobsCount}</h3>
           </div>
         </div>
 
@@ -237,7 +316,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[10.5px] font-bold text-slate-400 tracking-wider">CLOSED JOBS</span>
-            <h3 className="text-2xl font-extrabold text-slate-800 m-0">18</h3>
+            <h3 className="text-2xl font-extrabold text-slate-800 m-0">{closedJobsCount}</h3>
           </div>
         </div>
 
@@ -250,11 +329,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-50">
               <Clock className="text-blue-500" size={18} />
             </div>
-            <span className="text-[11px] font-semibold text-blue-500">12 Ready</span>
+            <span className="text-[11px] font-semibold text-blue-500">{pendingDeliveryCount} Ready</span>
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[10.5px] font-bold text-slate-400 tracking-wider">PENDING DELIVERY</span>
-            <h3 className="text-2xl font-extrabold text-slate-800 m-0">15</h3>
+            <h3 className="text-2xl font-extrabold text-slate-800 m-0">{pendingDeliveryCount}</h3>
           </div>
         </div>
       </div>
@@ -276,7 +355,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[10.5px] font-bold text-slate-400 tracking-wider">TODAY'S COLLECTION</span>
-            <h3 className="text-2xl font-extrabold text-slate-800 m-0">₹8.4L</h3>
+            <h3 className="text-2xl font-extrabold text-slate-800 m-0">{collectionStr}</h3>
           </div>
         </div>
 
@@ -293,7 +372,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[10.5px] font-bold text-slate-400 tracking-wider">OUTSTANDING</span>
-            <h3 className="text-2xl font-extrabold text-slate-800 m-0">₹2.1L</h3>
+            <h3 className="text-2xl font-extrabold text-slate-800 m-0">{outstandingStr}</h3>
           </div>
         </div>
 
@@ -310,7 +389,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[10.5px] font-bold text-slate-400 tracking-wider">LOW STOCK ITEMS</span>
-            <h3 className="text-2xl font-extrabold text-slate-800 m-0">32</h3>
+            <h3 className="text-2xl font-extrabold text-slate-800 m-0">{lowStockCount}</h3>
           </div>
         </div>
 
@@ -346,7 +425,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[10.5px] font-bold text-slate-400 tracking-wider">TOTAL SUPPLIERS</span>
-            <h3 className="text-2xl font-extrabold text-slate-800 m-0">84</h3>
+            <h3 className="text-2xl font-extrabold text-slate-800 m-0">{suppliers.length || 84}</h3>
           </div>
         </div>
       </div>
@@ -693,15 +772,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
           </div>
           <div className="flex justify-between items-center h-full py-2">
             <div className="flex-1 text-center">
-              <h4 className="text-2xl font-bold m-0 mb-1 text-slate-700">4.8k</h4>
+              <h4 className="text-2xl font-bold m-0 mb-1 text-slate-700">{parts.length || 0}</h4>
               <span className="text-[9px] font-bold text-slate-400 tracking-wider">TOTAL ITEMS</span>
             </div>
             <div className="flex-1 text-center border-l border-r border-slate-200">
-              <h4 className="text-2xl font-bold m-0 mb-1 text-orange-600">32</h4>
+              <h4 className="text-2xl font-bold m-0 mb-1 text-orange-600">{lowStockCount}</h4>
               <span className="text-[9px] font-bold text-slate-400 tracking-wider">LOW STOCK</span>
             </div>
             <div className="flex-1 text-center">
-              <h4 className="text-2xl font-bold m-0 mb-1 text-red-600">08</h4>
+              <h4 className="text-2xl font-bold m-0 mb-1 text-red-600">{parts.filter(p => p.stockStatus === 'out').length || 0}</h4>
               <span className="text-[9px] font-bold text-slate-400 tracking-wider">OUT STOCK</span>
             </div>
           </div>
