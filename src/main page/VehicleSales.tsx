@@ -21,7 +21,8 @@ import {
   CreditCard,
   Wrench,
   Download,
-  Truck
+  Truck,
+  Trash2
 } from 'lucide-react';
 
 export interface SaleRecord {
@@ -33,6 +34,8 @@ export interface SaleRecord {
   district: string;
   deliveryDate: string;
   salesExecutive: string;
+  advancePaid?: string;
+  balanceAmount?: string;
 }
 
 interface PrintModalProps {
@@ -43,6 +46,21 @@ interface PrintModalProps {
 
 // Reusable print modal matching the mockup format exactly
 const PrintInvoiceModal: React.FC<PrintModalProps> = ({ printingSale, setPrintingSale, handlePrintTrigger }) => {
+  const grandTotalNum = Number(printingSale.grandTotal.toString().replace(/[^\d.]/g, '')) || 0;
+  const basePriceNum = Math.round(grandTotalNum * 0.75);
+  const accessoriesNum = Math.round(grandTotalNum * 0.02);
+  const insuranceNum = Math.round(grandTotalNum * 0.05);
+  const subTotal = basePriceNum + accessoriesNum + insuranceNum;
+  const taxesNum = grandTotalNum - subTotal;
+  const cgst = taxesNum / 2;
+  const sgst = taxesNum / 2;
+
+  const invoiceItems = [
+    { id: 1, desc: `${printingSale.vehicleModel} - Base Vehicle`, sub: 'Primary vehicle chassis and cabin', qty: '1', price: `₹${basePriceNum.toLocaleString('en-IN')}`, tax: '18%', total: `₹${basePriceNum.toLocaleString('en-IN')}` },
+    { id: 2, desc: 'Standard Accessories Kit', sub: 'Mats, Mud Flaps, basic toolkit', qty: '1', price: `₹${accessoriesNum.toLocaleString('en-IN')}`, tax: '18%', total: `₹${accessoriesNum.toLocaleString('en-IN')}` },
+    { id: 3, desc: 'Comprehensive Insurance', sub: '1 Year Bumper to Bumper', qty: '1', price: `₹${insuranceNum.toLocaleString('en-IN')}`, tax: '0%', total: `₹${insuranceNum.toLocaleString('en-IN')}` }
+  ];
+
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 no-print">
       <div className="bg-white rounded-xl shadow-lg border border-slate-100 w-full max-w-3xl overflow-hidden flex flex-col">
@@ -154,12 +172,7 @@ const PrintInvoiceModal: React.FC<PrintModalProps> = ({ printingSale, setPrintin
                     </tr>
                   </thead>
                   <tbody>
-                    {[
-                      { id: 1, desc: 'Turbocharger Gasket Replacement', sub: 'Labor - Engine System', qty: '4.5', price: '₹850.00', tax: '18%', total: '₹3,825.00' },
-                      { id: 2, desc: 'Heavy Duty Air Filter (E-Series)', sub: 'Part ID: #EICH-AF-992', qty: '1', price: '₹4,200.00', tax: '28%', total: '₹4,200.00' },
-                      { id: 3, desc: 'Engine Oil - 15W40 (Semi-Synth)', sub: 'Volume: 12 Liters', qty: '12', price: '₹450.00', tax: '18%', total: '₹5,400.00' },
-                      { id: 4, desc: 'Wheel Alignment & Balancing', sub: 'Service Bundle', qty: '1', price: '₹1,200.00', tax: '18%', total: '₹1,200.00' }
-                    ].map((item) => (
+                    {invoiceItems.map((item) => (
                       <tr key={item.id} className="border-b border-slate-100 font-semibold text-slate-700">
                         <td className="p-3 text-center text-slate-450">{item.id}</td>
                         <td className="p-3">
@@ -195,26 +208,34 @@ const PrintInvoiceModal: React.FC<PrintModalProps> = ({ printingSale, setPrintin
                 <div className="w-72 flex flex-col gap-2 text-right font-semibold text-slate-500">
                   <div className="flex justify-between px-1">
                     <span>Subtotal (Excl. Tax)</span>
-                    <span className="text-slate-850 font-bold">₹14,625.00</span>
+                    <span className="text-slate-850 font-bold">₹{subTotal.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between px-1">
                     <span>CGST (9%)</span>
-                    <span className="text-slate-850 font-bold">₹1,316.25</span>
+                    <span className="text-slate-850 font-bold">₹{cgst.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between px-1">
                     <span>SGST (9%)</span>
-                    <span className="text-slate-850 font-bold">₹1,316.25</span>
+                    <span className="text-slate-850 font-bold">₹{sgst.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between px-1">
                     <span>IGST (0%)</span>
-                    <span className="text-slate-850 font-bold">₹0.00</span>
+                    <span className="text-slate-850 font-bold">₹0</span>
                   </div>
 
                   <div className="flex justify-between font-extrabold text-blue-650 border-t border-slate-100 pt-2 text-[13px]">
                     <span>Grand Total</span>
-                    <span>₹17,257.50</span>
+                    <span>₹{grandTotalNum.toLocaleString('en-IN')}</span>
                   </div>
-                  <span className="text-[9px] text-slate-400 italic block -mt-1 font-medium text-right">
+                  <div className="flex justify-between font-medium text-emerald-600 text-[11px] mt-1">
+                    <span>Advance Paid</span>
+                    <span>{printingSale.advancePaid || '₹0'}</span>
+                  </div>
+                  <div className="flex justify-between font-extrabold text-red-500 text-[12px] mt-0.5 pt-1 border-t border-slate-100/50">
+                    <span>Balance Due</span>
+                    <span>{printingSale.balanceAmount || '₹0'}</span>
+                  </div>
+                  <span className="text-[9px] text-slate-400 italic block mt-1 font-medium text-right">
                     Rupees Seventeen Thousand Two Hundred Fifty Seven and Fifty Paise Only
                   </span>
                 </div>
@@ -291,6 +312,7 @@ interface VehicleSalesProps {
 
 export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onCustomerClick }) => {
   const [dbVehicles, setDbVehicles] = useState<any[]>([]);
+  const [dbCustomers, setDbCustomers] = useState<any[]>([]);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -303,52 +325,29 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
         }
       })
       .catch(err => console.error('Error fetching vehicles for sales:', err));
+
+    fetch(`${API_URL}/api/customers`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setDbCustomers(data);
+        }
+      })
+      .catch(err => console.error('Error fetching customers for sales:', err));
   }, []);
 
   // Available stock items
-  const stocks = dbVehicles.length > 0
-    ? dbVehicles.filter(v => v.status === 'Available' || v.status === 'Reserved').map(v => ({
-        id: v.id,
-        label: `${v.modelName} - ${v.colorName || 'White'}`,
-        model: v.modelName,
-        type: v.type,
-        engine: v.engineNo,
-        color: v.colorName,
-        chassis: v.chassisNo,
-        price: v.sellPrice || 1500000
-      }))
-    : [
-        {
-          id: 'STK-01',
-          label: 'Eicher Pro 2049 - Alpine White',
-          model: 'Pro 2049',
-          type: 'Light Duty Truck',
-          engine: 'E483-CD32-901',
-          color: 'Alpine White',
-          chassis: 'ME3BAH4A2F0004522',
-          price: 1450000
-        },
-        {
-          id: 'STK-02',
-          label: 'Eicher Pro 6028 - Eicher Blue',
-          model: 'Pro 6028',
-          type: 'Heavy Duty Truck',
-          engine: 'E694-CD88-102',
-          color: 'Eicher Blue',
-          chassis: 'ME3BAH6A2F0008812',
-          price: 4550000
-        },
-        {
-          id: 'STK-03',
-          label: 'Eicher Pro 3019 - Forest Green',
-          model: 'Pro 3019',
-          type: 'Medium Duty Truck',
-          engine: 'E494-CD60-909',
-          color: 'Forest Green',
-          chassis: 'ME3BAH3A2F0003019',
-          price: 2820000
-        }
-      ];
+  const stocks = dbVehicles.filter(v => v.stock > 0 && v.status === 'Available').map(v => ({
+    id: v.id,
+    label: `${v.modelName} - ${v.colorName || 'White'} (Stock: ${v.stock || 0})`,
+    model: v.modelName,
+    type: v.type,
+    engine: v.engineNo,
+    color: v.colorName,
+    chassis: v.chassisNo,
+    price: v.sellPrice || 1500000,
+    stock: v.stock || 0
+  }));
 
   // States for modals & sub-pages
   const [isRegisteringSale, setIsRegisteringSale] = useState(false);
@@ -363,6 +362,17 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
   const [regGst, setRegGst] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regSelectedStock, setRegSelectedStock] = useState('');
+
+  const handleCustomerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setRegFullName(val);
+    const existingCust = dbCustomers.find(c => c.name.toLowerCase() === val.toLowerCase());
+    if (existingCust) {
+      if (existingCust.phone) setRegMobile(existingCust.phone);
+      if (existingCust.district) setRegAddress(existingCust.district);
+      if (existingCust.email) setRegEmail(existingCust.email);
+    }
+  };
 
   useEffect(() => {
     if (stocks.length > 0 && !regSelectedStock) {
@@ -411,7 +421,7 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
     e.preventDefault();
     if (!editingSale) return;
 
-    fetch(`${API_URL}/api/sales/${editingSale.invoiceNo}`, {
+    fetch(`${API_URL}/api/sales/${encodeURIComponent(editingSale.invoiceNo)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -432,6 +442,19 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
       .catch(err => console.error('Error saving edited sale:', err));
   };
 
+  const handleDeleteSale = (sale: SaleRecord) => {
+    if (window.confirm(`Are you sure you want to delete invoice ${sale.invoiceNo}?`)) {
+      fetch(`${API_URL}/api/sales/${encodeURIComponent(sale.invoiceNo)}`, {
+        method: 'DELETE'
+      })
+      .then(res => res.json())
+      .then(() => {
+        setSales(sales.filter(s => s.invoiceNo !== sale.invoiceNo));
+      })
+      .catch(err => console.error('Error deleting sale:', err));
+    }
+  };
+
   // Trigger print window helper
   const handlePrintTrigger = () => {
     window.print();
@@ -444,10 +467,11 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
     (regGpsTracker ? 12000 : 0) +
     (regWarranty ? 24999 : 0);
   const calculatedInsuranceCost = parseFloat(regPremiumAmount || '0');
-  const calculatedTaxes = selectedStockItem.price * 0.18;
+  const basePrice = selectedStockItem ? Number(selectedStockItem.price.toString().replace(/[^\d.]/g, '')) || 0 : 0;
+  const calculatedTaxes = basePrice * 0.18;
   const calculatedDiscount = parseFloat(regDiscount || '0');
   const grandTotalPayable =
-    selectedStockItem.price +
+    basePrice +
     calculatedAccessoriesCost +
     calculatedInsuranceCost +
     calculatedTaxes -
@@ -462,14 +486,32 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
       alert('Please fill out Customer Full Name and Mobile Number.');
       return;
     }
+    
+    if (!selectedStockItem) {
+      alert('Error: No valid vehicle selected. Please select a vehicle from the available stock before saving.');
+      return;
+    }
 
-    const newInvoice = `#INV-2023-0${183 + sales.length}`;
-    const newRecord: SaleRecord = {
+    const advancePaidNum = parseFloat(regAdvancePaid || '0');
+    let finalStatus = forceStatus;
+    
+    // Automatically set as delivered (paid) if advance amount matches or exceeds total
+    if (advancePaidNum >= grandTotalPayable) {
+      finalStatus = 'DELIVERED';
+    }
+
+    const newInvoice = `#INV-2023-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newRecord: any = {
       invoiceNo: newInvoice,
       customerName: regFullName,
-      vehicleModel: `Eicher ${selectedStockItem.model}`,
-      status: forceStatus,
+      customerPhone: regMobile,
+      customerDistrict: regAddress,
+      customerEmail: regEmail,
+      vehicleModel: selectedStockItem ? selectedStockItem.model : 'Unknown Model',
+      status: finalStatus,
       grandTotal: `₹${Math.round(grandTotalPayable).toLocaleString('en-IN')}`,
+      advancePaid: `₹${Math.round(advancePaidNum).toLocaleString('en-IN')}`,
+      balanceAmount: `₹${Math.round(balancePayable).toLocaleString('en-IN')}`,
       district: 'Central Valley',
       deliveryDate: regDeliveryDate
         ? new Date(regDeliveryDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -487,12 +529,15 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
         setSales([data, ...sales]);
         setIsRegisteringSale(false);
 
-        // Also update the vehicle's status in the database
-        if (selectedStockItem.id) {
+        // Also update the vehicle's status and stock in the database
+        if (selectedStockItem && selectedStockItem.id) {
+          const newStock = Math.max(0, selectedStockItem.stock - 1);
+          const newStatus = newStock === 0 ? 'Out of Stock' : 'Available';
+
           fetch(`${API_URL}/api/vehicles/${encodeURIComponent(selectedStockItem.id)}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: forceStatus === 'DELIVERED' ? 'Sold' : 'Reserved' })
+            body: JSON.stringify({ status: newStatus, stock: newStock })
           })
             .catch(err => console.error('Error updating vehicle status on sale:', err));
         }
@@ -572,12 +617,18 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Full Name</label>
                   <input
                     type="text"
+                    list="customer-list"
                     placeholder="Enter customer's full name"
                     value={regFullName}
-                    onChange={(e) => setRegFullName(e.target.value)}
+                    onChange={handleCustomerChange}
                     required
                     className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700 placeholder-slate-400"
                   />
+                  <datalist id="customer-list">
+                    {dbCustomers.map((cust, idx) => (
+                      <option key={idx} value={cust.name} />
+                    ))}
+                  </datalist>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -1007,25 +1058,18 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
 
   // 2. View state switcher: Detailed Tax Invoice (Mockup Format)
   if (viewingSale) {
-    const isTruck = viewingSale.vehicleModel.includes('Pro');
-    const basePriceNum = isTruck ? (viewingSale.vehicleModel.includes('6028') ? 4550000 : viewingSale.vehicleModel.includes('3019') ? 2820000 : 1450000) : 24750;
-    const taxesNum = isTruck ? basePriceNum * 0.18 : 4392;
-    const accessoriesNum = isTruck ? 12000 : 1200;
-    const insuranceNum = isTruck ? 35450 : 450;
-    const discountNum = isTruck ? 15000 : 2000;
-    const grandTotalNum = isTruck ? (basePriceNum + accessoriesNum + insuranceNum + taxesNum - discountNum) : 28792;
+    const grandTotalNum = Number(viewingSale.grandTotal.toString().replace(/[^\d.]/g, '')) || 0;
+    
+    const basePriceNum = Math.round(grandTotalNum * 0.75);
+    const accessoriesNum = Math.round(grandTotalNum * 0.02);
+    const insuranceNum = Math.round(grandTotalNum * 0.05);
+    const discountNum = 0; 
+    const taxesNum = grandTotalNum - (basePriceNum + accessoriesNum + insuranceNum);
 
-    const items = isTruck
-      ? [
-        { sl: '01', desc: `${viewingSale.vehicleModel} - Standard Chassis Cabin`, subtitle: 'Primary commercial chassis configuration', qty: '1 Unit', unitPrice: `₹${basePriceNum.toLocaleString('en-IN')}`, amount: `₹${basePriceNum.toLocaleString('en-IN')}` },
-        { sl: '02', desc: 'GPS Fleet Tracker & Telematics Upgrade', subtitle: 'Real-time vehicle position and health diagnostics', qty: '1', unitPrice: '₹12,000.00', amount: '₹12,000.00' }
-      ]
-      : [
-        { sl: '01', desc: 'Standard Labor - Major Service', subtitle: 'Comprehensive engine and electrical system diagnostic', qty: '4.5 Hrs', unitPrice: '₹1,200.00', amount: '₹5,400.00' },
-        { sl: '02', desc: 'Eicher Genuine Synthetic Oil - 15L', subtitle: 'Part No: E-OIL-SYN-15L', qty: '1', unitPrice: '₹8,500.00', amount: '₹8,500.00' },
-        { sl: '03', desc: 'Air Filter Assembly', subtitle: 'Part No: E-AF-992-B', qty: '1', unitPrice: '₹2,450.00', amount: '₹2,450.00' },
-        { sl: '04', desc: 'Brake Pad Kit (Front)', subtitle: 'Part No: E-BRK-442-PAD', qty: '2 Sets', unitPrice: '₹4,200.00', amount: '₹8,400.00' }
-      ];
+    const items = [
+      { sl: '01', desc: `${viewingSale.vehicleModel} - Base Vehicle`, subtitle: 'Primary vehicle chassis and cabin', qty: '1 Unit', unitPrice: `₹${basePriceNum.toLocaleString('en-IN')}`, amount: `₹${basePriceNum.toLocaleString('en-IN')}` },
+      { sl: '02', desc: 'Standard Accessories Kit', subtitle: 'Mats, Mud Flaps, basic toolkit', qty: '1 Set', unitPrice: `₹${accessoriesNum.toLocaleString('en-IN')}`, amount: `₹${accessoriesNum.toLocaleString('en-IN')}` }
+    ];
 
     return (
       <div className="p-8 bg-[#f6f8fc] min-h-[calc(100vh-70px)] flex flex-col gap-6 box-border font-sans text-slate-700 text-left relative">
@@ -1234,27 +1278,27 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
 
               <div className="flex justify-between px-2 font-medium">
                 <span>Subtotal:</span>
-                <span className="text-slate-800 font-bold">₹{isTruck ? (basePriceNum + accessoriesNum).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '24,750.00'}</span>
+                <span className="text-slate-800 font-bold">₹{(basePriceNum + accessoriesNum).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
 
               <div className="flex justify-between px-2 font-medium">
                 <span>Accessories Charge:</span>
-                <span className="text-slate-800 font-bold">₹{isTruck ? '0.00' : '1,200.00'}</span>
+                <span className="text-slate-800 font-bold">₹{accessoriesNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
 
               <div className="flex justify-between px-2 font-medium">
                 <span>Service Insurance:</span>
-                <span className="text-slate-800 font-bold">₹{isTruck ? insuranceNum.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '450.00'}</span>
+                <span className="text-slate-800 font-bold">₹{insuranceNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
 
               <div className="flex justify-between px-2 font-medium">
-                <span className="text-red-500 font-bold">Discount (Loyalty Bonus):</span>
-                <span className="text-red-655 font-extrabold">-₹{isTruck ? discountNum.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '2,000.00'}</span>
+                <span className="text-red-500 font-bold">Discount:</span>
+                <span className="text-red-655 font-extrabold">-₹{discountNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
 
               <div className="flex justify-between px-2 font-medium border-t border-slate-100 pt-2.5">
                 <span>Taxable Value:</span>
-                <span className="text-slate-850 font-bold">₹{isTruck ? (basePriceNum + accessoriesNum + insuranceNum - discountNum).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '24,400.00'}</span>
+                <span className="text-slate-850 font-bold">₹{(basePriceNum + accessoriesNum + insuranceNum - discountNum).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
 
               <div className="flex justify-between px-2 font-medium">
@@ -1267,11 +1311,16 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
                 <span className="text-xs font-bold text-white/80">Grand Total</span>
                 <span className="text-base font-extrabold text-white">₹{grandTotalNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
-
-              <span className="text-[9.5px] text-slate-400 mt-1 font-medium italic block text-right font-semibold">
-                Amount in words: {isTruck ? 'Seventeen Lakh Forty-Three Thousand Four Hundred Fifty Only' : 'Twenty-Eight Thousand Seven Hundred Ninety-Two Only'}
-              </span>
-
+              
+              <div className="flex justify-between px-2 font-medium text-emerald-600 mt-2 text-xs">
+                <span>Advance Paid:</span>
+                <span className="font-bold">{viewingSale.advancePaid || '₹0'}</span>
+              </div>
+              
+              <div className="flex justify-between px-2 font-extrabold text-red-500 mt-1 pt-1 border-t border-slate-100/50 text-[13px]">
+                <span>Balance Due:</span>
+                <span>{viewingSale.balanceAmount || '₹0'}</span>
+              </div>
             </div>
 
           </div>
@@ -1323,6 +1372,27 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
       </div>
     );
   }
+
+  // --- Dynamic KPI Calculations ---
+  const totalSalesAmount = sales.reduce((acc, sale) => {
+    if (sale.status === 'DELIVERED') {
+      const num = Number(sale.grandTotal.toString().replace(/[^\d.]/g, ''));
+      return acc + (isNaN(num) ? 0 : num);
+    }
+    return acc;
+  }, 0);
+
+  const pendingSalesCount = sales.filter(s => s.status === 'PENDING').length;
+  const deliveredSalesCount = sales.filter(s => s.status === 'DELIVERED').length;
+
+  const formatCurrency = (val: number) => {
+    if (val >= 10000000) return `₹${(val / 10000000).toFixed(2)} Cr`;
+    if (val >= 100000) return `₹${(val / 100000).toFixed(2)} L`;
+    return `₹${val.toLocaleString('en-IN')}`;
+  };
+
+  const revenueString = formatCurrency(totalSalesAmount);
+  const monthlyString = formatCurrency(totalSalesAmount * 0.35); // Simulated monthly metric
 
   return (
     <div className="p-8 bg-[#f6f8fc] min-h-[calc(100vh-70px)] flex flex-col gap-6 box-border font-sans text-slate-700 text-left">
@@ -1400,7 +1470,7 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
             <DollarSign size={16} className="text-blue-500" />
           </div>
           <div className="flex items-end justify-between mt-2">
-            <h2 className="text-xl font-extrabold text-slate-800 m-0">₹4.2 Cr</h2>
+            <h2 className="text-xl font-extrabold text-slate-800 m-0">{monthlyString}</h2>
             <span className="bg-emerald-50 text-emerald-600 text-[9px] font-bold px-1.5 py-0.5 rounded">+8%</span>
           </div>
         </div>
@@ -1412,9 +1482,7 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
             <Clock size={16} className="text-amber-500" />
           </div>
           <div className="flex items-end justify-between mt-2">
-            <h2 className="text-xl font-extrabold text-slate-800 m-0">
-              {14 + sales.filter(s => s.status === 'PENDING').length}
-            </h2>
+            <h2 className="text-xl font-extrabold text-slate-800 m-0">{pendingSalesCount}</h2>
             <span className="text-[9px] font-bold text-slate-400">Steady</span>
           </div>
         </div>
@@ -1426,9 +1494,7 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
             <CheckCircle2 size={16} className="text-emerald-500" />
           </div>
           <div className="flex items-end justify-between mt-2">
-            <h2 className="text-xl font-extrabold text-slate-800 m-0">
-              {112 + sales.filter(s => s.status === 'DELIVERED').length}
-            </h2>
+            <h2 className="text-xl font-extrabold text-slate-800 m-0">{deliveredSalesCount}</h2>
             <span className="bg-blue-50 text-blue-600 text-[9px] font-bold px-1.5 py-0.5 rounded">Target Met</span>
           </div>
         </div>
@@ -1452,7 +1518,7 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
             <DollarSign size={16} className="text-white/80" />
           </div>
           <div className="flex items-end justify-between mt-2">
-            <h2 className="text-xl font-extrabold m-0 text-white">₹12.85 Cr</h2>
+            <h2 className="text-xl font-extrabold m-0 text-white">{revenueString}</h2>
             <span className="bg-white/15 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">YTD</span>
           </div>
         </div>
@@ -1466,7 +1532,7 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
           <div className="flex items-center gap-3">
             <h3 className="text-base font-extrabold text-slate-800 m-0 font-heading">Sales Ledger</h3>
             <span className="bg-blue-50 text-[#184edb] text-[10px] font-bold py-0.5 px-2.5 rounded-full border border-blue-100">
-              Total {112 + sales.length} Sales
+              Total {sales.length} Sales
             </span>
           </div>
         </div>
@@ -1549,6 +1615,13 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
                         title="Print Invoice"
                       >
                         <Printer size={13} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSale(sale)}
+                        className="p-1.5 bg-red-50 border border-red-100 rounded-md text-red-600 hover:bg-red-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
+                        title="Delete Record"
+                      >
+                        <Trash2 size={13} />
                       </button>
                     </div>
                   </td>

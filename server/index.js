@@ -23,7 +23,8 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/dms-eicher
 
 // Middlewares
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Seeding function if DB is empty
 const seedDatabase = async () => {
@@ -82,6 +83,19 @@ const seedDatabase = async () => {
         }
       ]);
       console.log('Customers seeded successfully!');
+    }
+
+    const mechanicCount = await Mechanic.countDocuments();
+    if (mechanicCount === 0) {
+      console.log('Seeding Mechanics...');
+      await Mechanic.insertMany([
+        { id: 'MEC-8201', name: 'Mark Benson', phone: '+91 98765 43210', initials: 'MB', avatarBg: 'bg-blue-100 text-blue-600', experience: 'Senior', status: 'Busy', jobs: 2 },
+        { id: 'MEC-8202', name: 'John Harrison', phone: '+91 98765 43211', initials: 'JH', avatarBg: 'bg-indigo-50 text-indigo-600', experience: 'Mid', status: 'Available', jobs: 0 },
+        { id: 'MEC-8203', name: 'Andre Lopez', phone: '+91 98765 43212', initials: 'AL', avatarBg: 'bg-emerald-50 text-emerald-600', experience: 'Expert', status: 'Available', jobs: 0 },
+        { id: 'MEC-8204', name: 'Laura Chen', phone: '+91 98765 43213', initials: 'LC', avatarBg: 'bg-purple-100 text-purple-650', experience: 'Mid', status: 'Busy', jobs: 1 },
+        { id: 'MEC-8205', name: 'David Jones', phone: '+91 98765 43214', initials: 'DJ', avatarBg: 'bg-rose-100 text-rose-600', experience: 'Junior', status: 'Inactive', jobs: 0 }
+      ]);
+      console.log('Mechanics seeded successfully!');
     }
 
     const rajesh = await Customer.findOne({ id: 'CUST-1024' });
@@ -344,8 +358,8 @@ const seedDatabase = async () => {
       console.log('Sales seeded successfully!');
     }
 
-    const mechanicCount = await Mechanic.countDocuments();
-    if (mechanicCount === 0) {
+    const mechanicCount2 = await Mechanic.countDocuments();
+    if (mechanicCount2 === 0) {
       console.log('Seeding Mechanics...');
       await Mechanic.insertMany([
         {
@@ -577,7 +591,7 @@ app.post('/api/transactions', async (req, res) => {
 
 app.post('/api/vehicles', async (req, res) => {
   try {
-    const { modelName, type, condition, engineNo, chassisNo, colorName, colorHex, price, sellPrice, status, imageUrl } = req.body;
+    const { modelName, type, condition, engineNo, chassisNo, colorName, colorHex, price, sellPrice, status, imageUrl, stock } = req.body;
     const randomId = `#VEH-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const newVehicle = new Vehicle({
@@ -592,6 +606,7 @@ app.post('/api/vehicles', async (req, res) => {
       price: Number(price) || 0,
       sellPrice: Number(sellPrice) || 0,
       status: status || 'Available',
+      stock: Number(stock) || 1,
       imageUrl: imageUrl || 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=400'
     });
 
@@ -615,7 +630,17 @@ app.get('/api/vehicles', async (req, res) => {
 // PUT for vehicles
 app.put('/api/vehicles/:id', async (req, res) => {
   try {
-    const updated = await Vehicle.findOneAndUpdate({ id: req.params.id }, req.body, { new: true });
+    let updateData = { ...req.body };
+    if (updateData.stock !== undefined) {
+      const currentStock = Number(updateData.stock);
+      if (currentStock <= 0) {
+        updateData.status = 'Out of Stock';
+      } else if (currentStock > 0 && (!updateData.status || updateData.status === 'Out of Stock' || updateData.status === 'Sold')) {
+        updateData.status = 'Available';
+      }
+    }
+
+    const updated = await Vehicle.findOneAndUpdate({ id: req.params.id }, updateData, { new: true });
     if (!updated) return res.status(404).json({ message: 'Vehicle not found' });
     res.json(updated);
   } catch (error) {
@@ -766,8 +791,39 @@ app.get('/api/sales', async (req, res) => {
 
 app.post('/api/sales', async (req, res) => {
   try {
-    const newSale = new Sale(req.body);
+    const { customerPhone, customerDistrict, customerEmail, ...saleData } = req.body;
+    const newSale = new Sale(saleData);
     const saved = await newSale.save();
+
+    // Sync Customer
+    const customerName = saleData.customerName;
+    if (customerName) {
+      let existingCustomer = await Customer.findOne({ name: customerName });
+      if (existingCustomer) {
+        existingCustomer.vehicles = (existingCustomer.vehicles || 0) + 1;
+        existingCustomer.lastService = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        await existingCustomer.save();
+      } else {
+        const randomId = `#CUST-${Math.floor(1000 + Math.random() * 9000)}`;
+        const initials = customerName.split(' ').map(n => n[0] || '').join('').toUpperCase().slice(0, 2) || 'C';
+        const colors = ['bg-blue-100 text-blue-600', 'bg-orange-100 text-orange-600', 'bg-indigo-100 text-indigo-600', 'bg-slate-100 text-slate-600'];
+        const avatarBg = colors[Math.floor(Math.random() * colors.length)];
+        
+        await Customer.create({
+          id: randomId,
+          name: customerName,
+          avatar: initials,
+          avatarBg,
+          phone: customerPhone || '',
+          district: customerDistrict || '',
+          vehicles: 1,
+          lastService: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          outstanding: '₹0.00',
+          status: 'ACTIVE'
+        });
+      }
+    }
+
     res.status(201).json(saved);
   } catch (error) {
     res.status(500).json({ message: 'Server Error creating sale', error: error.message });

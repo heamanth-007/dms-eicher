@@ -6,6 +6,8 @@ const saleSchema = new mongoose.Schema({
   vehicleModel: { type: String, required: true },
   status: { type: String, required: true, enum: ['DELIVERED', 'PENDING', 'CANCELLED'] },
   grandTotal: { type: String, required: true },
+  advancePaid: { type: String, default: '₹0' },
+  balanceAmount: { type: String, default: '₹0' },
   district: { type: String, required: true },
   deliveryDate: { type: String, required: true },
   salesExecutive: { type: String, required: true }

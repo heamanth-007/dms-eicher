@@ -3,6 +3,7 @@ import { AddJobCard } from './AddJobCard';
 import { OpenJobCards } from './OpenJobCards';
 import { CompletedJobs } from './CompletedJobs';
 import { ServiceHistory } from './ServiceHistory';
+import { ServiceManagement } from './ServiceManagement';
 import {
   ClipboardList,
   UserCheck,
@@ -37,7 +38,7 @@ interface JobCard {
 }
 
 interface ServiceDashboardProps {
-  subTab: 'dashboard' | 'open-job-cards' | 'completed-jobs' | 'service-history';
+  subTab: 'dashboard' | 'open-job-cards' | 'completed-jobs' | 'service-history' | 'job-queue';
   setSubTab: (tab: any) => void;
   searchTerm: string;
 }
@@ -163,6 +164,15 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
       />
     );
   }
+
+  if (subTab === 'job-queue') {
+    return (
+      <ServiceManagement
+        onBack={() => setSubTab('dashboard')}
+        jobCards={jobCards}
+      />
+    );
+  }
   // Live KPI counts from database
   const openJobsCount = jobCards.filter(jc => jc.status !== 'COMPLETED').length;
   const assignedJobsCount = jobCards.filter(jc => jc.status === 'ASSIGNED').length;
@@ -170,6 +180,25 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
   const waitingPartsCount = jobCards.filter(jc => jc.status === 'WAITING PARTS').length;
   const completedCount = jobCards.filter(jc => jc.status === 'COMPLETED').length;
   const pendingDeliveryCount = jobCards.filter(jc => jc.readyForPickup).length;
+
+  // Calculate Mechanic Efficiency
+  const mechanicStats = jobCards.reduce((acc: any, jc) => {
+    if (jc.mechanicName) {
+      if (!acc[jc.mechanicName]) acc[jc.mechanicName] = { name: jc.mechanicName, jobs: 0 };
+      if (jc.status === 'COMPLETED') acc[jc.mechanicName].jobs += 1;
+    }
+    return acc;
+  }, {});
+  const topMechanics = Object.values(mechanicStats)
+    .sort((a: any, b: any) => b.jobs - a.jobs)
+    .slice(0, 4) as { name: string; jobs: number }[];
+  const maxJobs = topMechanics.length > 0 ? Math.max(...topMechanics.map(m => m.jobs), 1) : 1;
+  const colors = [
+    { text: 'text-[#184edb]', bg: 'bg-[#184edb]' },
+    { text: 'text-blue-900', bg: 'bg-blue-900' },
+    { text: 'text-cyan-600', bg: 'bg-cyan-500' },
+    { text: 'text-emerald-600', bg: 'bg-emerald-500' }
+  ];
 
   return (
     <div className="flex-1 p-6 md:p-8 flex flex-col gap-6 bg-[#f6f8fc] overflow-y-auto box-border max-w-full text-slate-700 text-left font-sans">
@@ -215,7 +244,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
 
         {/* Card 1: Open Job Cards */}
         <div
-          onClick={() => setSubTab('open-job-cards')}
+          onClick={() => setSubTab('job-queue')}
           className="bg-white rounded-xl p-5 shadow-xs border border-slate-100/70 flex items-center justify-between min-h-[100px] box-border relative overflow-hidden cursor-pointer hover:border-[#184edb] transition-all"
         >
           <div className="flex flex-col gap-1">
@@ -513,49 +542,23 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
         </h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-1 w-full box-border">
-          {/* Abdul Rahman */}
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-between items-center text-[12px]">
-              <span className="font-bold text-slate-700">Abdul Rahman</span>
-              <span className="font-extrabold text-[#184edb]">18 Jobs</span>
-            </div>
-            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-              <div className="bg-[#184edb] h-full rounded-full transition-all duration-500" style={{ width: '72%' }} />
-            </div>
-          </div>
-
-          {/* Suresh G. */}
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-between items-center text-[12px]">
-              <span className="font-bold text-slate-700">Suresh G.</span>
-              <span className="font-extrabold text-blue-900">15 Jobs</span>
-            </div>
-            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-              <div className="bg-blue-900 h-full rounded-full transition-all duration-500" style={{ width: '60%' }} />
-            </div>
-          </div>
-
-          {/* Vikram Singh */}
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-between items-center text-[12px]">
-              <span className="font-bold text-slate-700">Vikram Singh</span>
-              <span className="font-extrabold text-cyan-600">12 Jobs</span>
-            </div>
-            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-              <div className="bg-cyan-500 h-full rounded-full transition-all duration-500" style={{ width: '48%' }} />
-            </div>
-          </div>
-
-          {/* Amit Sharma */}
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-between items-center text-[12px]">
-              <span className="font-bold text-slate-700">Amit Sharma</span>
-              <span className="font-extrabold text-emerald-600">22 Jobs</span>
-            </div>
-            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-              <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: '88%' }} />
-            </div>
-          </div>
+          {topMechanics.length > 0 ? topMechanics.map((mech, index) => {
+            const color = colors[index % colors.length];
+            const width = Math.max((mech.jobs / maxJobs) * 100, 5); // At least 5% to show bar
+            return (
+              <div key={mech.name} className="flex flex-col gap-2">
+                <div className="flex justify-between items-center text-[12px]">
+                  <span className="font-bold text-slate-700">{mech.name}</span>
+                  <span className={`font-extrabold ${color.text}`}>{mech.jobs} Jobs</span>
+                </div>
+                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                  <div className={`${color.bg} h-full rounded-full transition-all duration-500`} style={{ width: `${width}%` }} />
+                </div>
+              </div>
+            );
+          }) : (
+            <div className="col-span-4 text-slate-400 text-sm font-semibold">No completed jobs yet.</div>
+          )}
         </div>
       </div>
 

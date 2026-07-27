@@ -46,6 +46,7 @@ interface VehicleType {
   status: 'Available' | 'Reserved' | 'In Service' | 'Sold';
   imageSvg: React.ReactNode;
   imageUrl?: string;
+  stock: number;
 }
 
 export const VehicleInventory: React.FC = () => {
@@ -71,11 +72,13 @@ export const VehicleInventory: React.FC = () => {
   const [transmission, setTransmission] = useState('6-Speed ET40S6');
   const [mfgYear, setMfgYear] = useState('2024');
   const [odometer, setOdometer] = useState('12450');
+  const [vehicleStock, setVehicleStock] = useState('1');
 
   // Register view form states
-  const [regVehicleType, setRegVehicleType] = useState('Heavy Duty Truck');
+  const [regVehicleType, setRegVehicleType] = useState('Eicher');
   const [regBrand, setRegBrand] = useState('Eicher');
   const [regModel, setRegModel] = useState('');
+  const [regImage, setRegImage] = useState<string | null>(null);
   const [regColor, setRegColor] = useState('');
   const [regEngineNum, setRegEngineNum] = useState('');
   const [regChassisNum, setRegChassisNum] = useState('');
@@ -84,6 +87,7 @@ export const VehicleInventory: React.FC = () => {
   const [regSellingPrice, setRegSellingPrice] = useState('');
   const [regStockLoc, setRegStockLoc] = useState('Main Warehouse (Bay A)');
   const [regRemarks, setRegRemarks] = useState('');
+  const [regStock, setRegStock] = useState('1');
 
   // SVGs for the vehicles
   const SemiTruckSVG = (
@@ -234,6 +238,7 @@ export const VehicleInventory: React.FC = () => {
             price: `₹${Number(v.price).toLocaleString('en-IN')}`,
             sellPrice: `₹${Number(v.sellPrice).toLocaleString('en-IN')}`,
             status: v.status || 'Available',
+            stock: v.stock || 0,
             imageSvg: getVehicleSVG(v.type),
             imageUrl: v.imageUrl
           }));
@@ -266,7 +271,8 @@ export const VehicleInventory: React.FC = () => {
       price: priceVal,
       sellPrice: sellPriceVal,
       status: 'Available',
-      imageUrl: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=400'
+      stock: Number(regStock) || 0,
+      imageUrl: regImage || 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=400'
     };
 
     fetch(`${API_URL}/api/vehicles`, {
@@ -285,6 +291,8 @@ export const VehicleInventory: React.FC = () => {
         setRegChassisNum('');
         setRegPurchasePrice('');
         setRegSellingPrice('');
+        setRegStock('1');
+        setRegImage(null);
       })
       .catch(err => console.error(err));
   };
@@ -293,7 +301,8 @@ export const VehicleInventory: React.FC = () => {
     const bodyPayload = {
       modelName: vehicleModel,
       engineNo: engineNumber,
-      chassisNo: chassisNumber
+      chassisNo: chassisNumber,
+      stock: Number(vehicleStock) || 0
     };
 
     fetch(`${API_URL}/api/vehicles/${encodeURIComponent(editingVehicleId)}`, {
@@ -341,6 +350,7 @@ export const VehicleInventory: React.FC = () => {
               setRegNumber(selectedVehicle.id);
               setChassisNumber(selectedVehicle.chs);
               setEngineNumber(selectedVehicle.eng);
+              setVehicleStock(selectedVehicle.stock.toString());
               setEditingVehicleId(selectedVehicle.id);
               setIsEditing(true);
               setViewingDetails(false);
@@ -431,6 +441,10 @@ export const VehicleInventory: React.FC = () => {
               <span className="bg-[#eff2fc] text-slate-700 text-[13px] font-semibold px-4 py-2 rounded-lg flex items-center gap-2 border border-[#d2d9f9]">
                 <Wrench size={16} className="text-[#184edb]" />
                 Registered Unit
+              </span>
+              <span className="bg-[#eff2fc] text-slate-700 text-[13px] font-semibold px-4 py-2 rounded-lg flex items-center gap-2 border border-[#d2d9f9]">
+                <ShoppingCart size={16} className="text-[#184edb]" />
+                In Stock: {selectedVehicle.stock} Units
               </span>
             </div>
           </div>
@@ -585,10 +599,8 @@ export const VehicleInventory: React.FC = () => {
                       onChange={(e) => setRegVehicleType(e.target.value)}
                       className="w-full appearance-none bg-[#fff] border border-slate-200 rounded-lg py-2.5 pl-4 pr-10 text-[14px] text-slate-850 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
                     >
-                      <option value="Heavy Duty Truck">Heavy Duty Truck</option>
-                      <option value="Coach Bus">Coach Bus</option>
-                      <option value="LCV">LCV</option>
-                      <option value="Tipper Truck">Tipper Truck</option>
+                      <option value="Eicher">Eicher</option>
+                      <option value="Tractor">Tractor</option>
                     </select>
                     <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 pointer-events-none">
                       <ChevronDown size={16} />
@@ -686,13 +698,29 @@ export const VehicleInventory: React.FC = () => {
 
               <div className="flex flex-col gap-1.5">
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Vehicle Image</span>
-                <div className="flex-1 min-h-[220px] bg-[#f4f6ff] border-2 border-dashed border-[#d2d9f9] rounded-xl flex flex-col items-center justify-center p-6 text-center text-slate-500 hover:border-[#184edb] transition-colors cursor-pointer group">
-                  <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-[#184edb] shadow-sm mb-4 group-hover:scale-105 transition-transform">
-                    <Camera size={22} />
-                  </div>
-                  <span className="text-[14px] font-bold text-slate-800 mb-1">Drop image here or click to upload</span>
-                  <span className="text-[12px] text-slate-400 font-medium">PNG, JPG up to 10MB</span>
-                </div>
+                <label className="flex-1 min-h-[220px] bg-[#f4f6ff] border-2 border-dashed border-[#d2d9f9] rounded-xl flex flex-col items-center justify-center p-6 text-center text-slate-500 hover:border-[#184edb] transition-colors cursor-pointer group relative overflow-hidden">
+                  {regImage ? (
+                    <img src={regImage} alt="Preview" className="absolute inset-0 w-full h-full object-cover" />
+                  ) : (
+                    <>
+                      <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-[#184edb] shadow-sm mb-4 group-hover:scale-105 transition-transform">
+                        <Camera size={22} />
+                      </div>
+                      <span className="text-[14px] font-bold text-slate-800 mb-1">Drop image here or click to upload</span>
+                      <span className="text-[12px] text-slate-400 font-medium">PNG, JPG up to 10MB</span>
+                    </>
+                  )}
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setRegImage(reader.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }} />
+                </label>
               </div>
             </div>
           </div>
@@ -734,6 +762,17 @@ export const VehicleInventory: React.FC = () => {
                   onChange={(e) => setRegRemarks(e.target.value)}
                   rows={3}
                   className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors resize-none font-sans"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Initial Stock Quantity</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={regStock}
+                  onChange={(e) => setRegStock(e.target.value)}
+                  className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
                 />
               </div>
             </div>
@@ -895,6 +934,17 @@ export const VehicleInventory: React.FC = () => {
                     type="text"
                     value={engineNumber}
                     onChange={(e) => setEngineNumber(e.target.value)}
+                    className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">STOCK QUANTITY</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={vehicleStock}
+                    onChange={(e) => setVehicleStock(e.target.value)}
                     className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
                   />
                 </div>
@@ -1349,7 +1399,13 @@ export const VehicleInventory: React.FC = () => {
               {vehicles.map((v, idx) => (
                 <tr
                   key={idx}
-                  className="hover:bg-slate-50/50 transition-colors cursor-pointer"
+                  className={`hover:bg-slate-50/50 transition-colors cursor-pointer border-l-[3px] ${
+                    v.status === 'Available' ? 'border-l-emerald-500' :
+                    v.status === 'Reserved' ? 'border-l-amber-500' :
+                    v.status === 'In Service' ? 'border-l-orange-500' :
+                    v.status === 'Sold' ? 'border-l-sky-500' :
+                    v.status === 'Out of Stock' ? 'border-l-rose-500' : 'border-l-transparent'
+                  }`}
                   onClick={() => handleRowClick(v)}
                 >
                   {/* Image column */}
@@ -1370,8 +1426,20 @@ export const VehicleInventory: React.FC = () => {
 
                   {/* Vehicle Details column */}
                   <td className="py-4 px-5 whitespace-nowrap">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-slate-800 text-[14.5px]">{v.model}</span>
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-800 text-[14.5px]">{v.model}</span>
+                        <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded border ${
+                          v.status === 'Available' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                          v.status === 'Reserved' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                          v.status === 'In Service' ? 'bg-orange-50 text-orange-600 border-orange-100' :
+                          v.status === 'Sold' ? 'bg-sky-50 text-sky-600 border-sky-100' :
+                          v.status === 'Out of Stock' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                          'bg-slate-50 text-slate-600 border-slate-100'
+                        }`}>
+                          {v.status} {v.status === 'Available' && v.stock > 0 ? `(${v.stock})` : ''}
+                        </span>
+                      </div>
                       <span className="text-[12px] text-slate-500 font-medium">
                         {v.category} <span className="text-slate-400 mx-0.5">•</span> {v.statusText}
                       </span>

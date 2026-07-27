@@ -42,6 +42,7 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
   const [vehicleType, setVehicleType] = useState('All Types');
   const [dateRange, setDateRange] = useState('');
   const [customers, setCustomers] = useState<CustomerType[]>([]);
+  const [sales, setSales] = useState<any[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerType | null>(null);
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [isEditingCustomer, setIsEditingCustomer] = useState(false);
@@ -87,13 +88,18 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
         if (Array.isArray(data)) {
           setCustomers(data);
           localStorage.setItem('dms_customers', JSON.stringify(data));
-        } else {
-          loadFromLocalStorageOrFallback();
         }
       })
-      .catch(() => {
-        loadFromLocalStorageOrFallback();
+      .catch(err => {
+        console.error('Error fetching customers:', err);
       });
+
+    fetch(`${API_URL}/api/sales`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setSales(data);
+      })
+      .catch(err => console.error('Error fetching sales:', err));
   };
 
   const handleSaveEditedCustomer = (updatedCustomer: CustomerType) => {
@@ -148,53 +154,6 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
     fetchCustomers();
   }, []);
 
-  const loadFromLocalStorageOrFallback = () => {
-    const local = localStorage.getItem('dms_customers');
-    if (local) {
-      try {
-        const parsed = JSON.parse(local);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setCustomers(parsed);
-          return;
-        }
-      } catch (e) {
-        console.error('Error parsing local customers:', e);
-      }
-    }
-    setFallbackCustomers();
-  };
-
-  const setFallbackCustomers = () => {
-    const fallback = [
-      {
-        id: '#CUST-8291',
-        name: 'John Deere Farms Inc.',
-        avatar: 'JD',
-        avatarBg: 'bg-blue-100 text-blue-600',
-        phone: '+1 (555) 012-3456',
-        district: 'Central Valley',
-        vehicles: 12,
-        lastService: 'Oct 12, 2023',
-        outstanding: '₹4,250.00',
-        status: 'ACTIVE'
-      },
-      {
-        id: '#CUST-7742',
-        name: 'Miller & Sons Agri',
-        avatar: 'MS',
-        avatarBg: 'bg-orange-100 text-orange-600',
-        phone: '+1 (555) 012-9876',
-        district: 'Northern Hills',
-        vehicles: 5,
-        lastService: 'Sep 28, 2023',
-        outstanding: '₹0.00',
-        status: 'ACTIVE'
-      }
-    ];
-    setCustomers(fallback);
-    localStorage.setItem('dms_customers', JSON.stringify(fallback));
-  };
-
 
 
   const handleClearFilters = () => {
@@ -210,11 +169,26 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
     return true;
   });
 
-  const totalOutstanding = customers.reduce((sum, c) => {
-    if (!c.outstanding) return sum;
-    const value = parseFloat(c.outstanding.replace(/[^\d.]/g, ''));
-    return isNaN(value) ? sum : sum + value;
+  const totalOutstanding = sales.reduce((sum, s) => {
+    if (s.status === 'PENDING') {
+      const balStr = s.balanceAmount || s.grandTotal || '0';
+      const balNum = Number(balStr.toString().replace(/[^\d.]/g, '')) || 0;
+      return sum + balNum;
+    }
+    return sum;
   }, 0);
+
+  const getCustomerOutstandingStr = (cName: string) => {
+    const custOut = sales.reduce((sum, s) => {
+      if (s.status === 'PENDING' && s.customerName === cName) {
+        const balStr = s.balanceAmount || s.grandTotal || '0';
+        const balNum = Number(balStr.toString().replace(/[^\d.]/g, '')) || 0;
+        return sum + balNum;
+      }
+      return sum;
+    }, 0);
+    return `₹${custOut.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+  };
 
   const outstandingStr = totalOutstanding >= 100000 
     ? `₹${(totalOutstanding / 100000).toFixed(2)}L` 
@@ -388,7 +362,7 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
                   <td className="p-4 border-b border-slate-100 text-slate-600">{customer.district}</td>
                   <td className="p-4 border-b border-slate-100 text-slate-600 font-semibold">{customer.vehicles}</td>
                   <td className="p-4 border-b border-slate-100 text-slate-500">{customer.lastService}</td>
-                  <td className="p-4 border-b border-slate-100 font-bold text-slate-700">{customer.outstanding}</td>
+                  <td className="p-4 border-b border-slate-100 font-bold text-slate-700">{getCustomerOutstandingStr(customer.name)}</td>
                   <td className="p-4 border-b border-slate-100">
                     <div className="flex items-center gap-2">
                       <button 

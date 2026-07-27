@@ -20,7 +20,12 @@ import {
   ChevronRight
 } from 'lucide-react';
 
-export const ServiceManagement: React.FC = () => {
+interface ServiceManagementProps {
+  onBack?: () => void;
+  jobCards?: any[];
+}
+
+export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jobCards }) => {
   const [view, setView] = useState<'queue' | 'assign'>('queue');
   const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Low');
   const [showToast, setShowToast] = useState(true);
@@ -53,8 +58,29 @@ export const ServiceManagement: React.FC = () => {
     }
   ];
 
-  // Static queue jobs data for Mechanic Jobs list
-  const queueJobs = [
+  // Map API jobCards to queue format, falling back to static data if empty
+  const activeJobs = jobCards?.filter(jc => jc.status !== 'COMPLETED') || [];
+  
+  const mappedQueueJobs = activeJobs.map(jc => ({
+    id: jc.jcNumber,
+    mechanic: jc.mechanicName || 'Unassigned',
+    mechanicInitials: jc.mechanicInitials || 'UN',
+    mechanicBg: jc.mechanicName ? 'bg-blue-100 text-blue-650' : 'bg-slate-100 text-slate-450',
+    customer: jc.customerName,
+    vehicle: `${jc.vehicleModel} • ${jc.vehicleReg}`,
+    serviceType: jc.complaintSummary,
+    assigned: jc.inTime,
+    expected: jc.expectedDelivery || 'TBD',
+    expectedBold: !!jc.isDelayed,
+    expectedRed: !!jc.isDelayed,
+    status: jc.status === 'WORKING' ? 'In Progress' : jc.status === 'WAITING PARTS' ? 'Waiting for Parts' : 'Pending',
+    priority: jc.isDelayed ? 'High' : 'Medium',
+    priorityBg: jc.isDelayed ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-amber-50 text-amber-600 border border-amber-100',
+    faded: false,
+    doneTime: jc.doneTime as string | undefined
+  }));
+
+  const queueJobs = mappedQueueJobs.length > 0 ? mappedQueueJobs : [
     {
       id: '#JO-8821',
       mechanic: 'Mark Stevens',
@@ -68,68 +94,13 @@ export const ServiceManagement: React.FC = () => {
       expectedBold: true,
       expectedRed: true,
       status: 'In Progress',
-      statusDot: 'bg-blue-500',
-      statusColor: 'text-blue-600',
-      statusBg: 'bg-blue-50 text-blue-600 border-blue-100',
       priority: 'High',
-      priorityBg: 'bg-rose-50 text-rose-600 border border-rose-100'
-    },
-    {
-      id: '#JO-8822',
-      mechanic: 'Laura Chen',
-      mechanicInitials: 'LC',
-      mechanicBg: 'bg-purple-100 text-purple-650',
-      customer: 'Sarah Miller',
-      vehicle: '2021 Toyota Camry Hybrid',
-      serviceType: 'Brake Pad Replace',
-      assigned: 'Oct 24',
-      expected: 'Oct 26, 10:00',
-      expectedBold: true,
-      expectedRed: false,
-      status: 'Waiting for Parts',
-      statusDot: 'bg-slate-400',
-      statusColor: 'text-slate-600',
-      statusBg: 'bg-slate-50 text-slate-650 border-slate-200',
-      priority: 'Medium',
-      priorityBg: 'bg-amber-50 text-amber-600 border border-amber-100'
-    },
-    {
-      id: '#JO-8825',
-      mechanic: 'David Jones',
-      mechanicInitials: 'DJ',
-      mechanicBg: 'bg-blue-150 text-blue-700',
-      customer: 'Robert Evans',
-      vehicle: '2024 Chevrolet Silverado',
-      serviceType: 'Oil Change & Filter',
-      assigned: 'Oct 25',
-      expected: 'Oct 25, 17:00',
-      expectedBold: false,
-      expectedRed: false,
-      status: 'Pending',
-      statusIcon: 'Clock',
-      statusColor: 'text-slate-600',
-      priority: 'Low',
-      priorityBg: 'bg-blue-50 text-[#184edb] border border-blue-100'
-    },
-    {
-      id: '#JO-8819',
-      mechanic: 'Laura Chen',
-      mechanicInitials: 'LC',
-      mechanicBg: 'bg-slate-100 text-slate-450',
-      customer: 'Amanda King',
-      vehicle: '2020 Honda CR-V',
-      serviceType: 'Tire Rotation',
-      assigned: '',
-      expected: '',
-      doneTime: 'Done: 09:45 AM',
-      status: 'Completed',
-      statusIcon: 'CheckCircle',
-      statusColor: 'text-emerald-600',
-      priority: 'Low',
-      priorityBg: 'bg-slate-100 text-slate-500 border border-slate-200',
-      faded: true
+      priorityBg: 'bg-rose-50 text-rose-600 border border-rose-100',
+      faded: false,
+      doneTime: undefined as string | undefined
     }
   ];
+
 
   if (view === 'assign') {
     return (
@@ -159,7 +130,7 @@ export const ServiceManagement: React.FC = () => {
         {/* Breadcrumbs */}
         <div className="flex items-center gap-2 text-[13px] text-slate-500 font-semibold mb-1">
           <LayoutGrid size={16} className="text-slate-500" />
-          <span className="cursor-pointer hover:text-[#184edb] transition-colors" onClick={() => setView('queue')}>Dashboard</span>
+          <span className="cursor-pointer hover:text-[#184edb] transition-colors" onClick={() => { if(onBack) onBack(); else setView('queue'); }}>Dashboard</span>
           <span>&gt;</span>
           <span className="cursor-pointer hover:text-[#184edb] transition-colors" onClick={() => setView('queue')}>Jobs</span>
           <span>&gt;</span>
@@ -437,7 +408,7 @@ export const ServiceManagement: React.FC = () => {
     <div className="flex-1 p-6 md:p-8 flex flex-col gap-6 bg-[#f6f8fc] overflow-y-auto box-border max-w-full font-sans relative">
       {/* Breadcrumbs */}
       <div className="flex items-center gap-2 text-[13px] text-slate-500 font-semibold mb-1">
-        <span>Dashboard</span>
+        <span className="cursor-pointer hover:text-[#184edb]" onClick={onBack}>Dashboard</span>
         <span>/</span>
         <span className="text-[#184edb] font-bold">Active Jobs</span>
       </div>

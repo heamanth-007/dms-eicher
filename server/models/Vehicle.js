@@ -12,6 +12,7 @@ const vehicleSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   sellPrice: { type: Number, required: true },
   status: { type: String, required: true },
+  stock: { type: Number, default: 0 },
   imageUrl: { type: String, required: true }
 }, { timestamps: true });
 

@@ -54,68 +54,7 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
         statusColor: jc.status === 'WAITING PARTS' ? 'bg-red-50 text-red-500 border-red-100' : jc.status === 'ASSIGNED' ? 'bg-blue-50 text-[#184edb] border-blue-100' : 'bg-green-50 text-green-600 border-green-100'
       }));
     }
-    return [
-      {
-        jcNumber: 'JC-2023-8841',
-        customerName: 'Reliance Logistics',
-        vehicleModel: 'EICHER PRO 3015',
-        vehicleReg: 'DL-1GA-9233',
-        engineNo: 'E494TCIC',
-        chassisNo: '881294',
-        complaint: 'Brake pedal soft feel & low fluid level',
-        mechanicName: 'Ram Singh',
-        mechanicInitials: 'RS',
-        mechanicStatus: 'assigned',
-        dateIn: '24 Oct, 09:30 AM',
-        status: 'Working',
-        statusColor: 'bg-green-50 text-green-600 border-green-100'
-      },
-      {
-        jcNumber: 'JC-2023-8842',
-        customerName: 'Blue Star Travels',
-        vehicleModel: 'EICHER SKYLINE PRO',
-        vehicleReg: 'UP-14BT-0021',
-        engineNo: 'E483TCIC',
-        chassisNo: '772155',
-        complaint: 'AC compressor noise & cooling issue',
-        mechanicName: 'Unassigned',
-        mechanicInitials: 'UN',
-        mechanicStatus: 'unassigned',
-        dateIn: '24 Oct, 11:15 AM',
-        status: 'Assigned',
-        statusColor: 'bg-blue-50 text-[#184edb] border-blue-100'
-      },
-      {
-        jcNumber: 'JC-2023-8845',
-        customerName: 'Kailash Trans',
-        vehicleModel: 'EICHER PRO 2049',
-        vehicleReg: 'HR-55CD-3100',
-        engineNo: 'E366T',
-        chassisNo: '990123',
-        complaint: 'Fuel injector malfunction & high exhaust smoke',
-        mechanicName: 'Amir Khan',
-        mechanicInitials: 'AK',
-        mechanicStatus: 'assigned',
-        dateIn: '23 Oct, 04:00 PM',
-        status: 'Waiting Parts',
-        statusColor: 'bg-red-50 text-red-500 border-red-100'
-      },
-      {
-        jcNumber: 'JC-2023-8848',
-        customerName: 'Om Logistics Ltd.',
-        vehicleModel: 'EICHER PRO 6028',
-        vehicleReg: 'MH-04JK-5561',
-        engineNo: 'VEDX5',
-        chassisNo: '442311',
-        complaint: 'Suspension squeaking & steering vibration',
-        mechanicName: 'Vijay M.',
-        mechanicInitials: 'VM',
-        mechanicStatus: 'assigned',
-        dateIn: '24 Oct, 08:00 AM',
-        status: 'Working',
-        statusColor: 'bg-green-50 text-green-600 border-green-100'
-      }
-    ];
+    return [];
   };
 
   const jobCards = getActiveJobCards();
