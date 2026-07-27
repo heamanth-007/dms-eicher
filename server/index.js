@@ -883,6 +883,8 @@ app.put('/api/settings', async (req, res) => {
     console.warn('DB update warning for settings, using memory fallback:', error.message);
   }
   res.json(settingsInMemory);
+});
+
 // ─── CRUD for Mechanics ───────────────────────────────────────────────────────
 
 app.get('/api/mechanics', async (req, res) => {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Printer,
   FileSpreadsheet,
@@ -14,7 +15,9 @@ import {
   Search,
   Phone,
   Mail,
-  BadgeCheck
+  BadgeCheck,
+  CheckCircle,
+  X
 } from 'lucide-react';
 
 interface SupplierType {
@@ -67,6 +70,9 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
   // Active filter state
   const [appliedTxType, setAppliedTxType] = useState('All Transactions');
   const [appliedDateRange, setAppliedDateRange] = useState('');
+
+  // Selected Reference No Modal State
+  const [selectedLedgerRef, setSelectedLedgerRef] = useState<LedgerTransaction | null>(null);
 
   const [transactions] = useState<LedgerTransaction[]>([
     {
@@ -145,8 +151,51 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
     s.id.toLowerCase().includes(supplierSearchText.toLowerCase())
   );
 
+  // Dynamically load purchases from localStorage for selected supplier
+  const [savedPurchasesList, setSavedPurchasesList] = useState<any[]>([]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('dms_purchases_list');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setSavedPurchasesList(parsed);
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  const currentSupplierName = selectedSupplier?.name || ledgerSupplier;
+
+  // Filter purchase orders matching current supplier name
+  const matchedPurchases = savedPurchasesList.filter(p =>
+    p.supplier && p.supplier.toLowerCase().trim() === currentSupplierName.toLowerCase().trim()
+  );
+
+  // Generate dynamic ledger transactions combining static defaults + saved purchase orders
+  const dynamicPurchaseTxList: LedgerTransaction[] = matchedPurchases.map((p, idx) => {
+    const itemDesc = p.items && p.items.length > 0
+      ? p.items.map((i: any) => `${i.productName} (x${i.qty} @ ₹${i.rate})`).join(', ')
+      : `${p.itemsCount || 1} item(s) purchased`;
+    return {
+      id: `po-tx-${p.id}-${idx}`,
+      date: p.date,
+      referenceNo: p.id || p.invoiceNo,
+      type: 'PURCHASE' as const,
+      description: itemDesc,
+      debit: p.grandTotal,
+      credit: 0,
+      balance: p.grandTotal,
+      paymentMode: p.status === 'PAID' ? 'Paid' : 'Credit Account',
+      remarks: `Invoice #: ${p.invoiceNo || p.id}`
+    };
+  });
+
+  const combinedTransactions = [...dynamicPurchaseTxList, ...transactions];
+
   // Filter transactions
-  const filteredTransactions = transactions.filter(tx => {
+  const filteredTransactions = combinedTransactions.filter(tx => {
     let matchType = true;
     if (appliedTxType === 'Purchases') {
       matchType = tx.type === 'PURCHASE';
@@ -223,6 +272,278 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
     .reduce((acc, t) => acc + t.credit, 0);
 
   const currentSupplierDetails = selectedSupplier || suppliersList.find(s => s.name === ledgerSupplier);
+
+  const getPurchaseOrderFromLedgerRef = (tx: LedgerTransaction) => {
+    const found = savedPurchasesList.find(p => p.id === tx.referenceNo || p.invoiceNo === tx.referenceNo || p.id === tx.id);
+    if (found) return found;
+
+    const totalVal = tx.debit || tx.credit || tx.balance || 0;
+    const gstVal = Math.round((totalVal * 0.18 / 1.18) * 100) / 100;
+    const invNo = tx.remarks && tx.remarks.includes('Invoice #:') 
+      ? tx.remarks.split('Invoice #:')[1].trim() 
+      : (tx.referenceNo && tx.referenceNo !== '-' ? tx.referenceNo : `INV-${tx.id}`);
+
+    return {
+      id: tx.referenceNo && tx.referenceNo !== '-' ? tx.referenceNo : tx.id,
+      invoiceNo: invNo,
+      supplier: selectedSupplier?.name || ledgerSupplier,
+      supplierInitials: (selectedSupplier?.name || ledgerSupplier).substring(0, 2).toUpperCase(),
+      supplierBg: 'bg-blue-500',
+      date: tx.date,
+      itemsCount: 1,
+      gstAmount: gstVal,
+      grandTotal: totalVal,
+      status: tx.paymentMode === 'Paid' ? 'PAID' : 'PENDING',
+      items: [
+        {
+          id: '1',
+          productName: tx.description || 'Purchased Spare Parts / Services Intake',
+          qty: 1,
+          rate: Math.round((totalVal - gstVal) * 100) / 100,
+          gstPercent: 18
+        }
+      ],
+      description: tx.description,
+      debit: tx.debit,
+      credit: tx.credit,
+      balance: tx.balance,
+      paymentMode: tx.paymentMode,
+      remarks: tx.remarks
+    };
+  };
+
+  const renderInvoiceSheet = (po: any) => {
+    const totalVal = po.grandTotal || 0;
+    const paidVal = po.debit !== undefined 
+      ? po.debit 
+      : (po.credit !== undefined 
+        ? po.credit 
+        : (po.status === 'PAID' ? totalVal : (po.status === 'PARTIAL' ? Math.round(totalVal / 2) : 0)));
+    const balanceVal = po.balance !== undefined 
+      ? po.balance 
+      : Math.max(0, totalVal - paidVal);
+    const statusTag = po.status || (balanceVal === 0 ? 'PAID' : (paidVal > 0 ? 'PARTIAL' : 'PENDING'));
+
+    return (
+      <div className="flex flex-col gap-6 w-full box-border">
+        {/* Header section */}
+        <div className="flex justify-between items-start border-b border-slate-100 pb-5">
+          <div className="flex items-center gap-3">
+            <div className="bg-[#184edb] text-white p-2.5 rounded-xl flex items-center justify-center shadow-lg">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M3 21h18M3 10h18M5 21V10M19 21V10M9 21v-4a2 2 0 014 0v4M12 3L2 10h20L12 3z" />
+              </svg>
+            </div>
+            <div className="flex flex-col text-left">
+              <span className="text-lg font-black text-slate-900 tracking-tight leading-tight uppercase font-heading">
+                Eicher Workshop
+              </span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                Premium Management Solutions
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-col text-right">
+            <h2 className="text-2xl font-black text-[#184edb] uppercase tracking-tight m-0 font-heading">
+              Purchase Invoice
+            </h2>
+            <div className="flex flex-col gap-0.5 text-xs text-slate-500 font-semibold mt-2">
+              <span>Invoice #: <strong className="text-slate-800">{po.invoiceNo}</strong></span>
+              <span>Date: <strong className="text-slate-800">{po.date}</strong></span>
+              <span>Status: <strong className={statusTag === 'PAID' ? 'text-emerald-600' : statusTag === 'PARTIAL' ? 'text-amber-600' : 'text-rose-600'}>{statusTag}</strong></span>
+            </div>
+          </div>
+        </div>
+
+        {/* Info Grid */}
+        <div className="grid grid-cols-2 gap-12 mt-2">
+          {/* Left: Supplier Details */}
+          <div className="flex flex-col gap-2.5 text-left text-xs font-semibold text-slate-500">
+            <span className="text-[10px] font-black text-[#184edb] uppercase tracking-wider">Supplier Details</span>
+            <div className="flex flex-col gap-1 text-slate-700">
+              <span className="text-[13.5px] font-bold text-slate-900">{po.supplier}</span>
+              <span className="leading-relaxed">
+                42 Industrial Estate, Sector 18<br />
+                Gurgaon, Haryana 122001
+              </span>
+              <span>GSTIN: <strong className="text-slate-800">{selectedSupplier?.gstNumber || '07AAACG1234F1Z5'}</strong></span>
+              <span>Phone: <strong className="text-slate-800">{selectedSupplier?.phone || '+91 91234 56789'}</strong></span>
+              <span>Email: <strong className="text-slate-800">{selectedSupplier?.email || `orders@${(po.supplier || 'supplier').toLowerCase().replace(/[^a-z0-9]/g, '')}.com`}</strong></span>
+            </div>
+          </div>
+
+          {/* Right: Bill To */}
+          <div className="flex flex-col gap-2.5 text-left text-xs font-semibold text-slate-500">
+            <span className="text-[10px] font-black text-[#184edb] uppercase tracking-wider">Bill To</span>
+            <div className="flex flex-col gap-1 text-slate-700">
+              <span className="text-[13.5px] font-bold text-slate-900">Eicher Authorized Service Center</span>
+              <span className="leading-relaxed">
+                98 Industrial Estate, Phase II<br />
+                Okhla, New Delhi 110020
+              </span>
+              <span>Attn: <strong className="text-[#184edb]">Workshop Manager</strong></span>
+              <span>GSTIN: <strong className="text-slate-800">07AABCE4321F1Z2</strong></span>
+              <span>Phone: <strong className="text-slate-800">+91 93765 43210</strong></span>
+            </div>
+          </div>
+        </div>
+
+        {/* Table of items */}
+        <div className="border border-slate-100 rounded-xl overflow-hidden mt-3">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-100 font-heading">
+                <th className="py-2.5 px-4 text-center w-8">#</th>
+                <th className="py-2.5 px-4">Product Description</th>
+                <th className="py-2.5 px-3 text-center">SKU</th>
+                <th className="py-2.5 px-3 text-center w-12">Qty</th>
+                <th className="py-2.5 px-4 text-right">Rate</th>
+                <th className="py-2.5 px-4 text-right">GST</th>
+                <th className="py-2.5 px-4 text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody className="text-[12px] divide-y divide-slate-100 font-semibold text-slate-700">
+              {(() => {
+                const itemsList = po.items && po.items.length > 0 
+                  ? po.items.map((item: any, idx: number) => ({
+                      num: String(idx + 1).padStart(2, '0'),
+                      name: item.productName || 'Workshop Replacement Spare Part',
+                      sub: 'Premium Grade - Dynamic Replacement Component',
+                      sku: `SP-${(item.id || String(idx + 1)).substring(0, 5).toUpperCase()}`,
+                      qty: String(item.qty).padStart(2, '0'),
+                      rate: item.rate,
+                      gst: item.rate * item.qty * ((item.gstPercent || 18) / 100),
+                      total: item.rate * item.qty * (1 + (item.gstPercent || 18) / 100)
+                    }))
+                  : [
+                      {
+                        num: '01',
+                        name: 'Eicher Genuine Spare Parts & Components',
+                        sub: 'Standard Issue Replacement Parts',
+                        sku: `SP-${String(po.id).replace('PO-', '')}`,
+                        qty: String(po.itemsCount || 1).padStart(2, '0'),
+                        rate: (po.grandTotal - (po.gstAmount || 0)) / (po.itemsCount || 1),
+                        gst: po.gstAmount || 0,
+                        total: po.grandTotal
+                      }
+                    ];
+
+                return itemsList.map((item: any) => (
+                  <tr key={item.num} className="hover:bg-slate-50/20">
+                    <td className="py-2.5 px-4 text-center font-bold text-slate-400">{item.num}</td>
+                    <td className="py-2.5 px-4 text-left">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-bold text-slate-800">{item.name}</span>
+                        <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wide">{item.sub}</span>
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-3 text-center text-slate-500 text-[11px] font-mono">{item.sku}</td>
+                    <td className="py-2.5 px-3 text-center font-extrabold text-slate-800">{item.qty}</td>
+                    <td className="py-2.5 px-4 text-right font-medium">₹{item.rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className="py-2.5 px-4 text-right font-medium text-slate-500">₹{item.gst.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className="py-2.5 px-4 text-right font-extrabold text-slate-800">₹{item.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  </tr>
+                ));
+              })()}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Date & Payment Summary Note Bar */}
+        <div className="bg-slate-50 border border-slate-200/90 rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-slate-700 my-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Transaction Date:</span>
+            <span className="font-extrabold text-slate-800">{po.date || 'N/A'}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Amount Paid ({po.paymentMode || 'Cash'}):</span>
+            <span className="font-extrabold text-emerald-700">₹{paidVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Balance Remaining:</span>
+            <span className="font-extrabold text-rose-600">₹{balanceVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          </div>
+
+          <span className={`text-[10.5px] font-extrabold px-2.5 py-0.5 rounded-full uppercase ${
+            statusTag === 'PAID'
+              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+              : statusTag === 'PARTIAL'
+              ? 'bg-amber-100 text-amber-800 border border-amber-200'
+              : 'bg-rose-100 text-rose-800 border border-rose-200'
+          }`}>
+            Status: {statusTag}
+          </span>
+        </div>
+
+        {/* Bottom Instructions and Totals */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start mt-1">
+          {/* Left Instructions */}
+          <div className="flex flex-col gap-3 text-left">
+            <div className="bg-[#f8fafc] border border-slate-100 rounded-xl p-4 flex flex-col gap-2 text-xs text-slate-500 font-semibold leading-relaxed">
+              <span className="text-[9.5px] font-black text-[#184edb] uppercase tracking-wider">Payment Terms & Instructions</span>
+              <ul className="m-0 pl-4 flex flex-col gap-1 list-disc text-left">
+                <li>Payment is due within 15 days of invoice date.</li>
+                <li>Please include Invoice #{po.invoiceNo} on all bank transfers.</li>
+                <li>Standard warranty applies only to parts installed by certified mechanics.</li>
+                <li>Subject to New Delhi Jurisdiction.</li>
+              </ul>
+            </div>
+            <span className="text-[9.5px] text-slate-400 font-bold italic leading-normal">
+              *This is a computer-generated invoice and requires no physical signature for digital validation.*
+            </span>
+          </div>
+
+          {/* Right Totals */}
+          <div className="flex flex-col gap-3 text-right">
+            {(() => {
+              const subtotalVal = (po.grandTotal || 0) - (po.gstAmount || 0);
+              const gstVal = po.gstAmount || 0;
+
+              const numberToWords = (num: number) => {
+                const integerPart = Math.floor(num);
+                const decimalPart = Math.round((num - integerPart) * 100);
+                return `${integerPart.toLocaleString()} and ${decimalPart}/100 Rupees Only`;
+              };
+
+              return (
+                <div className="flex flex-col gap-2.5 font-semibold text-slate-500 text-xs">
+                  <div className="flex items-center justify-between pl-12">
+                    <span>Subtotal:</span>
+                    <span className="text-slate-800 font-bold">₹{subtotalVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between pl-12">
+                    <span>Total GST:</span>
+                    <span className="text-[#0f172a] font-bold">₹{gstVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between pl-12 border-t border-slate-100 pt-2 text-[#184edb]">
+                    <span className="text-sm font-black uppercase tracking-tight font-heading">Total Amount:</span>
+                    <span className="text-lg font-black font-heading">₹{totalVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between pl-12 text-emerald-700">
+                    <span className="text-xs font-bold">Amount Paid (Debit):</span>
+                    <span className="text-sm font-extrabold text-emerald-700">₹{paidVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+
+                  {/* Amount In Words */}
+                  <div className="bg-[#f8fafc] border border-slate-100 rounded-xl p-3 flex flex-col gap-0.5 text-[11px] mt-2">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider text-right">Amount in Words</span>
+                    <p className="m-0 text-slate-700 font-bold leading-normal text-right">
+                      {numberToWords(totalVal)}
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="flex-1 flex flex-col p-6 gap-6 bg-[#f6f8fc] min-w-0 font-sans text-left">
@@ -543,7 +864,13 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
               {filteredTransactions.map((tx) => (
                 <tr key={tx.id} className="border-b border-[#e2e8f0] hover:bg-slate-50/50 transition-colors">
                   <td className="py-4 px-6 text-[13px] font-bold text-[#0f172a]">{tx.date}</td>
-                  <td className="py-4 px-6 text-[13px] font-bold text-[#184edb] cursor-pointer hover:underline">{tx.referenceNo}</td>
+                  <td
+                    onClick={() => setSelectedLedgerRef(tx)}
+                    className="py-4 px-6 text-[13px] font-bold text-[#184edb] hover:text-[#133eb5] cursor-pointer hover:underline transition-colors"
+                    title="Click to view purchase details"
+                  >
+                    {tx.referenceNo}
+                  </td>
                   <td className="py-4 px-6">
                     {tx.type === 'PURCHASE' ? (
                       <span className="bg-[#eff6ff] text-[#1e40af] text-[10px] font-extrabold px-2.5 py-0.5 rounded tracking-wide uppercase">
@@ -575,6 +902,183 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Purchased Products & Items Breakdown Card */}
+      <div className="bg-white border border-[#e2e8f0] rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col gap-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <ShoppingCart className="text-[#184edb]" size={18} />
+            <h3 className="text-[16px] font-bold text-[#0f172a] m-0 font-heading">
+              Purchased Products & Items Details ({matchedPurchases.length} Purchase Orders)
+            </h3>
+          </div>
+          <span className="text-xs font-semibold text-slate-500">
+            Purchased from: <strong className="text-[#184edb]">{currentSupplierName}</strong>
+          </span>
+        </div>
+
+        {matchedPurchases.length === 0 ? (
+          <div className="py-8 text-center text-slate-400 font-semibold text-xs">
+            No purchase records found for this supplier yet. Create a purchase order in the Purchase section to see items here!
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {matchedPurchases.map((po) => (
+              <div key={po.id} className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 flex flex-col gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2.5">
+                  <div className="flex items-center gap-3">
+                    <span
+                      onClick={() => {
+                        const matchedTx: LedgerTransaction = {
+                          id: po.id,
+                          date: po.date,
+                          referenceNo: po.id,
+                          type: 'PURCHASE',
+                          description: po.description || (po.items?.map((i: any) => `${i.productName} (x${i.qty} @ ₹${i.rate})`).join(', ') || 'Purchase Intake'),
+                          debit: po.grandTotal,
+                          credit: 0,
+                          balance: po.grandTotal,
+                          paymentMode: po.paymentMode || (po.status === 'PAID' ? 'Paid' : 'Credit Account'),
+                          remarks: po.remarks || `Invoice #: ${po.invoiceNo}`
+                        };
+                        setSelectedLedgerRef(matchedTx);
+                      }}
+                      className="font-bold text-[#184edb] hover:text-[#133eb5] text-xs font-mono cursor-pointer hover:underline"
+                      title="Click to view full purchase details"
+                    >
+                      {po.id}
+                    </span>
+                    <span className="text-xs font-bold text-slate-700">Inv #: {po.invoiceNo}</span>
+                    <span className="text-[11px] text-slate-400 font-semibold">{po.date}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold text-slate-600">Total: <span className="text-slate-900 font-extrabold">₹{po.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-600 border border-emerald-100">
+                      {po.status}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Items Table */}
+                <table className="w-full text-left border-collapse text-xs bg-white rounded-lg overflow-hidden border border-slate-200">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-500 font-bold">
+                      <th className="py-2 px-3">Product / Part Name</th>
+                      <th className="py-2 px-3 text-center">Qty</th>
+                      <th className="py-2 px-3 text-right">Rate</th>
+                      <th className="py-2 px-3 text-center">GST %</th>
+                      <th className="py-2 px-3 text-right">Subtotal / Total Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                    {(po.items && po.items.length > 0 ? po.items : [{ id: '1', productName: 'Purchased Spare Parts Batch', qty: po.itemsCount || 1, rate: po.grandTotal, gstPercent: 18 }]).map((item: any) => {
+                      const itemSub = item.qty * item.rate;
+                      const itemTax = itemSub * ((item.gstPercent || 18) / 100);
+                      return (
+                        <tr key={item.id}>
+                          <td className="py-2 px-3 font-bold text-slate-800">{item.productName}</td>
+                          <td className="py-2 px-3 text-center">{item.qty}</td>
+                          <td className="py-2 px-3 text-right">₹{item.rate.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                          <td className="py-2 px-3 text-center">{item.gstPercent || 18}%</td>
+                          <td className="py-2 px-3 text-right font-bold text-slate-900">₹{(itemSub + itemTax).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* --- PURCHASE INVOICE RECEIPT PREVIEW MODAL & PRINT PORTAL --- */}
+      {selectedLedgerRef && (() => {
+        const poData = getPurchaseOrderFromLedgerRef(selectedLedgerRef);
+        return (
+          <>
+            <style>{`
+              @media screen {
+                #supplier-invoice-print-area {
+                  display: none !important;
+                }
+              }
+              @media print {
+                #root {
+                  display: none !important;
+                }
+                #supplier-invoice-print-area {
+                  display: block !important;
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 100% !important;
+                  margin: 0 !important;
+                  padding: 20px !important;
+                  border: none !important;
+                  background: white !important;
+                  color: black !important;
+                }
+              }
+            `}</style>
+
+            {/* On-screen modal preview */}
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto print:hidden">
+              <div className="bg-white rounded-2xl w-full max-w-[850px] shadow-2xl overflow-hidden my-8 flex flex-col">
+                {/* Modal Header Control Bar */}
+                <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between flex-shrink-0">
+                  <div className="flex items-center gap-2">
+                    <ShoppingCart size={18} className="text-blue-400" />
+                    <span className="font-extrabold text-[13px] tracking-wider uppercase">Purchase Receipt / Invoice Preview</span>
+                  </div>
+                  <button
+                    onClick={() => setSelectedLedgerRef(null)}
+                    className="text-white/80 hover:text-white border-none bg-transparent cursor-pointer flex items-center p-1"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {/* Scrollable invoice body preview on screen */}
+                <div className="p-8 bg-white text-left text-slate-700 font-sans overflow-y-auto max-h-[72vh]">
+                  {renderInvoiceSheet(poData)}
+                </div>
+
+                {/* Modal Control Footer Bar */}
+                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between flex-shrink-0">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <CheckCircle size={14} className="text-emerald-500" />
+                    Verified Supplier Transaction
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => window.print()}
+                      className="flex items-center gap-2 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-[12.5px] px-5 py-2.5 border-none rounded-lg shadow-md cursor-pointer transition-colors"
+                    >
+                      <Printer size={15} />
+                      <span>Print Invoice</span>
+                    </button>
+                    <button
+                      onClick={() => setSelectedLedgerRef(null)}
+                      className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-[12.5px] px-5 py-2.5 rounded-lg cursor-pointer transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Printable Invoice Portal (renders outside of #root) */}
+            {createPortal(
+              <div id="supplier-invoice-print-area">
+                {renderInvoiceSheet(poData)}
+              </div>,
+              document.body
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 };

@@ -39,6 +39,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onSettingsUpdated })
   const [dealerName, setDealerName] = useState(() => getInitialValue('dealerName', 'Alexander Sterling'));
   const [gstNumber, setGstNumber] = useState(() => getInitialValue('gstNumber', '22AAAAA0000A1Z5'));
   const [panNumber, setPanNumber] = useState(() => getInitialValue('panNumber', 'ABCDE1234F'));
+  const [defaultHsnCode, setDefaultHsnCode] = useState(() => getInitialValue('defaultHsnCode', '842123'));
+  const [defaultGstPercent, setDefaultGstPercent] = useState(() => getInitialValue('defaultGstPercent', '18%'));
+  const [defaultDiscountPercent, setDefaultDiscountPercent] = useState(() => getInitialValue('defaultDiscountPercent', '5%'));
   
   const [streetAddress, setStreetAddress] = useState(() => getInitialValue('streetAddress', 'Industrial Park West, Sector 12, Block C'));
   const [city, setCity] = useState(() => getInitialValue('city', 'Automotive City'));
@@ -61,6 +64,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onSettingsUpdated })
           if (data.dealerName) setDealerName(data.dealerName);
           if (data.gstNumber) setGstNumber(data.gstNumber);
           if (data.panNumber) setPanNumber(data.panNumber);
+          if (data.defaultHsnCode) setDefaultHsnCode(data.defaultHsnCode);
+          if (data.defaultGstPercent) setDefaultGstPercent(data.defaultGstPercent);
+          if (data.defaultDiscountPercent) setDefaultDiscountPercent(data.defaultDiscountPercent);
           if (data.streetAddress) setStreetAddress(data.streetAddress);
           if (data.city) setCity(data.city);
           if (data.stateName) setStateName(data.stateName);
@@ -98,6 +104,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onSettingsUpdated })
     setDealerName('Alexander Sterling');
     setGstNumber('22AAAAA0000A1Z5');
     setPanNumber('ABCDE1234F');
+    setDefaultHsnCode('842123');
+    setDefaultGstPercent('18%');
+    setDefaultDiscountPercent('5%');
     setStreetAddress('Industrial Park West, Sector 12, Block C');
     setCity('Automotive City');
     setStateName('California');
@@ -117,6 +126,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onSettingsUpdated })
         dealerName,
         gstNumber,
         panNumber,
+        defaultHsnCode,
+        defaultGstPercent,
+        defaultDiscountPercent,
         streetAddress,
         city,
         stateName,
@@ -130,6 +142,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onSettingsUpdated })
 
       try {
         localStorage.setItem('dms_company_settings', JSON.stringify(payload));
+        window.dispatchEvent(new Event('dms_settings_updated'));
       } catch (e) {}
 
       if (onSettingsUpdated) {
@@ -265,7 +278,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onSettingsUpdated })
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="flex flex-col gap-1.5">
             <label className="text-[12px] font-bold text-[#475569]">GST Number</label>
             <input
@@ -281,6 +294,39 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onSettingsUpdated })
               type="text"
               value={panNumber}
               onChange={(e) => setPanNumber(e.target.value)}
+              className="w-full px-4 py-2.5 bg-white border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] font-medium focus:outline-none focus:border-[#184edb]"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[12px] font-bold text-[#475569]">Default Spare Parts HSN Code</label>
+            <input
+              type="text"
+              value={defaultHsnCode}
+              onChange={(e) => setDefaultHsnCode(e.target.value)}
+              placeholder="e.g. 842123"
+              className="w-full px-4 py-2.5 bg-white border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] font-medium focus:outline-none focus:border-[#184edb]"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-1">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[12px] font-bold text-[#475569]">Default GST Percentage (%)</label>
+            <input
+              type="text"
+              value={defaultGstPercent}
+              onChange={(e) => setDefaultGstPercent(e.target.value)}
+              placeholder="e.g. 18%"
+              className="w-full px-4 py-2.5 bg-white border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] font-medium focus:outline-none focus:border-[#184edb]"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[12px] font-bold text-[#475569]">Default Discount Percentage (%)</label>
+            <input
+              type="text"
+              value={defaultDiscountPercent}
+              onChange={(e) => setDefaultDiscountPercent(e.target.value)}
+              placeholder="e.g. 5%"
               className="w-full px-4 py-2.5 bg-white border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] font-medium focus:outline-none focus:border-[#184edb]"
             />
           </div>
