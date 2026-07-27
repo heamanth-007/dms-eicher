@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { deductInventoryStock, getStoredInventory, type PartType } from '../utils/inventory';
 import {
   Plus,
   Trash2,
@@ -84,181 +85,201 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
   const [billNo, setBillNo] = useState('SB-2023-0045');
 
   // Customer & Vehicle State
-  const [customerName, setCustomerName] = useState('Rahul Sharma');
-  const [phoneNumber, setPhoneNumber] = useState('+91 98765 43210');
+  const [customerName, setCustomerName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [jobCardNo, setJobCardNo] = useState('JC-2023-8842');
-  const [vehicleNo, setVehicleNo] = useState('DL 3C AW 1234');
-  const [model, setModel] = useState('Volvo XC90 B5');
-  const [serviceDate, setServiceDate] = useState('11/24/2023');
-  const [engineNo, setEngineNo] = useState('FN773429188');
-  const [chassisNo, setChassisNo] = useState('CH9921003442');
+  const [vehicleNo, setVehicleNo] = useState('');
+  const [model, setModel] = useState('');
+  const [serviceDate, setServiceDate] = useState('');
+  const [engineNo, setEngineNo] = useState('');
+  const [chassisNo, setChassisNo] = useState('');
   const [assignedMechanic, setAssignedMechanic] = useState('Vikram Singh');
 
   // Mechanic Details State
   const [serviceAdvisor, setServiceAdvisor] = useState('John Admin');
-  const [deliveryDate, setDeliveryDate] = useState('11/25/2023');
-  const [deliveryTime, setDeliveryTime] = useState('05:00 PM');
+  const [deliveryDate, setDeliveryDate] = useState('');
+  const [deliveryTime, setDeliveryTime] = useState('');
 
-  // Total Bills & Draft Lists
-  const [totalBillsList, setTotalBillsList] = useState<ServiceBillRecord[]>([
-    {
-      id: 'sb-101',
-      billNo: 'SB-2023-0044',
-      jobCardNo: 'JC-2023-8841',
-      customerName: 'Anand Kumar',
-      phoneNumber: '+91 98401 23456',
-      vehicleNo: 'TN 09 CB 4321',
-      model: 'Eicher Pro 2049',
-      serviceDate: '11/23/2023',
-      engineNo: 'ENG-998822',
-      chassisNo: 'CHS-112233',
-      assignedMechanic: 'Ramesh Patel',
-      serviceAdvisor: 'John Admin',
-      deliveryDate: '11/23/2023',
-      deliveryTime: '04:00 PM',
-      labourCharges: [
-        { id: 'l-m1', type: 'Full Service', description: 'General periodic service', amount: 3500 }
-      ],
-      spareParts: [],
-      remarks: 'Payment cleared in cash',
-      discountPercent: '5',
-      paymentMode: 'Cash',
-      grandTotal: 14200.00,
-      status: 'PAID',
-      createdAt: '11/23/2023'
-    },
-    {
-      id: 'sb-102',
-      billNo: 'SB-2023-0043',
-      jobCardNo: 'JC-2023-8839',
-      customerName: 'Venkatesh Logistics',
-      phoneNumber: '+91 97890 12345',
-      vehicleNo: 'TN 22 BK 9876',
-      model: 'Eicher Pro 3015',
-      serviceDate: '11/22/2023',
-      engineNo: 'ENG-445511',
-      chassisNo: 'CHS-778899',
-      assignedMechanic: 'Suresh Kumar',
-      serviceAdvisor: 'John Admin',
-      deliveryDate: '11/22/2023',
-      deliveryTime: '06:00 PM',
-      labourCharges: [],
-      spareParts: [],
-      remarks: 'Card transaction',
-      discountPercent: '0',
-      paymentMode: 'Card',
-      grandTotal: 8650.00,
-      status: 'PAID',
-      createdAt: '11/22/2023'
-    },
-    {
-      id: 'sb-103',
-      billNo: 'SB-2023-0042',
-      jobCardNo: 'JC-2023-8835',
-      customerName: 'Karthik Transport',
-      phoneNumber: '+91 94440 55667',
-      vehicleNo: 'TN 10 AW 5544',
-      model: 'Eicher Pro 6028',
-      serviceDate: '11/20/2023',
-      engineNo: 'ENG-123456',
-      chassisNo: 'CHS-654321',
-      assignedMechanic: 'Vikram Singh',
-      serviceAdvisor: 'John Admin',
-      deliveryDate: '11/20/2023',
-      deliveryTime: '05:00 PM',
-      labourCharges: [],
-      spareParts: [],
-      remarks: 'Partial payment made via UPI',
-      discountPercent: '10',
-      paymentMode: 'UPI',
-      grandTotal: 22400.00,
-      status: 'PARTIAL',
-      createdAt: '11/20/2023'
+  // Total Bills & Draft Lists with localStorage persistence
+  const [totalBillsList, setTotalBillsList] = useState<ServiceBillRecord[]>(() => {
+    const saved = localStorage.getItem('dms_service_bills');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error parsing dms_service_bills:', e);
+      }
     }
-  ]);
+    return [
+      {
+        id: 'sb-101',
+        billNo: 'SB-2023-0044',
+        jobCardNo: 'JC-2023-8841',
+        customerName: 'Anand Kumar',
+        phoneNumber: '+91 98401 23456',
+        vehicleNo: 'TN 09 CB 4321',
+        model: 'Eicher Pro 2049',
+        serviceDate: '11/23/2023',
+        engineNo: 'ENG-998822',
+        chassisNo: 'CHS-112233',
+        assignedMechanic: 'Ramesh Patel',
+        serviceAdvisor: 'John Admin',
+        deliveryDate: '11/23/2023',
+        deliveryTime: '04:00 PM',
+        labourCharges: [
+          { id: 'l-m1', type: 'Full Service', description: 'General periodic service', amount: 3500 }
+        ],
+        spareParts: [],
+        remarks: 'Payment cleared in cash',
+        discountPercent: '5',
+        paymentMode: 'Cash',
+        grandTotal: 14200.00,
+        status: 'PAID',
+        createdAt: '11/23/2023'
+      },
+      {
+        id: 'sb-102',
+        billNo: 'SB-2023-0043',
+        jobCardNo: 'JC-2023-8839',
+        customerName: 'Venkatesh Logistics',
+        phoneNumber: '+91 97890 12345',
+        vehicleNo: 'TN 22 BK 9876',
+        model: 'Eicher Pro 3015',
+        serviceDate: '11/22/2023',
+        engineNo: 'ENG-445511',
+        chassisNo: 'CHS-778899',
+        assignedMechanic: 'Suresh Kumar',
+        serviceAdvisor: 'John Admin',
+        deliveryDate: '11/22/2023',
+        deliveryTime: '06:00 PM',
+        labourCharges: [],
+        spareParts: [],
+        remarks: 'Card transaction',
+        discountPercent: '0',
+        paymentMode: 'Card',
+        grandTotal: 8650.00,
+        status: 'PAID',
+        createdAt: '11/22/2023'
+      },
+      {
+        id: 'sb-103',
+        billNo: 'SB-2023-0042',
+        jobCardNo: 'JC-2023-8835',
+        customerName: 'Karthik Transport',
+        phoneNumber: '+91 94440 55667',
+        vehicleNo: 'TN 10 AW 5544',
+        model: 'Eicher Pro 6028',
+        serviceDate: '11/20/2023',
+        engineNo: 'ENG-123456',
+        chassisNo: 'CHS-654321',
+        assignedMechanic: 'Vikram Singh',
+        serviceAdvisor: 'John Admin',
+        deliveryDate: '11/20/2023',
+        deliveryTime: '05:00 PM',
+        labourCharges: [],
+        spareParts: [],
+        remarks: 'Partial payment made via UPI',
+        discountPercent: '10',
+        paymentMode: 'UPI',
+        grandTotal: 22400.00,
+        status: 'PARTIAL',
+        createdAt: '11/20/2023'
+      }
+    ];
+  });
 
-  const [draftBillsList, setDraftBillsList] = useState<ServiceBillRecord[]>([
-    {
-      id: 'draft-1',
-      billNo: 'SB-2023-0046-DRAFT',
-      jobCardNo: 'JC-2023-8845',
-      customerName: 'Rajesh Heavy Motors',
-      phoneNumber: '+91 98112 33445',
-      vehicleNo: 'KA 04 MP 1122',
-      model: 'Eicher Pro 2059',
-      serviceDate: '11/24/2023',
-      engineNo: 'ENG-771122',
-      chassisNo: 'CHS-334455',
-      assignedMechanic: 'Vikram Singh',
-      serviceAdvisor: 'John Admin',
-      deliveryDate: '11/26/2023',
-      deliveryTime: '03:00 PM',
-      labourCharges: [
-        { id: 'l-d1', type: 'Oil Change', description: 'Engine oil drain & replacement', amount: 900 }
-      ],
-      spareParts: [
-        { id: 'p-d1', partNo: 'P-OIL-01', name: 'Engine Oil 5L', qty: 1, price: 4500, gstPercent: 18, total: 5310, stockStatus: 'Available' }
-      ],
-      remarks: 'Draft pending final inspection',
-      discountPercent: '5',
-      paymentMode: 'Cash',
-      grandTotal: 6210.00,
-      status: 'DRAFT',
-      createdAt: '11/24/2023'
+  const [draftBillsList, setDraftBillsList] = useState<ServiceBillRecord[]>(() => {
+    const saved = localStorage.getItem('dms_service_drafts');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error parsing dms_service_drafts:', e);
+      }
     }
-  ]);
+    return [
+      {
+        id: 'draft-1',
+        billNo: 'SB-2023-0046-DRAFT',
+        jobCardNo: 'JC-2023-8845',
+        customerName: 'Rajesh Heavy Motors',
+        phoneNumber: '+91 98112 33445',
+        vehicleNo: 'KA 04 MP 1122',
+        model: 'Eicher Pro 2059',
+        serviceDate: '11/24/2023',
+        engineNo: 'ENG-771122',
+        chassisNo: 'CHS-334455',
+        assignedMechanic: 'Vikram Singh',
+        serviceAdvisor: 'John Admin',
+        deliveryDate: '11/26/2023',
+        deliveryTime: '03:00 PM',
+        labourCharges: [
+          { id: 'l-d1', type: 'Oil Change', description: 'Engine oil drain & replacement', amount: 900 }
+        ],
+        spareParts: [
+          { id: 'p-d1', partNo: 'P-OIL-01', name: 'Engine Oil 5L', qty: 1, price: 4500, gstPercent: 18, total: 5310, stockStatus: 'Available' }
+        ],
+        remarks: 'Draft pending final inspection',
+        discountPercent: '5',
+        paymentMode: 'Cash',
+        grandTotal: 6210.00,
+        status: 'DRAFT',
+        createdAt: '11/24/2023'
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('dms_service_bills', JSON.stringify(totalBillsList));
+  }, [totalBillsList]);
+
+  useEffect(() => {
+    localStorage.setItem('dms_service_drafts', JSON.stringify(draftBillsList));
+  }, [draftBillsList]);
 
   // Modals for Total Bills & Drafts
   const [showTotalBillsModal, setShowTotalBillsModal] = useState(false);
   const [showDraftsModal, setShowDraftsModal] = useState(false);
   const [searchBillsTerm, setSearchBillsTerm] = useState('');
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [editingBillId, setEditingBillId] = useState<string | null>(null);
 
   // Labour Charges State
-  const [labourCharges, setLabourCharges] = useState<LabourCharge[]>([
-    {
-      id: 'l-1',
-      type: 'Engine Tuning',
-      description: 'Complete engine diagnostics and optimization',
-      amount: 3000.00
-    },
-    {
-      id: 'l-2',
-      type: 'Brake Service',
-      description: 'Front brake pad cleaning and lubrication',
-      amount: 850.00
-    }
-  ]);
+  const [labourCharges, setLabourCharges] = useState<LabourCharge[]>([]);
 
   // Spare Parts State
-  const [spareParts, setSpareParts] = useState<SparePart[]>([
-    {
-      id: 'p-1',
-      partNo: 'P-VLO-9002',
-      name: 'Synthetic Engine Oil',
-      qty: 1,
-      price: 4800.00,
-      gstPercent: 18,
-      total: 5664.00,
-      stockStatus: 'Low Stock'
-    },
-    {
-      id: 'p-2',
-      partNo: 'P-FLT-8821',
-      name: 'High Performance Oil Filter',
-      qty: 1,
-      price: 1250.00,
-      gstPercent: 12,
-      total: 1400.00,
-      stockStatus: 'Available'
-    }
-  ]);
+  const [spareParts, setSpareParts] = useState<SparePart[]>([]);
 
   // Remarks State
   const [remarks, setRemarks] = useState('');
 
   // Discount & Payment State
-  const [discountPercent, setDiscountPercent] = useState<string>('5');
+  const getDefaultDiscountFromSettings = () => {
+    try {
+      if (companySettings?.defaultDiscountPercent) {
+        return companySettings.defaultDiscountPercent.toString().replace(/[^0-9.]/g, '') || '5';
+      }
+      const saved = localStorage.getItem('dms_company_settings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.defaultDiscountPercent !== undefined) {
+          return parsed.defaultDiscountPercent.toString().replace(/[^0-9.]/g, '') || '5';
+        }
+      }
+    } catch (e) {}
+    return '5';
+  };
+
+  const [discountPercent, setDiscountPercent] = useState<string>(() => getDefaultDiscountFromSettings());
   const [paymentMode, setPaymentMode] = useState<'Cash' | 'Card' | 'UPI' | 'Net Banking'>('Cash');
+
+  useEffect(() => {
+    const handleSettingsUpdate = () => {
+      setDiscountPercent(getDefaultDiscountFromSettings());
+    };
+    window.addEventListener('dms_settings_updated', handleSettingsUpdate);
+    return () => window.removeEventListener('dms_settings_updated', handleSettingsUpdate);
+  }, [companySettings]);
 
   // Modals state
   const [showAddLabourModal, setShowAddLabourModal] = useState(false);
@@ -282,6 +303,59 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
   const [partPriceInput, setPartPriceInput] = useState(100);
   const [partGstInput, setPartGstInput] = useState(18);
   const [partStockInput, setPartStockInput] = useState<'Available' | 'Low Stock' | 'Out of Stock'>('Available');
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const [inventoryParts, setInventoryParts] = useState<PartType[]>(() => getStoredInventory());
+
+  const loadInventoryParts = () => {
+    const stored = getStoredInventory();
+    if (stored && stored.length > 0) setInventoryParts(stored);
+
+    fetch(`${API_URL}/api/parts`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) setInventoryParts(data);
+      })
+      .catch(err => console.error('Error fetching inventory parts:', err));
+  };
+
+  useEffect(() => {
+    loadInventoryParts();
+
+    const handleInvUpdate = () => {
+      loadInventoryParts();
+    };
+
+    window.addEventListener('dms_inventory_updated', handleInvUpdate);
+    return () => window.removeEventListener('dms_inventory_updated', handleInvUpdate);
+  }, []);
+
+  const handleSelectInventoryPart = (part: PartType) => {
+    setPartNoInput(part.partNumber);
+    setPartNameInput(part.partName);
+    const parsedPrice = parseFloat(part.salePrice.replace(/[^0-9.]/g, '')) || 0;
+    setPartPriceInput(parsedPrice);
+    const parsedGst = parseInt(part.gstPercent?.replace(/[^0-9]/g, '') || '18', 10) || 18;
+    setPartGstInput(parsedGst);
+    const stockQty = parseInt(part.stock.replace(/[^0-9]/g, ''), 10) || 0;
+    setPartStockInput(stockQty === 0 ? 'Out of Stock' : stockQty < 12 ? 'Low Stock' : 'Available');
+  };
+
+  // Parts form refs for smooth Enter key step-by-step focus move
+  const partNoRef = useRef<HTMLInputElement>(null);
+  const partStockRef = useRef<HTMLSelectElement>(null);
+  const partNameRef = useRef<HTMLInputElement>(null);
+  const partQtyRef = useRef<HTMLInputElement>(null);
+  const partPriceRef = useRef<HTMLInputElement>(null);
+  const partGstRef = useRef<HTMLSelectElement>(null);
+
+  useEffect(() => {
+    if (showAddPartModal) {
+      setTimeout(() => {
+        partNoRef.current?.focus();
+      }, 100);
+    }
+  }, [showAddPartModal]);
 
   // --- DINAMIC CALCULATION OF TOTALS ---
   const labourTotal = labourCharges.reduce((acc, curr) => acc + curr.amount, 0);
@@ -378,6 +452,43 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
   };
 
   // --- SPARE PART ACTION HANDLERS ---
+  const handleAddAndNewPart = (e?: React.FormEvent | React.KeyboardEvent) => {
+    if (e) e.preventDefault();
+
+    if (!partNameInput.trim()) {
+      alert('Please enter a part name!');
+      setTimeout(() => partNameRef.current?.focus(), 50);
+      return;
+    }
+
+    const newPart: SparePart = {
+      id: `p-${Math.random().toString(36).substr(2, 9)}`,
+      partNo: partNoInput || `P-${Math.floor(1000 + Math.random() * 9000)}`,
+      name: partNameInput,
+      qty: Number(partQtyInput) || 1,
+      price: Number(partPriceInput) || 0,
+      gstPercent: Number(partGstInput) || 18,
+      total: calculatePartTotal(Number(partQtyInput) || 1, Number(partPriceInput) || 0, Number(partGstInput) || 18),
+      stockStatus: partStockInput
+    };
+
+    setSpareParts(prev => [...prev, newPart]);
+
+    // Reset inputs for next entry
+    setPartNoInput('');
+    setPartNameInput('');
+    setPartQtyInput(1);
+    setPartPriceInput(100);
+    setPartGstInput(18);
+    setPartStockInput('Available');
+    setEditingPart(null);
+
+    // Focus back on Part Number for next part entry
+    setTimeout(() => {
+      partNoRef.current?.focus();
+    }, 50);
+  };
+
   const handleSavePart = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingPart) {
@@ -441,46 +552,155 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
     }
   };
 
+  const deductInventoryStock = (partsList: SparePart[], refBillNo: string, moduleName: string) => {
+    try {
+      const currentInv = getStoredInventory();
+      let txns: any[] = [];
+      try {
+        const savedTxns = localStorage.getItem('dms_spare_parts_transactions');
+        if (savedTxns) txns = JSON.parse(savedTxns);
+      } catch (e) {}
+
+      if (currentInv && currentInv.length > 0) {
+        let updatedInv = [...currentInv];
+        let changed = false;
+
+        partsList.forEach(item => {
+          let invPart = updatedInv.find(p => p.partNumber.toLowerCase() === item.partNo.toLowerCase());
+          if (!invPart) {
+            invPart = updatedInv.find(p => p.partName.toLowerCase().includes(item.name.toLowerCase()) || item.name.toLowerCase().includes(p.partName.toLowerCase()));
+          }
+
+          if (invPart) {
+            const currStock = parseInt(invPart.stock.replace(/[^0-9]/g, ''), 10) || 0;
+            const newStock = Math.max(0, currStock - item.qty);
+            invPart.stock = newStock.toString();
+            invPart.stockStatus = newStock === 0 ? 'out' : newStock < 12 ? 'low' : 'normal';
+            changed = true;
+
+            // Log outward transaction in Stock History
+            txns.unshift({
+              id: `txn-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+              partNumber: invPart.partNumber,
+              partName: invPart.partName,
+              type: `Outward (${moduleName})`,
+              quantity: `-${item.qty} Units`,
+              reference: `Bill #${refBillNo}`,
+              date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+              amount: `₹${(item.qty * item.price).toFixed(2)}`
+            });
+          }
+        });
+
+        if (changed) {
+          saveStoredInventory(updatedInv);
+          try {
+            localStorage.setItem('dms_spare_parts_transactions', JSON.stringify(txns));
+          } catch (e) {}
+          window.dispatchEvent(new Event('dms_inventory_updated'));
+        }
+      }
+    } catch (e) {}
+  };
+
   // --- SAVE BILL & DRAFT HANDLERS ---
   const handleSaveBill = () => {
-    const newBill: ServiceBillRecord = {
-      id: `sb-${Date.now()}`,
-      billNo,
-      jobCardNo,
-      customerName,
-      phoneNumber,
-      vehicleNo,
-      model,
-      serviceDate,
-      engineNo,
-      chassisNo,
-      assignedMechanic,
-      serviceAdvisor,
-      deliveryDate,
-      deliveryTime,
-      labourCharges: [...labourCharges],
-      spareParts: [...spareParts],
-      remarks,
-      discountPercent,
-      paymentMode,
-      grandTotal,
-      status: 'PAID',
-      createdAt: new Date().toLocaleDateString()
-    };
+    if (spareParts.length > 0) {
+      // Automatically deduct spare parts stock from inventory!
+      deductInventoryStock(spareParts, billNo, 'Service Billing');
+    }
+    const existingIndex = editingBillId
+      ? totalBillsList.findIndex(b => b.id === editingBillId)
+      : totalBillsList.findIndex(b => b.billNo === billNo);
 
-    setTotalBillsList([newBill, ...totalBillsList]);
-    
-    // Auto-increment bill number
-    const currentNum = parseInt(billNo.replace(/[^0-9]/g, ''), 10) || 45;
-    const nextBillNo = `SB-2023-00${currentNum + 1}`;
-    setBillNo(nextBillNo);
+    if (existingIndex >= 0) {
+      const updatedBill: ServiceBillRecord = {
+        ...totalBillsList[existingIndex],
+        billNo,
+        jobCardNo,
+        customerName,
+        phoneNumber,
+        vehicleNo,
+        model,
+        serviceDate,
+        engineNo,
+        chassisNo,
+        assignedMechanic,
+        serviceAdvisor,
+        deliveryDate,
+        deliveryTime,
+        labourCharges: [...labourCharges],
+        spareParts: [...spareParts],
+        remarks,
+        discountPercent,
+        paymentMode,
+        grandTotal,
+        status: 'PAID'
+      };
 
-    alert(`Service Bill ${billNo} saved successfully! Added to Total Bills list.`);
+      setTotalBillsList(prev => {
+        const updated = [...prev];
+        updated[existingIndex] = updatedBill;
+        return updated;
+      });
+
+      if (editingDraftId) {
+        setDraftBillsList(prev => prev.filter(d => d.id !== editingDraftId));
+      }
+      handleClearForm();
+      alert(`Service Bill ${billNo} updated successfully!`);
+    } else {
+      const newBill: ServiceBillRecord = {
+        id: `sb-${Date.now()}`,
+        billNo,
+        jobCardNo,
+        customerName,
+        phoneNumber,
+        vehicleNo,
+        model,
+        serviceDate,
+        engineNo,
+        chassisNo,
+        assignedMechanic,
+        serviceAdvisor,
+        deliveryDate,
+        deliveryTime,
+        labourCharges: [...labourCharges],
+        spareParts: [...spareParts],
+        remarks,
+        discountPercent,
+        paymentMode,
+        grandTotal,
+        status: 'PAID',
+        createdAt: new Date().toLocaleDateString()
+      };
+
+      setTotalBillsList(prev => [newBill, ...prev]);
+
+      if (editingDraftId) {
+        setDraftBillsList(prev => prev.filter(d => d.id !== editingDraftId));
+      }
+
+      // Auto-increment bill number only when a new bill is created
+      const currentNum = parseInt(billNo.replace(/[^0-9]/g, ''), 10) || 45;
+      const nextBillNo = `SB-2023-00${currentNum + 1}`;
+      setBillNo(nextBillNo);
+
+      handleClearForm();
+      alert(`Service Bill ${billNo} saved successfully! Added to Total Bills list.`);
+    }
   };
 
   const handleSaveDraft = () => {
+    if (!customerName && !phoneNumber && !vehicleNo && labourCharges.length === 0 && spareParts.length === 0) {
+      alert('Please add customer details, vehicle info, or charges before saving as draft!');
+      return;
+    }
+
     const draftBillNo = billNo.includes('DRAFT') ? billNo : `${billNo}-DRAFT`;
-    const existingIndex = draftBillsList.findIndex(d => d.billNo === draftBillNo || d.billNo === billNo);
+    const existingIndex = editingDraftId
+      ? draftBillsList.findIndex(d => d.id === editingDraftId)
+      : draftBillsList.findIndex(d => d.billNo === draftBillNo || d.billNo === billNo);
     
     const draftRecord: ServiceBillRecord = {
       id: existingIndex >= 0 ? draftBillsList[existingIndex].id : `draft-${Date.now()}`,
@@ -512,13 +732,46 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
       updated[existingIndex] = draftRecord;
       setDraftBillsList(updated);
     } else {
-      setDraftBillsList([draftRecord, ...draftBillsList]);
+      setDraftBillsList(prev => [draftRecord, ...prev]);
     }
 
-    alert(`Service Bill ${billNo} saved as Draft! You can view and restore it anytime using the Draft badge at the top.`);
+    // Auto-increment bill number for next new bill/draft
+    const currentNum = parseInt(billNo.replace(/[^0-9]/g, ''), 10) || 45;
+    const nextBillNo = `SB-2023-00${currentNum + 1}`;
+    setBillNo(nextBillNo);
+
+    // Clear filled data from form
+    handleClearForm();
+
+    alert(`Service Bill ${draftBillNo} saved as Draft and form cleared!`);
+  };
+
+  const handleClearForm = () => {
+    setCustomerName('');
+    setPhoneNumber('');
+    setVehicleNo('');
+    setModel('');
+    setServiceDate('');
+    setEngineNo('');
+    setChassisNo('');
+    setDeliveryDate('');
+    setDeliveryTime('');
+    setLabourCharges([]);
+    setSpareParts([]);
+    setRemarks('');
+    setDiscountPercent(getDefaultDiscountFromSettings());
+    setEditingDraftId(null);
+    setEditingBillId(null);
   };
 
   const handleLoadRecord = (record: ServiceBillRecord) => {
+    if (record.status === 'DRAFT') {
+      setEditingDraftId(record.id);
+      setEditingBillId(null);
+    } else {
+      setEditingBillId(record.id);
+      setEditingDraftId(null);
+    }
     setBillNo(record.billNo.replace('-DRAFT', ''));
     if (record.jobCardNo) setJobCardNo(record.jobCardNo);
     setCustomerName(record.customerName || '');
@@ -606,19 +859,10 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={handleSaveDraft}
-              className="flex items-center gap-1.5 px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-[13px] rounded-lg border border-amber-200 shadow-sm cursor-pointer transition-colors"
-              title="Save current bill as Draft"
-            >
-              <Clock size={15} />
-              <span>Draft</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { if (window.confirm('Discard bill changes?')) window.location.reload(); }}
+              onClick={handleClearForm}
               className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-650 font-bold text-[13px] rounded-lg border border-slate-200 shadow-sm cursor-pointer transition-colors"
             >
-              Cancel
+              Clear Form
             </button>
             <button
               type="button"
@@ -667,7 +911,7 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
                 <input
                   type="text"
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
                   className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold text-slate-700 focus:outline-none focus:border-[#184edb]"
                 />
               </div>
@@ -709,7 +953,7 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wide">Service Date</label>
                 <input
-                  type="text"
+                  type="date"
                   value={serviceDate}
                   onChange={(e) => setServiceDate(e.target.value)}
                   className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold text-slate-700 focus:outline-none focus:border-[#184edb]"
@@ -791,7 +1035,7 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wide">Delivery Date</label>
                 <input
-                  type="text"
+                  type="date"
                   value={deliveryDate}
                   onChange={(e) => setDeliveryDate(e.target.value)}
                   className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold text-slate-700 focus:outline-none focus:border-[#184edb]"
@@ -1140,6 +1384,15 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
             <span>GENERATE & PRINT INVOICE</span>
           </button>
 
+          <button
+            type="button"
+            onClick={handleSaveDraft}
+            className="w-full flex items-center justify-center gap-2 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-[13px] py-2.5 rounded-xl border border-amber-200 cursor-pointer transition-all duration-200"
+          >
+            <Clock size={15} />
+            <span>Save as Draft</span>
+          </button>
+
           <span className="text-[11px] text-center text-slate-400 font-semibold italic mt-0.5 block">
             A digital copy will be sent to {phoneNumber}
           </span>
@@ -1241,23 +1494,71 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
             </div>
 
             <form onSubmit={handleSavePart} className="p-6 flex flex-col gap-4 box-border">
+              {/* Fast Inventory Selector */}
+              <div className="flex flex-col gap-1.5 bg-blue-50/60 p-3 rounded-xl border border-blue-100">
+                <label className="text-[11.5px] font-extrabold text-[#184edb] uppercase tracking-wider">
+                  🔍 Search & Select From Inventory Catalog
+                </label>
+                <select
+                  onChange={(e) => {
+                    const selected = inventoryParts.find(p => p.partNumber === e.target.value);
+                    if (selected) handleSelectInventoryPart(selected);
+                  }}
+                  defaultValue=""
+                  className="p-2 border border-blue-200 rounded-lg text-[13px] font-semibold text-slate-800 focus:outline-none focus:border-[#184edb] bg-white cursor-pointer"
+                >
+                  <option value="" disabled>-- Select Spare Part from Inventory --</option>
+                  {inventoryParts.map(p => (
+                    <option key={p.partNumber} value={p.partNumber}>
+                      {p.partName} ({p.partNumber}) - {p.salePrice}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Part Number</label>
                   <input
+                    ref={partNoRef}
                     type="text"
-                    placeholder="e.g. P-FLT-8821"
+                    list="inventory-partnos-datalist"
+                    placeholder="e.g. SP-10921"
                     value={partNoInput}
-                    onChange={(e) => setPartNoInput(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPartNoInput(val);
+                      const match = inventoryParts.find(p => p.partNumber.toLowerCase() === val.toLowerCase() || p.partName.toLowerCase() === val.toLowerCase());
+                      if (match) handleSelectInventoryPart(match);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        partStockRef.current?.focus();
+                      }
+                    }}
                     className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] focus:outline-none focus:border-[#184edb] font-semibold"
                   />
+                  <datalist id="inventory-partnos-datalist">
+                    {inventoryParts.map(p => (
+                      <option key={p.partNumber} value={p.partNumber}>
+                        {p.partName} ({p.salePrice})
+                      </option>
+                    ))}
+                  </datalist>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Stock Status</label>
                   <select
+                    ref={partStockRef}
                     value={partStockInput}
                     onChange={(e) => setPartStockInput(e.target.value as any)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        partNameRef.current?.focus();
+                      }
+                    }}
                     className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-medium focus:outline-none focus:border-[#184edb]"
                   >
                     <option value="Available">Available</option>
@@ -1270,23 +1571,50 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Part Name</label>
                 <input
+                  ref={partNameRef}
                   type="text"
-                  placeholder="e.g. Engine Oil Filter"
+                  list="inventory-parts-datalist"
+                  placeholder="e.g. Ceramic Brake Pads"
                   value={partNameInput}
-                  onChange={(e) => setPartNameInput(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setPartNameInput(val);
+                    const match = inventoryParts.find(p => p.partName.toLowerCase() === val.toLowerCase() || p.partNumber.toLowerCase() === val.toLowerCase());
+                    if (match) handleSelectInventoryPart(match);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      partQtyRef.current?.focus();
+                    }
+                  }}
                   className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] focus:outline-none focus:border-[#184edb] font-semibold"
                   required
                 />
+                <datalist id="inventory-parts-datalist">
+                  {inventoryParts.map(p => (
+                    <option key={p.partNumber} value={p.partName}>
+                      {p.partNumber} - {p.salePrice}
+                    </option>
+                  ))}
+                </datalist>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Qty</label>
                   <input
+                    ref={partQtyRef}
                     type="number"
                     min="1"
                     value={partQtyInput}
                     onChange={(e) => setPartQtyInput(Number(e.target.value))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        partPriceRef.current?.focus();
+                      }
+                    }}
                     className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] focus:outline-none focus:border-[#184edb] font-medium"
                     required
                   />
@@ -1295,10 +1623,17 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Price (₹)</label>
                   <input
+                    ref={partPriceRef}
                     type="number"
                     min="0"
                     value={partPriceInput}
                     onChange={(e) => setPartPriceInput(Number(e.target.value))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        partGstRef.current?.focus();
+                      }
+                    }}
                     className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] focus:outline-none focus:border-[#184edb] font-medium"
                     required
                   />
@@ -1307,8 +1642,19 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">GST (%)</label>
                   <select
+                    ref={partGstRef}
                     value={partGstInput}
                     onChange={(e) => setPartGstInput(Number(e.target.value))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (!editingPart) {
+                          handleAddAndNewPart();
+                        } else {
+                          handleSavePart(e);
+                        }
+                      }
+                    }}
                     className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-medium focus:outline-none focus:border-[#184edb]"
                   >
                     <option value="5">5%</option>
@@ -1319,7 +1665,7 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 mt-4">
+              <div className="flex items-center justify-end gap-2.5 mt-4">
                 <button
                   type="button"
                   onClick={() => setShowAddPartModal(false)}
@@ -1327,9 +1673,20 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
                 >
                   Cancel
                 </button>
+                {!editingPart && (
+                  <button
+                    type="button"
+                    onClick={handleAddAndNewPart}
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[13px] border-none rounded-lg cursor-pointer transition-colors shadow-md flex items-center gap-1.5"
+                    title="Add this part and clear form for the next entry"
+                  >
+                    <Plus size={15} />
+                    <span>Add & New</span>
+                  </button>
+                )}
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-[#184edb] hover:bg-[#133eb5] text-white font-semibold text-[13px] border-none rounded-lg cursor-pointer transition-colors shadow-md"
+                  className="px-5 py-2.5 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-[13px] border-none rounded-lg cursor-pointer transition-colors shadow-md"
                 >
                   {editingPart ? 'Save Changes' : 'Add Part'}
                 </button>
@@ -1343,6 +1700,33 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
       {/* 3. PRINTABLE INVOICE PREVIEW MODAL */}
       {showInvoicePreview && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <style dangerouslySetInnerHTML={{ __html: `
+            @media print {
+              body * {
+                visibility: hidden !important;
+              }
+              #printable-invoice, #printable-invoice * {
+                visibility: visible !important;
+              }
+              #printable-invoice {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                max-height: none !important;
+                overflow: visible !important;
+                padding: 8mm !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
+                background: white !important;
+              }
+              @page {
+                size: A4 portrait;
+                margin: 0;
+              }
+            }
+          `}} />
           <div className="bg-white rounded-2xl w-full max-w-3xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
             {/* Modal Header */}
             <div className="px-6 py-4 bg-[#184edb] text-white flex items-center justify-between flex-shrink-0">
@@ -1507,7 +1891,9 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
               </button>
               <button
                 onClick={() => {
+                  handleSaveBill();
                   window.print();
+                  setShowInvoicePreview(false);
                 }}
                 className="flex items-center gap-1.5 px-4.5 py-2.5 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-[13px] border-none rounded-lg shadow-md cursor-pointer"
               >

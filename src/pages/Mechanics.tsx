@@ -352,7 +352,7 @@ export const Mechanics: React.FC = () => {
                     type="text"
                     placeholder="1234567890"
                     value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
                     className="w-full pl-10.5 pr-4 py-2.5 text-[14px] bg-[#fff] border border-slate-250 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
                   />
                 </div>
@@ -419,7 +419,7 @@ export const Mechanics: React.FC = () => {
 
               {/* Annual Salary */}
               <div className="flex flex-col gap-2">
-                <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">ANNUAL SALARY (USD) *</label>
+                <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">ANNUAL SALARY (INR) *</label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
                     <Banknote size={18} />

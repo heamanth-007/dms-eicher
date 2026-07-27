@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { deductInventoryStock, getStoredInventory, type PartType } from '../utils/inventory';
 import { 
   Plus, 
   Search, 
@@ -77,70 +78,100 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
   const [mobileNumber, setMobileNumber] = useState('');
   const [remarks, setRemarks] = useState('');
 
-  // Total Bills & Draft Lists
-  const [totalBillsList, setTotalBillsList] = useState<CounterSalesRecord[]>([
-    {
-      id: 'cs-101',
-      billNo: 'INV-2023-8841',
-      customerName: 'Sri Balaji Logistics',
-      customerType: 'Commercial',
-      mobileNumber: '+91 98765 11223',
-      date: 'Oct 23, 2023',
-      billItems: [
-        { id: 'bi-1', name: 'Synthetic Engine Oil (5W-40)', code: 'AC-OIL-772', qty: 2, unitPrice: 850, discountPercent: 5, gstPercent: 18 }
-      ],
-      subtotal: 1700,
-      discount: 85,
-      gst: 290.7,
-      grandTotal: 1905.7,
-      remarks: 'Paid via Cash',
-      status: 'PAID',
-      createdAt: 'Oct 23, 2023'
-    },
-    {
-      id: 'cs-102',
-      billNo: 'INV-2023-8840',
-      customerName: 'Ramu Transport',
-      customerType: 'Retail',
-      mobileNumber: '+91 94433 88776',
-      date: 'Oct 22, 2023',
-      billItems: [
-        { id: 'bi-2', name: 'High-Flow Air Filter', code: 'AF-K7-001', qty: 1, unitPrice: 2400, discountPercent: 5, gstPercent: 28 }
-      ],
-      subtotal: 2400,
-      discount: 120,
-      gst: 638.4,
-      grandTotal: 2918.4,
-      remarks: 'UPI Payment',
-      status: 'PAID',
-      createdAt: 'Oct 22, 2023'
+  // Total Bills & Draft Lists with localStorage persistence
+  const [totalBillsList, setTotalBillsList] = useState<CounterSalesRecord[]>(() => {
+    const saved = localStorage.getItem('dms_counter_sales_bills');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error parsing dms_counter_sales_bills:', e);
+      }
     }
-  ]);
+    return [
+      {
+        id: 'cs-101',
+        billNo: 'INV-2023-8841',
+        customerName: 'Sri Balaji Logistics',
+        customerType: 'Commercial',
+        mobileNumber: '+91 98765 11223',
+        date: 'Oct 23, 2023',
+        billItems: [
+          { id: 'bi-1', name: 'Synthetic Engine Oil (5W-40)', code: 'AC-OIL-772', qty: 2, unitPrice: 850, discountPercent: 5, gstPercent: 18 }
+        ],
+        subtotal: 1700,
+        discount: 85,
+        gst: 290.7,
+        grandTotal: 1905.7,
+        remarks: 'Paid via Cash',
+        status: 'PAID',
+        createdAt: 'Oct 23, 2023'
+      },
+      {
+        id: 'cs-102',
+        billNo: 'INV-2023-8840',
+        customerName: 'Ramu Transport',
+        customerType: 'Retail',
+        mobileNumber: '+91 94433 88776',
+        date: 'Oct 22, 2023',
+        billItems: [
+          { id: 'bi-2', name: 'High-Flow Air Filter', code: 'AF-K7-001', qty: 1, unitPrice: 2400, discountPercent: 5, gstPercent: 28 }
+        ],
+        subtotal: 2400,
+        discount: 120,
+        gst: 638.4,
+        grandTotal: 2918.4,
+        remarks: 'UPI Payment',
+        status: 'PAID',
+        createdAt: 'Oct 22, 2023'
+      }
+    ];
+  });
 
-  const [draftBillsList, setDraftBillsList] = useState<CounterSalesRecord[]>([
-    {
-      id: 'cs-draft-1',
-      billNo: 'INV-2023-8843-DRAFT',
-      customerName: 'City Motors Garage',
-      customerType: 'Commercial',
-      mobileNumber: '+91 99880 44556',
-      date: 'Oct 24, 2023',
-      billItems: [
-        { id: 'bi-3', name: 'Brake Pad Set - Front Performance', code: 'BP-992-FR', qty: 4, unitPrice: 120, discountPercent: 10, gstPercent: 18 }
-      ],
-      subtotal: 480,
-      discount: 48,
-      gst: 77.76,
-      grandTotal: 509.76,
-      remarks: 'Customer will confirm stock in 1 hour',
-      status: 'DRAFT',
-      createdAt: 'Oct 24, 2023'
+  const [draftBillsList, setDraftBillsList] = useState<CounterSalesRecord[]>(() => {
+    const saved = localStorage.getItem('dms_counter_sales_drafts');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error parsing dms_counter_sales_drafts:', e);
+      }
     }
-  ]);
+    return [
+      {
+        id: 'cs-draft-1',
+        billNo: 'INV-2023-8843-DRAFT',
+        customerName: 'City Motors Garage',
+        customerType: 'Commercial',
+        mobileNumber: '+91 99880 44556',
+        date: 'Oct 24, 2023',
+        billItems: [
+          { id: 'bi-3', name: 'Brake Pad Set - Front Performance', code: 'BP-992-FR', qty: 4, unitPrice: 120, discountPercent: 10, gstPercent: 18 }
+        ],
+        subtotal: 480,
+        discount: 48,
+        gst: 77.76,
+        grandTotal: 509.76,
+        remarks: 'Customer will confirm stock in 1 hour',
+        status: 'DRAFT',
+        createdAt: 'Oct 24, 2023'
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('dms_counter_sales_bills', JSON.stringify(totalBillsList));
+  }, [totalBillsList]);
+
+  useEffect(() => {
+    localStorage.setItem('dms_counter_sales_drafts', JSON.stringify(draftBillsList));
+  }, [draftBillsList]);
 
   const [showTotalBillsModal, setShowTotalBillsModal] = useState(false);
   const [showDraftsModal, setShowDraftsModal] = useState(false);
   const [searchBillsTerm, setSearchBillsTerm] = useState('');
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [editingBillId, setEditingBillId] = useState<string | null>(null);
 
   // Bill items state initialized with the mockup items
   const [billItems, setBillItems] = useState<BillItem[]>([]);
@@ -162,7 +193,48 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-  useEffect(() => {
+  const getDefaultDiscountFromSettings = () => {
+    try {
+      if (companySettings?.defaultDiscountPercent) {
+        return parseFloat(companySettings.defaultDiscountPercent.toString().replace(/[^0-9.]/g, '')) || 0;
+      }
+      const saved = localStorage.getItem('dms_company_settings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.defaultDiscountPercent !== undefined) {
+          return parseFloat(parsed.defaultDiscountPercent.toString().replace(/[^0-9.]/g, '')) || 0;
+        }
+      }
+    } catch (e) {}
+    return 5;
+  };
+
+  // Dynamic stock calculation: deducts quantity currently added in the active bill!
+  const getEffectiveStock = (product: any) => {
+    if (!product) return 0;
+    const addedQty = billItems
+      .filter(item => item.code === product.code)
+      .reduce((acc, curr) => acc + curr.qty, 0);
+    return Math.max(0, (product.stock || 0) - addedQty);
+  };
+
+  const loadCatalog = () => {
+    const defaultDisc = getDefaultDiscountFromSettings();
+    const stored = getStoredInventory();
+    if (stored && stored.length > 0) {
+      const mappedStored = stored.map((item: PartType) => ({
+        name: `${item.partName} | Part No: ${item.partNumber}`,
+        code: item.partNumber,
+        price: parseFloat(item.salePrice.replace(/[^0-9.]/g, '')) || 0,
+        stock: parseInt(item.stock.replace(/[^0-9]/g, ''), 10) || 0,
+        discount: defaultDisc,
+        gst: parseInt(item.gstPercent?.replace(/[^0-9]/g, '') || '18', 10) || 18,
+        hsn: item.hsnCode
+      }));
+      setCatalog(mappedStored);
+      setSelectedProduct(mappedStored[0]);
+    }
+
     fetch(`${API_URL}/api/parts`)
       .then(res => res.json())
       .then(data => {
@@ -172,24 +244,37 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
             code: item.partNumber,
             price: parseFloat(item.salePrice.replace(/[^0-9.]/g, '')) || 0,
             stock: parseInt(item.stock.replace(/[^0-9]/g, ''), 10) || 0,
-            discount: 0,
-            gst: parseInt(item.gstPercent.replace(/[^0-9]/g, ''), 10) || 18,
+            discount: defaultDisc,
+            gst: parseInt(item.gstPercent?.replace(/[^0-9]/g, '') || '18', 10) || 18,
             hsn: item.hsnCode
           }));
           setCatalog(mapped);
           setSelectedProduct(mapped[0]);
-        } else {
-          setCatalog(productCatalogMock);
         }
       })
       .catch(err => {
         console.error('Error fetching parts for catalog:', err);
-        setCatalog(productCatalogMock);
       });
+  };
+
+  useEffect(() => {
+    loadCatalog();
+
+    const handleInvUpdate = () => {
+      loadCatalog();
+    };
+
+    window.addEventListener('dms_inventory_updated', handleInvUpdate);
+    window.addEventListener('dms_settings_updated', handleInvUpdate);
+    return () => {
+      window.removeEventListener('dms_inventory_updated', handleInvUpdate);
+      window.removeEventListener('dms_settings_updated', handleInvUpdate);
+    };
   }, []);
 
   const [entryQty, setEntryQty] = useState<number | ''>('');
   const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const productSearchRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = useRef<HTMLInputElement>(null);
 
@@ -203,11 +288,25 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
     setSelectedProduct(product);
     setSearchQuery(product.name);
     setShowProductDropdown(false);
+    setTimeout(() => {
+      quantityInputRef.current?.focus();
+      quantityInputRef.current?.select();
+    }, 50);
   };
 
   // Add selected product to bill
   const handleAddProduct = () => {
     const finalQty = entryQty === '' ? 1 : entryQty;
+    const availableStock = getEffectiveStock(selectedProduct);
+    if (availableStock <= 0) {
+      alert(`Out of Stock! Product "${selectedProduct.name}" has no available units remaining.`);
+      return;
+    }
+    if (finalQty > availableStock) {
+      alert(`Cannot add ${finalQty} units. Only ${availableStock} units available in stock!`);
+      return;
+    }
+
     const existingItemIndex = billItems.findIndex(item => item.code === selectedProduct.code);
     if (existingItemIndex > -1) {
       const updated = [...billItems];
@@ -220,7 +319,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
         code: selectedProduct.code,
         qty: finalQty,
         unitPrice: selectedProduct.price,
-        discountPercent: selectedProduct.discount,
+        discountPercent: selectedProduct.discount ?? getDefaultDiscountFromSettings(),
         gstPercent: selectedProduct.gst
       };
       setBillItems([...billItems, newItem]);
@@ -232,6 +331,13 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
 
   // Add frequent part directly
   const handleAddFrequentPart = (name: string, code: string, price: number, discount: number, gst: number) => {
+    const catItem = catalog.find(p => p.code === code);
+    const availableStock = getEffectiveStock(catItem || { code, stock: 100 });
+    if (availableStock <= 0) {
+      alert(`Out of Stock! Product "${name}" has no available units remaining.`);
+      return;
+    }
+
     const existingItemIndex = billItems.findIndex(item => item.code === code);
     if (existingItemIndex > -1) {
       const updated = [...billItems];
@@ -244,7 +350,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
         code: code,
         qty: 1,
         unitPrice: price,
-        discountPercent: discount,
+        discountPercent: getDefaultDiscountFromSettings(),
         gstPercent: gst
       };
       setBillItems([...billItems, newItem]);
@@ -291,6 +397,8 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
       setMobileNumber('');
       setSearchQuery('');
       setEntryQty('');
+      setEditingDraftId(null);
+      setEditingBillId(null);
     }
   };
 
@@ -372,50 +480,161 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
   };
 
   // --- SAVE BILL & DRAFT HANDLERS ---
-  const handleSaveBill = () => {
+  const handleSaveBill = (shouldOpenPreview = false) => {
     if (billItems.length === 0) {
       alert('Please add at least one part item to save the bill!');
       return;
     }
 
-    const newBill: CounterSalesRecord = {
-      id: `cs-${Date.now()}`,
-      billNo,
-      customerName: customerName || 'Retail Customer',
-      customerType,
-      mobileNumber: mobileNumber || 'N/A',
-      date: 'Oct 24, 2023',
-      billItems: [...billItems],
-      subtotal: calculatedSubtotal,
-      discount: calculatedDiscount,
-      gst: calculatedGst,
-      grandTotal: calculatedGrandTotal,
-      remarks,
-      status: 'PAID',
-      createdAt: new Date().toLocaleDateString()
-    };
+    // Automatically deduct spare parts stock from inventory!
+    deductInventoryStock(billItems, billNo, 'Counter Sales');
 
-    setTotalBillsList([newBill, ...totalBillsList]);
-    
-    // Auto increment bill number
-    const currentNum = parseInt(billNo.replace(/[^0-9]/g, ''), 10) || 8842;
-    const nextBillNo = `INV-2023-${currentNum + 1}`;
-    setBillNo(nextBillNo);
+    const existingIndex = editingBillId
+      ? totalBillsList.findIndex(b => b.id === editingBillId)
+      : totalBillsList.findIndex(b => b.billNo === billNo);
 
-    alert(`Counter Sales Bill ${billNo} saved successfully! Added to Total Bills list.`);
+    if (existingIndex >= 0) {
+      const updatedRecord: CounterSalesRecord = {
+        ...totalBillsList[existingIndex],
+        billNo,
+        customerName: customerName || 'Retail Customer',
+        customerType,
+        mobileNumber: mobileNumber || 'N/A',
+        billItems: [...billItems],
+        subtotal: calculatedSubtotal,
+        discount: calculatedDiscount,
+        gst: calculatedGst,
+        grandTotal: calculatedGrandTotal,
+        remarks,
+        status: 'PAID'
+      };
+
+      setTotalBillsList(prev => {
+        const updated = [...prev];
+        updated[existingIndex] = updatedRecord;
+        return updated;
+      });
+
+      if (editingDraftId) {
+        setDraftBillsList(prev => prev.filter(d => d.id !== editingDraftId));
+        setEditingDraftId(null);
+      }
+    } else {
+      const newBill: CounterSalesRecord = {
+        id: `cs-${Date.now()}`,
+        billNo,
+        customerName: customerName || 'Retail Customer',
+        customerType,
+        mobileNumber: mobileNumber || 'N/A',
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        billItems: [...billItems],
+        subtotal: calculatedSubtotal,
+        discount: calculatedDiscount,
+        gst: calculatedGst,
+        grandTotal: calculatedGrandTotal,
+        remarks,
+        status: 'PAID',
+        createdAt: new Date().toLocaleDateString()
+      };
+
+      setTotalBillsList(prev => [newBill, ...prev]);
+
+      if (editingDraftId) {
+        setDraftBillsList(prev => prev.filter(d => d.id !== editingDraftId));
+        setEditingDraftId(null);
+      }
+      
+      // Auto increment bill number only when creating a NEW bill
+      const currentNum = parseInt(billNo.replace(/[^0-9]/g, ''), 10) || 8842;
+      const nextBillNo = `INV-2023-${currentNum + 1}`;
+      setBillNo(nextBillNo);
+    }
+
+    // Permanently deduct spare parts stock from inventory & log Stock History
+    try {
+      const currentInv = getStoredInventory();
+      let txns: any[] = [];
+      try {
+        const savedTxns = localStorage.getItem('dms_spare_parts_transactions');
+        if (savedTxns) txns = JSON.parse(savedTxns);
+      } catch (e) {}
+
+      if (currentInv && currentInv.length > 0) {
+        let updatedInv = [...currentInv];
+        let inventoryChanged = false;
+
+        billItems.forEach(item => {
+          let invPart = updatedInv.find(p => p.partNumber.toLowerCase() === item.code.toLowerCase());
+          if (!invPart) {
+            invPart = updatedInv.find(p => p.partName.toLowerCase().includes(item.name.toLowerCase()) || item.name.toLowerCase().includes(p.partName.toLowerCase()));
+          }
+
+          if (invPart) {
+            const currStock = parseInt(invPart.stock.replace(/[^0-9]/g, ''), 10) || 0;
+            const newStock = Math.max(0, currStock - item.qty);
+            invPart.stock = newStock.toString();
+            invPart.stockStatus = newStock === 0 ? 'out' : newStock < 12 ? 'low' : 'normal';
+            inventoryChanged = true;
+
+            // Log outward transaction in Stock History
+            txns.unshift({
+              id: `txn-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+              partNumber: invPart.partNumber,
+              partName: invPart.partName,
+              type: 'Outward (Counter Sale)',
+              quantity: `-${item.qty} Units`,
+              reference: `Sale Bill #${billNo}`,
+              date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+              amount: `₹${(item.qty * item.unitPrice).toFixed(2)}`
+            });
+          }
+        });
+
+        if (inventoryChanged) {
+          saveStoredInventory(updatedInv);
+          try {
+            localStorage.setItem('dms_spare_parts_transactions', JSON.stringify(txns));
+          } catch (e) {}
+          window.dispatchEvent(new Event('dms_inventory_updated'));
+        }
+      }
+    } catch (e) {}
+
+    if (shouldOpenPreview) {
+      setShowInvoicePreview(true);
+    } else {
+      setBillItems([]);
+      setRemarks('');
+      setCustomerName('');
+      setCustomerType('Retail');
+      setMobileNumber('');
+      setSearchQuery('');
+      setEntryQty('');
+      setEditingBillId(null);
+      alert(`Counter Sales Bill ${billNo} saved successfully!`);
+    }
   };
 
   const handleSaveDraft = () => {
-    const draftBillNo = billNo.includes('DRAFT') ? billNo : `${billNo}-DRAFT`;
-    const existingIndex = draftBillsList.findIndex(d => d.billNo === draftBillNo || d.billNo === billNo);
+    if (billItems.length === 0 && !customerName && !mobileNumber) {
+      alert('Please add customer details or product items before saving draft!');
+      return;
+    }
+
+    // Check if we are updating an existing draft that was explicitly loaded
+    const existingIndex = editingDraftId ? draftBillsList.findIndex(d => d.id === editingDraftId) : -1;
+
+    const draftBillNo = existingIndex >= 0 
+      ? draftBillsList[existingIndex].billNo 
+      : (billNo.includes('DRAFT') ? billNo : `${billNo}-DRAFT`);
 
     const draftRecord: CounterSalesRecord = {
-      id: existingIndex >= 0 ? draftBillsList[existingIndex].id : `cs-draft-${Date.now()}`,
+      id: existingIndex >= 0 ? editingDraftId! : `cs-draft-${Date.now()}`,
       billNo: draftBillNo,
       customerName: customerName || 'Draft Customer',
       customerType,
-      mobileNumber,
-      date: 'Oct 24, 2023',
+      mobileNumber: mobileNumber || '',
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       billItems: [...billItems],
       subtotal: calculatedSubtotal,
       discount: calculatedDiscount,
@@ -431,13 +650,38 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
       updated[existingIndex] = draftRecord;
       setDraftBillsList(updated);
     } else {
-      setDraftBillsList([draftRecord, ...draftBillsList]);
+      setDraftBillsList(prev => [draftRecord, ...prev]);
     }
 
-    alert(`Bill ${billNo} saved as Draft! Access your drafts anytime using the Draft badge at the top.`);
+    // Reset editing draft state
+    setEditingDraftId(null);
+    setEditingBillId(null);
+
+    // Auto increment bill number so subsequent new drafts get unique numbers
+    const currentNum = parseInt(billNo.replace(/[^0-9]/g, ''), 10) || 8842;
+    const nextBillNo = `INV-2023-${currentNum + 1}`;
+    setBillNo(nextBillNo);
+
+    // Clear filled details from form
+    setBillItems([]);
+    setCustomerName('');
+    setCustomerType('Retail');
+    setMobileNumber('');
+    setRemarks('');
+    setSearchQuery('');
+    setEntryQty('');
+
+    alert(`Bill ${draftBillNo} saved as Draft and form cleared!`);
   };
 
   const handleLoadRecord = (record: CounterSalesRecord) => {
+    if (record.status === 'DRAFT') {
+      setEditingDraftId(record.id);
+      setEditingBillId(null);
+    } else {
+      setEditingBillId(record.id);
+      setEditingDraftId(null);
+    }
     setBillNo(record.billNo.replace('-DRAFT', ''));
     setCustomerName(record.customerName || '');
     setCustomerType(record.customerType || 'Retail');
@@ -726,7 +970,11 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
         <div className="no-print flex flex-col gap-3 min-w-[200px] w-full max-w-[200px]">
           
           <button 
-            onClick={() => window.print()}
+            onClick={() => {
+              handleSaveBill(false);
+              window.print();
+              setShowInvoicePreview(false);
+            }}
             className="w-full bg-[#184edb] hover:bg-[#143eb3] text-white py-3 px-4 rounded-xl text-xs font-black border-none cursor-pointer flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 active:translate-y-0"
           >
             <Printer size={16} />
@@ -750,7 +998,9 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
           </button>
 
           <button 
-            onClick={() => setShowInvoicePreview(false)}
+            onClick={() => {
+              setShowInvoicePreview(false);
+            }}
             className="w-full bg-slate-200 hover:bg-slate-350 border-none text-slate-700 py-3 px-4 rounded-xl text-xs font-black cursor-pointer flex items-center justify-center gap-2 shadow-sm transition-all mt-4"
           >
             <ArrowLeft size={16} />
@@ -804,17 +1054,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={handleSaveDraft}
-            className="flex items-center gap-1.5 px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-[13px] rounded-lg border border-amber-200 shadow-sm cursor-pointer transition-colors"
-            title="Save current bill as Draft"
-          >
-            <Clock size={15} />
-            <span>Draft</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleSaveBill}
+            onClick={() => handleSaveBill()}
             className="flex items-center gap-1.5 px-4 py-2 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-[13px] border-none rounded-lg shadow-md cursor-pointer transition-colors"
           >
             <Save size={15} />
@@ -837,6 +1077,8 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
             setRemarks('');
             setCustomerName('');
             setMobileNumber('');
+            setEditingDraftId(null);
+            setEditingBillId(null);
           }}
           className="bg-[#0b46d1] hover:bg-[#093db5] rounded-xl p-4 shadow-sm flex items-center gap-3 cursor-pointer text-white transition-all transform hover:-translate-y-0.5"
         >
@@ -956,9 +1198,9 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
                 </label>
                 <input 
                   type="text"
-                  placeholder="e.g. +1 234 567 8900"
+                  placeholder="e.g. 9876543210"
                   value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value)}
+                  onChange={(e) => setMobileNumber(e.target.value.replace(/[^0-9]/g, ''))}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#184edb] focus:bg-white transition-all"
                 />
               </div>
@@ -991,15 +1233,27 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
                       onChange={(e) => {
                         setSearchQuery(e.target.value);
                         setShowProductDropdown(true);
+                        setHighlightedIndex(0);
                       }}
-                      onFocus={() => setShowProductDropdown(true)}
+                      onFocus={() => {
+                        setShowProductDropdown(true);
+                        setHighlightedIndex(0);
+                      }}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setHighlightedIndex(prev => (filteredCatalog.length > 0 ? (prev + 1) % filteredCatalog.length : 0));
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setHighlightedIndex(prev => (filteredCatalog.length > 0 ? (prev - 1 + filteredCatalog.length) % filteredCatalog.length : 0));
+                        } else if (e.key === 'Enter') {
                           e.preventDefault();
                           if (filteredCatalog.length > 0) {
-                            handleSelectProduct(filteredCatalog[0]);
+                            const prod = filteredCatalog[highlightedIndex] || filteredCatalog[0];
+                            handleSelectProduct(prod);
                           }
-                          quantityInputRef.current?.focus();
+                        } else if (e.key === 'Escape') {
+                          setShowProductDropdown(false);
                         }
                       }}
                       className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 pl-9 pr-3.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#184edb] focus:bg-white transition-all"
@@ -1009,16 +1263,27 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
                   {/* Dropdown Match Results */}
                   {showProductDropdown && searchQuery && (
                     <div className="absolute top-[56px] left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg z-30 max-h-48 overflow-y-auto box-border p-1 flex flex-col gap-0.5">
-                      {filteredCatalog.map(product => (
-                        <div 
-                          key={product.code}
-                          onClick={() => handleSelectProduct(product)}
-                          className="px-3 py-2 text-xs hover:bg-slate-50 cursor-pointer rounded-md flex justify-between font-medium"
-                        >
-                          <span className="text-slate-800">{product.name}</span>
-                          <span className="text-slate-400 font-extrabold">{product.code}</span>
-                        </div>
-                      ))}
+                      {filteredCatalog.map((product, index) => {
+                        const effStock = getEffectiveStock(product);
+                        return (
+                          <div 
+                            key={product.code}
+                            onClick={() => handleSelectProduct(product)}
+                            onMouseEnter={() => setHighlightedIndex(index)}
+                            className={`px-3 py-2 text-xs cursor-pointer rounded-md flex justify-between items-center font-medium transition-colors ${
+                              index === highlightedIndex ? 'bg-[#184edb] text-white' : 'hover:bg-slate-50 text-slate-800'
+                            }`}
+                          >
+                            <div className="flex flex-col">
+                              <span className={index === highlightedIndex ? 'text-white font-bold' : 'text-slate-800 font-bold'}>{product.name}</span>
+                              <span className={index === highlightedIndex ? 'text-blue-100 text-[10.5px] font-semibold' : 'text-slate-500 text-[10.5px] font-semibold'}>
+                                Stock Available: {effStock} Units
+                              </span>
+                            </div>
+                            <span className={index === highlightedIndex ? 'text-blue-100 font-extrabold' : 'text-slate-400 font-extrabold'}>{product.code}</span>
+                          </div>
+                        );
+                      })}
                       {filteredCatalog.length === 0 && (
                         <span className="p-2 text-xs text-slate-400 italic text-center">No matching products found</span>
                       )}
@@ -1074,11 +1339,13 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider">Stock Available</span>
-                  <span className="text-xs font-bold text-slate-700 mt-0.5">{selectedProduct.stock} Units</span>
+                  <span className={`text-xs font-bold mt-0.5 ${getEffectiveStock(selectedProduct) === 0 ? 'text-rose-600 font-extrabold' : 'text-slate-700'}`}>
+                    {getEffectiveStock(selectedProduct)} Units
+                  </span>
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider">Unit Price</span>
-                  <span className="text-xs font-bold text-slate-700 mt-0.5">${selectedProduct.price.toFixed(2)}</span>
+                  <span className="text-xs font-bold text-slate-700 mt-0.5">₹{selectedProduct.price.toFixed(2)}</span>
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider">Discount %</span>
@@ -1147,7 +1414,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
 
                         {/* Unit Price */}
                         <td className="py-3.5 px-3 whitespace-nowrap text-slate-700 font-semibold">
-                          ${item.unitPrice.toFixed(2)}
+                          ₹{item.unitPrice.toFixed(2)}
                         </td>
 
                         {/* Discount */}
@@ -1166,7 +1433,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
                             </div>
                           ) : (
                             <div className="flex flex-col">
-                              <span className="text-red-500 font-bold">-${vals.discountAmount.toFixed(2)}</span>
+                              <span className="text-red-500 font-bold">-₹{vals.discountAmount.toFixed(2)}</span>
                               {item.discountPercent > 0 && (
                                 <span className="text-[9px] text-slate-400 font-semibold">({item.discountPercent}%)</span>
                               )}
@@ -1177,14 +1444,14 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
                         {/* Tax (GST) */}
                         <td className="py-3.5 px-3 whitespace-nowrap">
                           <div className="flex flex-col">
-                            <span className="text-slate-700 font-semibold">${vals.gstAmount.toFixed(2)}</span>
+                            <span className="text-slate-700 font-semibold">₹{vals.gstAmount.toFixed(2)}</span>
                             <span className="text-[9px] text-slate-400 font-semibold">({item.gstPercent}%)</span>
                           </div>
                         </td>
 
                         {/* Total */}
                         <td className="py-3.5 px-3 whitespace-nowrap font-extrabold text-[#184edb]">
-                          ${vals.total.toFixed(2)}
+                          ₹{vals.total.toFixed(2)}
                         </td>
 
                         {/* Actions */}
@@ -1269,15 +1536,15 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
             <div className="flex flex-col gap-2.5 text-xs font-semibold text-slate-600 border-b border-slate-100 pb-4">
               <div className="flex justify-between">
                 <span>Sub Total</span>
-                <span className="text-slate-800 font-bold">${calculatedSubtotal.toFixed(2)}</span>
+                <span className="text-slate-800 font-bold">₹{calculatedSubtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Total Discount</span>
-                <span className="text-red-500 font-bold">-${calculatedDiscount.toFixed(2)}</span>
+                <span className="text-red-500 font-bold">-₹{calculatedDiscount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Total GST (18%)</span>
-                <span className="text-slate-800 font-bold">${calculatedGst.toFixed(2)}</span>
+                <span className="text-slate-800 font-bold">₹{calculatedGst.toFixed(2)}</span>
               </div>
             </div>
 
@@ -1285,7 +1552,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
             <div className="flex flex-col gap-1 items-center py-2">
               <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Grand Total</span>
               <span className="text-3xl font-extrabold text-[#184edb] tracking-tight font-heading mt-0.5">
-                ${calculatedGrandTotal.toFixed(2)}
+                ₹{calculatedGrandTotal.toFixed(2)}
               </span>
             </div>
 
@@ -1301,8 +1568,8 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
               </button>
 
               <button 
-                onClick={() => alert('Bill draft saved successfully.')}
-                disabled={billItems.length === 0}
+                onClick={handleSaveDraft}
+                disabled={billItems.length === 0 && !customerName && !mobileNumber}
                 className="w-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 py-2.5 px-4 rounded-lg text-xs font-extrabold cursor-pointer flex items-center justify-center gap-2 transition-colors"
               >
                 <Save size={15} />
@@ -1358,7 +1625,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
               >
                 <div className="flex flex-col">
                   <span className="text-xs font-bold text-slate-800">Oil Filter - V6 Engine</span>
-                  <span className="text-[9px] text-slate-400 font-semibold mt-0.5">OF-V6-33 | Price: $35.00</span>
+                  <span className="text-[9px] text-slate-400 font-semibold mt-0.5">OF-V6-33 | Price: ₹35.00</span>
                 </div>
                 <button className="p-1 bg-blue-50 text-[#184edb] rounded-full border-none cursor-pointer flex items-center justify-center">
                   <Plus size={14} />
@@ -1371,7 +1638,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
               >
                 <div className="flex flex-col">
                   <span className="text-xs font-bold text-slate-800">Standard Spark Plug</span>
-                  <span className="text-[9px] text-slate-400 font-semibold mt-0.5">SP-STD-02 | Price: $15.00</span>
+                  <span className="text-[9px] text-slate-400 font-semibold mt-0.5">SP-STD-02 | Price: ₹15.00</span>
                 </div>
                 <button className="p-1 bg-blue-50 text-[#184edb] rounded-full border-none cursor-pointer flex items-center justify-center">
                   <Plus size={14} />
@@ -1384,7 +1651,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
               >
                 <div className="flex flex-col">
                   <span className="text-xs font-bold text-slate-800">Coolant 1L - Green</span>
-                  <span className="text-[9px] text-slate-400 font-semibold mt-0.5">CL-GR-01 | Price: $25.00</span>
+                  <span className="text-[9px] text-slate-400 font-semibold mt-0.5">CL-GR-01 | Price: ₹25.00</span>
                 </div>
                 <button className="p-1 bg-blue-50 text-[#184edb] rounded-full border-none cursor-pointer flex items-center justify-center">
                   <Plus size={14} />

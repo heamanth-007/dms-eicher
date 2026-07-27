@@ -21,6 +21,18 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedCustomerName, setSelectedCustomerName] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(() => {
+    try {
+      const saved = localStorage.getItem('dms_current_user');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
+
+  const handleAuthSuccess = (user: { name: string; email: string }) => {
+    setCurrentUser(user);
+    try {
+      localStorage.setItem('dms_current_user', JSON.stringify(user));
+    } catch (e) {}
     const saved = localStorage.getItem('dms_user');
     return saved ? JSON.parse(saved) : null;
   });
@@ -84,8 +96,49 @@ function App() {
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-  // Lifted Suppliers states
-  const [suppliersList, setSuppliersList] = useState<SupplierType[]>([]);
+  // Lifted Suppliers states with LocalStorage persistence
+  const [suppliersList, setSuppliersList] = useState<SupplierType[]>(() => {
+    try {
+      const saved = localStorage.getItem('dms_suppliers_list');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return [
+      {
+        id: 'SUP-6496',
+        name: 'sheasan',
+        gstNumber: '87DD4AD',
+        phone: '8895484621',
+        email: 'HDJNSUjd@ygd.com',
+        outstanding: '₹85,548.00',
+        isOutstandingPositive: true,
+        status: 'ACTIVE'
+      },
+      {
+        id: 'SUP-6212',
+        name: 'vj enterprises',
+        gstNumber: 'sds87s54d8sd',
+        phone: '5498549858',
+        email: 'hsdgfv@tyfgd.com',
+        outstanding: '₹7,845.00',
+        isOutstandingPositive: true,
+        status: 'ACTIVE'
+      }
+    ];
+  });
+
+  // Automatically sync suppliersList to localStorage
+  useEffect(() => {
+    try {
+      if (suppliersList && suppliersList.length > 0) {
+        localStorage.setItem('dms_suppliers_list', JSON.stringify(suppliersList));
+      }
+    } catch (e) {}
+  }, [suppliersList]);
 
   // Lifted Vehicle Sales state
   const [salesRecords, setSalesRecords] = useState<SaleRecord[]>([]);
@@ -148,8 +201,11 @@ function App() {
     fetch(`${API_URL}/api/suppliers`)
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data)) {
+        if (Array.isArray(data) && data.length > 0) {
           setSuppliersList(data);
+          try {
+            localStorage.setItem('dms_suppliers_list', JSON.stringify(data));
+          } catch (e) {}
         }
       })
       .catch((err) => console.error('Error fetching suppliers:', err));
@@ -180,6 +236,7 @@ function App() {
   };
 
   if (!currentUser) {
+    return <SignUp onAuthSuccess={handleAuthSuccess} />;
     return <SignUp onAuthSuccess={handleSetCurrentUser} />;
   }
 
@@ -242,7 +299,7 @@ function App() {
           ) : activeTab === 'settings' ? (
             <SettingsPage onSettingsUpdated={fetchSettings} />
           ) : activeTab === 'purchase' ? (
-            <Purchase />
+            <Purchase suppliersList={suppliersList} />
           ) : activeTab === 'billing' ? (
             <ServiceBilling companySettings={companySettings} />
           ) : (

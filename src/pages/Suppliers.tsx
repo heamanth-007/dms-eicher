@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   FileSpreadsheet,
   FileText,
@@ -52,9 +52,15 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
   const [view, setView] = useState<'list' | 'add' | 'edit' | 'ledger'>('list');
   const [selectedLedgerSupplier, setSelectedLedgerSupplier] = useState<SupplierType | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [gstSearch, setGstSearch] = useState('22AAAAA0000A1Z5');
+  const [gstSearch, setGstSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All Status');
   const [dateRange, setDateRange] = useState('');
+
+  // Search auto-complete & KPI filter states
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [outstandingOnlyFilter, setOutstandingOnlyFilter] = useState(false);
+  const tableContainerRef = useRef<HTMLDivElement>(null);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
@@ -80,9 +86,9 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
   const [editPaymentTerms, setEditPaymentTerms] = useState('Net 30 Days');
   const [editCreditLimit, setEditCreditLimit] = useState('5,000,000');
 
-  const handleAddSupplier = () => {
+  const handleAddSupplier = (navigateToList = true) => {
     if (!formName || !formPhone) {
-      alert('Please fill out the required fields.');
+      alert('Please fill out the required fields: Supplier Name and Phone Number.');
       return;
     }
 
@@ -104,18 +110,29 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
       status: formStatus
     };
 
+    setSuppliersList(prev => {
+      const updated = [newSupplier, ...prev];
+      try {
+        localStorage.setItem('dms_suppliers_list', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
     fetch(`${API_URL}/api/suppliers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newSupplier)
     })
-      .then((res) => res.json())
-      .then((data) => {
-        setSuppliersList([data, ...suppliersList]);
-        resetForm();
-        setView('list');
-      })
-      .catch((err) => console.error('Error adding supplier:', err));
+      .catch((err) => console.error('API sync error (skipped):', err));
+
+    resetForm();
+
+    if (navigateToList) {
+      setView('list');
+      alert(`Supplier "${newSupplier.name}" saved successfully!`);
+    } else {
+      alert(`Supplier "${newSupplier.name}" saved successfully! Form cleared for next entry.`);
+    }
   };
 
   const resetForm = () => {
@@ -126,6 +143,54 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
     setFormOutstanding('');
     setFormStatus('ACTIVE');
     setFormAddress('');
+  };
+
+  // Ecosystem statistics from actual suppliers list
+  const totalSuppliersCount = suppliersList.length;
+  const activeSuppliersCount = suppliersList.filter(s => s.status === 'ACTIVE').length;
+  const inactiveSuppliersCount = suppliersList.filter(s => s.status === 'INACTIVE').length;
+  const activePercent = totalSuppliersCount > 0 
+    ? Math.round((activeSuppliersCount / totalSuppliersCount) * 100) 
+    : 0;
+
+  // Filtered suppliers computation
+  const searchMatches = suppliersList.filter(s => 
+    s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    s.id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredSuppliers = suppliersList.filter((s) => {
+    const matchSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchGst = !gstSearch || s.gstNumber.toLowerCase().includes(gstSearch.toLowerCase());
+    const matchStatus = statusFilter === 'All Status' || s.status === statusFilter.toUpperCase();
+    const matchOutstanding = !outstandingOnlyFilter || s.isOutstandingPositive;
+    return matchSearch && matchGst && matchStatus && matchOutstanding;
+  });
+
+  // Export handlers
+  const exportSuppliersToExcel = () => {
+    const headers = ['Supplier ID', 'Supplier Name', 'GST Number', 'Phone', 'Email', 'Outstanding', 'Status'];
+    const rows = filteredSuppliers.map(s => [
+      s.id,
+      `"${s.name.replace(/"/g, '""')}"`,
+      s.gstNumber,
+      s.phone,
+      s.email,
+      `"${s.outstanding}"`,
+      s.status
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `suppliers_export_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportSuppliersToPDF = () => {
+    window.print();
   };
 
   if (view === 'add') {
@@ -213,7 +278,7 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
                       type="text"
                       placeholder="10-digit mobile number"
                       value={formPhone}
-                      onChange={(e) => setFormPhone(e.target.value)}
+                      onChange={(e) => setFormPhone(e.target.value.replace(/[^0-9]/g, ''))}
                       className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] placeholder-[#94a3b8] focus:outline-none focus:border-[#184edb] focus:ring-1 focus:ring-[#184edb]"
                     />
                   </div>
@@ -310,37 +375,14 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  if (!formName || !formPhone) {
-                    alert('Please fill out the required fields.');
-                    return;
-                  }
-                  const newId = `SUP-${Math.floor(1000 + Math.random() * 9000)}`;
-                  const parsedOutstanding = parseFloat(formOutstanding || '0');
-                  const formattedOutstanding = `₹${parsedOutstanding.toLocaleString('en-IN', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                  })}`;
-                  const newSupplier: SupplierType = {
-                    id: newId,
-                    name: formName,
-                    gstNumber: formGst || 'N/A',
-                    phone: formPhone,
-                    email: formEmail || 'N/A',
-                    outstanding: formattedOutstanding,
-                    isOutstandingPositive: parsedOutstanding > 0,
-                    status: formStatus
-                  };
-                  setSuppliersList([newSupplier, ...suppliersList]);
-                  resetForm();
-                }}
+                onClick={() => handleAddSupplier(false)}
                 className="bg-white hover:bg-slate-50 text-[#184edb] font-bold text-[13.5px] px-6 py-2.5 rounded-lg border border-[#184edb] transition-all cursor-pointer"
               >
                 Save & Add New
               </button>
               <button
                 type="button"
-                onClick={handleAddSupplier}
+                onClick={() => handleAddSupplier(true)}
                 className="flex items-center gap-2 bg-[#184edb] hover:bg-[#1544c2] text-white font-bold text-[13.5px] px-6 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer"
               >
                 <Save size={16} />
@@ -385,7 +427,7 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
               <span className="text-[11px] font-bold text-[#64748b] tracking-wider uppercase">SUPPLIER ECOSYSTEM</span>
               <div className="flex items-center justify-between">
                 <div className="flex flex-col">
-                  <span className="text-[32px] font-extrabold text-[#184edb] leading-none">124</span>
+                  <span className="text-[32px] font-extrabold text-[#184edb] leading-none">{totalSuppliersCount}</span>
                   <span className="text-[12.5px] text-[#64748b] mt-1 font-semibold">Total Suppliers</span>
                 </div>
                 <div className="bg-[#eff6ff] p-3 rounded-xl text-[#184edb] flex items-center justify-center">
@@ -395,12 +437,12 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
 
               {/* Progress bar */}
               <div className="w-full bg-[#f1f5fd] h-2.5 rounded-full overflow-hidden mt-2">
-                <div className="bg-[#184edb] h-full rounded-full" style={{ width: '75%' }}></div>
+                <div className="bg-[#184edb] h-full rounded-full transition-all duration-300" style={{ width: `${activePercent}%` }}></div>
               </div>
 
               <div className="flex items-center justify-between text-[12.5px] font-bold mt-1 text-[#475569]">
-                <span>Active (93)</span>
-                <span>Inactive (31)</span>
+                <span>Active ({activeSuppliersCount})</span>
+                <span>Inactive ({inactiveSuppliersCount})</span>
               </div>
             </div>
 
@@ -698,14 +740,15 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
             onClick={() => {
               if (!editingSupplierId) return;
               if (confirm("Are you sure you want to deactivate this supplier account?")) {
+                const updatedList = suppliersList.filter(s => s.id !== editingSupplierId);
+                setSuppliersList(updatedList);
+                try {
+                  localStorage.setItem('dms_suppliers_list', JSON.stringify(updatedList));
+                } catch (e) {}
                 fetch(`${API_URL}/api/suppliers/${editingSupplierId}`, {
                   method: 'DELETE'
-                })
-                  .then(() => {
-                    setSuppliersList(suppliersList.filter(s => s.id !== editingSupplierId));
-                    setView('list');
-                  })
-                  .catch((err) => console.error('Error deactivating supplier:', err));
+                }).catch((err) => console.error('Error deactivating supplier:', err));
+                setView('list');
               }
             }}
             className="flex items-center gap-2 text-[#dc2626] hover:text-[#b91c1c] font-bold text-[13.5px] transition-colors cursor-pointer bg-transparent border-0 outline-none"
@@ -726,6 +769,18 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
               type="button"
               onClick={() => {
                 if (!editingSupplierId) return;
+                const updatedList = suppliersList.map(s => s.id === editingSupplierId ? {
+                  ...s,
+                  name: editName,
+                  gstNumber: editGst,
+                  email: editEmail
+                } : s);
+
+                setSuppliersList(updatedList);
+                try {
+                  localStorage.setItem('dms_suppliers_list', JSON.stringify(updatedList));
+                } catch (e) {}
+
                 fetch(`${API_URL}/api/suppliers/${editingSupplierId}`, {
                   method: 'PUT',
                   headers: { 'Content-Type': 'application/json' },
@@ -734,14 +789,10 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
                     gstNumber: editGst,
                     email: editEmail
                   })
-                })
-                  .then((res) => res.json())
-                  .then((data) => {
-                    setSuppliersList(suppliersList.map(s => s.id === editingSupplierId ? { ...s, ...data } : s));
-                    alert('Supplier updated successfully!');
-                    setView('list');
-                  })
-                  .catch((err) => console.error('Error updating supplier:', err));
+                }).catch((err) => console.error('Error updating supplier:', err));
+
+                alert('Supplier updated successfully!');
+                setView('list');
               }}
               className="flex items-center gap-2 bg-[#184edb] hover:bg-[#1544c2] text-white font-bold text-[13.5px] px-6 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer"
             >
@@ -794,11 +845,17 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold text-[#0f172a] font-heading tracking-tight">Suppliers</h1>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 bg-[#e0ebff] hover:bg-[#d0e0ff] text-[#0f2b80] font-semibold text-[13.5px] px-4 py-2.5 rounded-lg border border-[#c3d8fa] transition-all cursor-pointer">
+          <button
+            onClick={exportSuppliersToExcel}
+            className="flex items-center gap-2 bg-[#e0ebff] hover:bg-[#d0e0ff] text-[#0f2b80] font-semibold text-[13.5px] px-4 py-2.5 rounded-lg border border-[#c3d8fa] transition-all cursor-pointer"
+          >
             <FileSpreadsheet size={16} className="text-[#184edb]" />
             <span>Export Excel</span>
           </button>
-          <button className="flex items-center gap-2 bg-[#e0ebff] hover:bg-[#d0e0ff] text-[#0f2b80] font-semibold text-[13.5px] px-4 py-2.5 rounded-lg border border-[#c3d8fa] transition-all cursor-pointer">
+          <button
+            onClick={exportSuppliersToPDF}
+            className="flex items-center gap-2 bg-[#e0ebff] hover:bg-[#d0e0ff] text-[#0f2b80] font-semibold text-[13.5px] px-4 py-2.5 rounded-lg border border-[#c3d8fa] transition-all cursor-pointer"
+          >
             <FileText size={16} className="text-[#184edb]" />
             <span>Export PDF</span>
           </button>
@@ -822,12 +879,15 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
 
       {/* Stats Cards Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Card 1 */}
-        <div className="bg-white border border-[#e2e8f0] p-6 rounded-2xl flex flex-col justify-between shadow-[0_1px_3px_rgba(0,0,0,0.02)] min-h-[140px] relative">
+        {/* Card 1: Total Suppliers */}
+        <div 
+          onClick={() => { setStatusFilter('All Status'); setOutstandingOnlyFilter(false); setSearchTerm(''); }}
+          className={`bg-white border p-6 rounded-2xl flex flex-col justify-between shadow-[0_1px_3px_rgba(0,0,0,0.02)] min-h-[140px] relative cursor-pointer transition-all hover:border-[#184edb] ${!outstandingOnlyFilter && statusFilter === 'All Status' ? 'border-[#184edb] ring-1 ring-[#184edb]/20' : 'border-[#e2e8f0]'}`}
+        >
           <div className="flex items-start justify-between">
             <div className="flex flex-col gap-1">
               <span className="text-[11px] font-bold text-[#64748b] tracking-wider uppercase">TOTAL SUPPLIERS</span>
-              <span className="text-[32px] font-extrabold text-[#0f172a] leading-none mt-1">84</span>
+              <span className="text-[32px] font-extrabold text-[#0f172a] leading-none mt-1">{suppliersList.length}</span>
             </div>
             <div className="bg-[#eff6ff] p-2.5 rounded-lg flex items-center justify-center">
               <Users size={20} className="text-[#184edb]" />
@@ -839,28 +899,41 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
           </div>
         </div>
 
-        {/* Card 2 */}
-        <div className="bg-white border border-[#e2e8f0] p-6 rounded-2xl flex flex-col justify-between shadow-[0_1px_3px_rgba(0,0,0,0.02)] min-h-[140px] relative">
+        {/* Card 2: Active Suppliers */}
+        <div 
+          onClick={() => { setStatusFilter('Active'); setOutstandingOnlyFilter(false); }}
+          className={`bg-white border p-6 rounded-2xl flex flex-col justify-between shadow-[0_1px_3px_rgba(0,0,0,0.02)] min-h-[140px] relative cursor-pointer transition-all hover:border-[#184edb] ${statusFilter === 'Active' ? 'border-[#184edb] ring-1 ring-[#184edb]/20' : 'border-[#e2e8f0]'}`}
+        >
           <div className="flex items-start justify-between">
             <div className="flex flex-col gap-1">
               <span className="text-[11px] font-bold text-[#64748b] tracking-wider uppercase">ACTIVE SUPPLIERS</span>
-              <span className="text-[32px] font-extrabold text-[#0f172a] leading-none mt-1">78</span>
+              <span className="text-[32px] font-extrabold text-[#0f172a] leading-none mt-1">
+                {suppliersList.filter(s => s.status === 'ACTIVE').length}
+              </span>
             </div>
             <div className="bg-[#eff6ff] p-2.5 rounded-lg flex items-center justify-center">
               <BadgeCheck size={20} className="text-[#184edb]" />
             </div>
           </div>
           <div className="mt-4 text-[12.5px] text-[#475569] font-medium">
-            <span>91% Operation Rate</span>
+            <span>{suppliersList.length > 0 ? Math.round((suppliersList.filter(s => s.status === 'ACTIVE').length / suppliersList.length) * 100) : 0}% Operation Rate</span>
           </div>
         </div>
 
-        {/* Card 3 */}
-        <div className="bg-white border border-[#e2e8f0] p-6 rounded-2xl flex flex-col justify-between shadow-[0_1px_3px_rgba(0,0,0,0.02)] min-h-[140px] relative">
+        {/* Card 3: Outstanding Amount */}
+        <div 
+          onClick={() => setOutstandingOnlyFilter(prev => !prev)}
+          className={`bg-white border p-6 rounded-2xl flex flex-col justify-between shadow-[0_1px_3px_rgba(0,0,0,0.02)] min-h-[140px] relative cursor-pointer transition-all hover:border-[#dc2626] ${outstandingOnlyFilter ? 'border-[#dc2626] ring-1 ring-[#dc2626]/20 bg-red-50/20' : 'border-[#e2e8f0]'}`}
+        >
           <div className="flex items-start justify-between">
             <div className="flex flex-col gap-1">
               <span className="text-[11px] font-bold text-[#64748b] tracking-wider uppercase">OUTSTANDING AMOUNT</span>
-              <span className="text-[32px] font-extrabold text-[#0f172a] leading-none mt-1">₹42,850</span>
+              <span className="text-[32px] font-extrabold text-[#0f172a] leading-none mt-1">
+                ₹{suppliersList.reduce((acc, s) => {
+                  const num = parseFloat(s.outstanding.replace(/[^0-9.]/g, '')) || 0;
+                  return acc + num;
+                }, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </span>
             </div>
             <div className="bg-[#fef2f2] p-2.5 rounded-lg flex items-center justify-center">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#dc2626]">
@@ -876,7 +949,7 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
           </div>
         </div>
 
-        {/* Card 4 */}
+        {/* Card 4: Monthly Purchases */}
         <div className="bg-white border border-[#e2e8f0] p-6 rounded-2xl flex flex-col justify-between shadow-[0_1px_3px_rgba(0,0,0,0.02)] min-h-[140px] relative">
           <div className="flex items-start justify-between">
             <div className="flex flex-col gap-1">
@@ -899,17 +972,64 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
 
       {/* Filter Bar */}
       <div className="bg-white border border-[#e2e8f0] p-5 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-wrap lg:flex-nowrap items-end gap-4">
-        <div className="flex-1 min-w-[200px] flex flex-col gap-1.5">
+        <div className="flex-1 min-w-[200px] flex flex-col gap-1.5 relative">
           <label className="text-[12.5px] font-bold text-[#475569]">Search Supplier Name / ID</label>
           <div className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94a3b8]" size={16} />
             <input
               type="text"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setShowSearchDropdown(true);
+                setHighlightedIndex(-1);
+              }}
+              onFocus={() => setShowSearchDropdown(true)}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setHighlightedIndex(prev => (prev + 1) % searchMatches.length);
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setHighlightedIndex(prev => (prev - 1 + searchMatches.length) % searchMatches.length);
+                } else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (searchMatches.length > 0) {
+                    const selected = highlightedIndex >= 0 ? searchMatches[highlightedIndex] : searchMatches[0];
+                    setSearchTerm(selected.name);
+                    setShowSearchDropdown(false);
+                    tableContainerRef.current?.scrollIntoView({ behavior: 'smooth' });
+                  }
+                } else if (e.key === 'Escape') {
+                  setShowSearchDropdown(false);
+                }
+              }}
               placeholder="Start typing..."
               className="w-full pl-10 pr-4 py-2.5 bg-[#f0f5ff] border border-[#d6e4ff] rounded-lg text-[13.5px] text-[#0f172a] placeholder-[#94a3b8] focus:outline-none focus:border-[#184edb] transition-all"
             />
+            {showSearchDropdown && searchTerm.trim() !== '' && searchMatches.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#cbd5e1] rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto divide-y divide-slate-100">
+                {searchMatches.map((supplier, idx) => (
+                  <div
+                    key={supplier.id}
+                    onClick={() => {
+                      setSearchTerm(supplier.name);
+                      setShowSearchDropdown(false);
+                      tableContainerRef.current?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className={`p-3 text-xs cursor-pointer flex justify-between items-center transition-colors ${
+                      highlightedIndex === idx ? 'bg-[#eff6ff] text-[#184edb] font-bold' : 'hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-bold">{supplier.name}</span>
+                      <span className="text-[10px] text-slate-400">{supplier.phone} • GST: {supplier.gstNumber}</span>
+                    </div>
+                    <span className="font-mono text-[11px] text-[#184edb] bg-blue-50 px-2 py-0.5 rounded font-bold">{supplier.id}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -917,6 +1037,7 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
           <label className="text-[12.5px] font-bold text-[#475569]">GST Number</label>
           <input
             type="text"
+            placeholder="e.g. 22AAAAA..."
             value={gstSearch}
             onChange={(e) => setGstSearch(e.target.value)}
             className="w-full px-4 py-2.5 bg-[#f0f5ff] border border-[#d6e4ff] rounded-lg text-[13.5px] text-[#0f172a] focus:outline-none focus:border-[#184edb] transition-all"
@@ -951,17 +1072,29 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
         </div>
 
         <div className="flex gap-2.5">
-          <button className="bg-[#184edb] hover:bg-[#1544c2] text-white font-bold text-[13.5px] px-6 py-2.5 rounded-lg shadow-sm hover:shadow transition-all cursor-pointer h-[41px] flex items-center justify-center">
+          <button 
+            onClick={() => tableContainerRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            className="bg-[#184edb] hover:bg-[#1544c2] text-white font-bold text-[13.5px] px-6 py-2.5 rounded-lg shadow-sm hover:shadow transition-all cursor-pointer h-[41px] flex items-center justify-center"
+          >
             Apply
           </button>
-          <button className="bg-[#e0ebff] hover:bg-[#d0e0ff] text-[#184edb] font-bold text-[13.5px] px-6 py-2.5 rounded-lg border border-[#c3d8fa] transition-all cursor-pointer h-[41px] flex items-center justify-center">
+          <button 
+            onClick={() => {
+              setSearchTerm('');
+              setGstSearch('');
+              setStatusFilter('All Status');
+              setDateRange('');
+              setOutstandingOnlyFilter(false);
+            }}
+            className="bg-[#e0ebff] hover:bg-[#d0e0ff] text-[#184edb] font-bold text-[13.5px] px-6 py-2.5 rounded-lg border border-[#c3d8fa] transition-all cursor-pointer h-[41px] flex items-center justify-center"
+          >
             Reset
           </button>
         </div>
       </div>
 
       {/* Table Container */}
-      <div className="bg-white border border-[#e2e8f0] rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden flex flex-col">
+      <div ref={tableContainerRef} className="bg-white border border-[#e2e8f0] rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden flex flex-col">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left">
             <thead>
@@ -976,14 +1109,8 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
               </tr>
             </thead>
             <tbody>
-              {suppliersList
-                .filter((s) => {
-                  const matchSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.id.toLowerCase().includes(searchTerm.toLowerCase());
-                  const matchStatus = statusFilter === 'All Status' || s.status === statusFilter.toUpperCase();
-                  return matchSearch && matchStatus;
-                })
-                .map((supplier) => (
-                  <tr key={supplier.id} className="border-b border-[#e2e8f0] hover:bg-slate-50/50 transition-colors last:border-b-0">
+              {filteredSuppliers.map((supplier) => (
+                <tr key={supplier.id} className="border-b border-[#e2e8f0] hover:bg-slate-50/50 transition-colors last:border-b-0">
                     <td 
                       onClick={() => { setSelectedLedgerSupplier(supplier); setView('ledger'); }}
                       className="py-4.5 px-6 text-[13.5px] font-bold text-[#184edb] cursor-pointer hover:underline"
