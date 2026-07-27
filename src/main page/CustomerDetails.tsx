@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import EditCustomer from './EditCustomer';
-import { VehicleDetailView } from './VehicleDetailView';
 import { 
   User, 
   Truck, 
@@ -39,7 +38,6 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
   const [activeTab, setActiveTab] = useState<'vehicles' | 'services' | 'payments'>('vehicles');
   const [currentCustomer, setCurrentCustomer] = useState<CustomerType>(initialCustomer);
   const [isEditing, setIsEditing] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
   const [serviceSearchTerm, setServiceSearchTerm] = useState('');
 
   useEffect(() => {
@@ -48,98 +46,131 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
 
   const customer = currentCustomer;
 
-  // Specific data for Rajesh Kumar from user screenshot, fallback for others
-  const isRajesh = customer.id === 'CUST-1024';
-
-  const customerMeta = {
-    tier: isRajesh ? 'Gold Tier Client' : 'Standard Client',
-    gstNo: isRajesh ? '27AADCA1234F1Z5' : '27XXXXX1234F1ZX',
-    address: isRajesh 
-      ? 'Plot 42, MIDC Phase 2, Pune, MH 411026' 
-      : `${customer.district || 'Main Street'}, India`,
-    totalServices: isRajesh ? 12 : 5,
-    totalBills: isRajesh ? 15 : 7,
-    isOverdue: isRajesh || parseFloat(customer.outstanding.replace(/[^\d.]/g, '')) > 0,
-  };
-
   const [dbVehicles, setDbVehicles] = useState<any[]>([]);
+  const [dbJobCards, setDbJobCards] = useState<any[]>([]);
+  const [dbTransactions, setDbTransactions] = useState<any[]>([]);
+  const [dbSales, setDbSales] = useState<any[]>([]);
+
+  const dynamicOutstandingNum = dbSales.reduce((acc, s) => {
+    if (s.status === 'PENDING') {
+      const balStr = s.balanceAmount || s.grandTotal || '0';
+      const balNum = Number(balStr.toString().replace(/[^\d.]/g, '')) || 0;
+      return acc + balNum;
+    }
+    return acc;
+  }, 0);
+  const dynamicOutstandingStr = `₹${dynamicOutstandingNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+
+  // Calculate dynamic meta based on real fetched data
+  const customerMeta = {
+    tier: dbJobCards.length > 3 ? 'Gold Tier Client' : 'Standard Client',
+    gstNo: '27XXXXX1234F1ZX',
+    address: `${customer.district || 'Main Street'}, India`,
+    totalServices: dbJobCards.length,
+    totalBills: dbSales.length + dbTransactions.length,
+    isOverdue: dynamicOutstandingNum > 0,
+  };
 
   useEffect(() => {
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    
     fetch(`${API_URL}/api/vehicles`)
       .then(res => res.json())
       .then(data => {
-        if (Array.isArray(data)) {
-          setDbVehicles(data);
-        }
+        if (Array.isArray(data)) setDbVehicles(data);
       })
-      .catch(err => console.error('Error fetching vehicles in CustomerDetails:', err));
-  }, []);
+      .catch(err => console.error('Error fetching vehicles:', err));
+
+    fetch(`${API_URL}/api/jobcards`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setDbJobCards(data.filter((jc: any) => jc.customerName === initialCustomer.name));
+      })
+      .catch(err => console.error('Error fetching jobcards:', err));
+
+    fetch(`${API_URL}/api/transactions`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setDbTransactions(data.filter((tx: any) => tx.payeeName === initialCustomer.name));
+      })
+      .catch(err => console.error('Error fetching transactions:', err));
+
+    fetch(`${API_URL}/api/sales`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setDbSales(data.filter((s: any) => s.customerName === initialCustomer.name));
+      })
+      .catch(err => console.error('Error fetching sales:', err));
+  }, [initialCustomer.name]);
 
   const getVehicleHistory = () => {
-    if (dbVehicles.length > 0) {
-      const list = [];
-      const count = customer.vehicles || 1;
-      for (let i = 0; i < count; i++) {
-        const v = dbVehicles[i % dbVehicles.length];
-        list.push({
-          model: v.modelName,
-          registration: `REG-${v.id.replace(/[^\d]/g, '') || (1000 + i)}`,
-          chassis: v.chassisNo,
-          purchaseDate: new Date(v.createdAt || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
-          status: v.status || 'Active',
-          statusClass: v.status === 'Available' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-blue-50 text-blue-650 border border-blue-100',
+    const vehiclesSet = new Map<string, any>();
+    
+    dbJobCards.forEach(jc => {
+      if (!vehiclesSet.has(jc.vehicleReg)) {
+        const v = dbVehicles.find(v => v.modelName === jc.vehicleModel) || {};
+        const pDate = v.createdAt ? new Date(v.createdAt).toLocaleDateString('en-IN') : 'Unknown';
+        let warrantyStr = 'N/A';
+        if (pDate !== 'Unknown') {
+          const parts = pDate.split('/');
+          if (parts.length === 3) {
+            const d = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+            d.setFullYear(d.getFullYear() + 2);
+            warrantyStr = `Yes (Till ${d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })})`;
+          }
+        }
+        vehiclesSet.set(jc.vehicleReg, {
+          model: jc.vehicleModel,
+          registration: jc.vehicleReg,
+          chassis: v.chassisNo || 'Unknown',
+          purchaseDate: pDate,
+          status: 'Active',
+          statusClass: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
           image: v.imageUrl || 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=100',
-          price: `₹${Number(v.price).toLocaleString('en-IN')}`,
-          sellPrice: `₹${Number(v.sellPrice).toLocaleString('en-IN')}`,
           engine: v.engineNo,
-          category: v.type
+          category: v.type,
+          price: v.sellPrice ? `₹${Number(v.sellPrice).toLocaleString('en-IN')}` : 'N/A',
+          warrantyStr,
+          transmission: v.type?.toLowerCase().includes('auto') ? 'Automatic' : 'Manual',
+          brakes: v.type?.toLowerCase().includes('heavy') ? 'Air Brakes' : 'Disc/Drum'
         });
       }
-      return list;
-    }
+    });
 
-    return isRajesh 
-      ? [
-          {
-            model: 'John Deere 5050E',
-            registration: 'MH 12 AB 4567',
-            chassis: 'JD5050E998213',
-            purchaseDate: '15 Oct 2021',
-            status: 'Active',
-            statusClass: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
-            image: 'https://images.unsplash.com/photo-1594913785162-e6785b49eed5?auto=format&fit=crop&q=80&w=100'
-          },
-          {
-            model: 'JCB 3DX Xtra',
-            registration: 'MH 14 CD 8821',
-            chassis: 'JCB3DX001244',
-            purchaseDate: '02 Feb 2022',
-            status: 'In Service',
-            statusClass: 'bg-blue-50 text-blue-600 border border-blue-100',
-            image: 'https://images.unsplash.com/photo-1579294800821-694d95e86143?auto=format&fit=crop&q=80&w=100'
-          },
-          {
-            model: 'Swaraj 855 FE',
-            registration: 'MH 12 ZZ 9900',
-            chassis: 'SW855FE5521',
-            purchaseDate: '20 May 2022',
-            status: 'Retired',
-            statusClass: 'bg-slate-50 text-slate-500 border border-slate-200',
-            image: 'https://images.unsplash.com/photo-1594913785162-e6785b49eed5?auto=format&fit=crop&q=80&w=100'
+    dbSales.forEach(sale => {
+      const key = `SALE-${sale.invoiceNo}`;
+      if (!Array.from(vehiclesSet.values()).find(v => v.model === sale.vehicleModel)) {
+        // Try exact match first, then partial match to find the generic vehicle template
+        const v = dbVehicles.find(v => v.modelName === sale.vehicleModel || 
+                                       sale.vehicleModel.includes(v.modelName) || 
+                                       v.modelName.includes(sale.vehicleModel)) || {};
+        let warrantyStr = 'N/A';
+        if (sale.deliveryDate) {
+          const d = new Date(sale.deliveryDate);
+          if (!isNaN(d.getTime())) {
+            d.setFullYear(d.getFullYear() + 2);
+            warrantyStr = `Yes (Till ${d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })})`;
           }
-        ]
-      : [
-          {
-            model: 'Eicher Pro 6028',
-            registration: 'MH 12 XY 9876',
-            chassis: 'EC6028X8Y110022',
-            purchaseDate: '10 Jan 2023',
-            status: 'Active',
-            statusClass: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
-            image: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=100'
-          }
-        ];
+        }
+        vehiclesSet.set(key, {
+          model: sale.vehicleModel,
+          registration: 'Pending Reg.',
+          chassis: v.chassisNo || 'Unknown',
+          purchaseDate: sale.deliveryDate,
+          status: sale.status === 'DELIVERED' ? 'Active' : sale.status,
+          statusClass: sale.status === 'DELIVERED' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100',
+          image: v.imageUrl || 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=100',
+          engine: v.engineNo,
+          category: v.type,
+          price: sale.grandTotal ? `₹${Number(sale.grandTotal.toString().replace(/[^\d.]/g, '')).toLocaleString('en-IN')}` : 'N/A',
+          warrantyStr,
+          transmission: v.type?.toLowerCase().includes('auto') ? 'Automatic' : 'Manual',
+          brakes: v.type?.toLowerCase().includes('heavy') ? 'Air Brakes' : 'Disc/Drum'
+        });
+      }
+    });
+
+    return Array.from(vehiclesSet.values());
   };
 
   const vehicleHistory = getVehicleHistory();
@@ -150,14 +181,6 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
 
 
 
-  if (selectedVehicle) {
-    return (
-      <VehicleDetailView 
-        vehicle={selectedVehicle} 
-        onBack={() => setSelectedVehicle(null)} 
-      />
-    );
-  }
 
   if (isEditing) {
     return (
@@ -325,7 +348,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
               }`}>Outstanding</span>
               <h2 className={`text-3xl font-extrabold m-0 font-heading ${
                 customerMeta.isOverdue ? 'text-red-700' : 'text-slate-900'
-              }`}>{customer.outstanding}</h2>
+              }`}>{dynamicOutstandingStr}</h2>
             </div>
           </div>
 
@@ -404,8 +427,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
                             className="w-10 h-8 object-cover rounded-md border border-slate-100 shadow-xs flex-shrink-0"
                           />
                           <span 
-                            onClick={() => setSelectedVehicle(veh)}
-                            className="font-extrabold text-slate-800 cursor-pointer hover:underline hover:text-[#184edb]"
+                            className="font-extrabold text-slate-800 hover:underline hover:text-[#184edb]"
                           >
                             {veh.model}
                           </span>
@@ -421,7 +443,6 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
                       </td>
                       <td className="p-4 px-6 border-b border-slate-100 text-center">
                         <button 
-                          onClick={() => setSelectedVehicle(veh)}
                           className="bg-transparent border-none text-[#184edb] hover:text-blue-800 cursor-pointer p-1"
                         >
                           <Eye size={15} />
@@ -436,44 +457,15 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
 
           {/* SERVICES TAB */}
           {activeTab === 'services' && (() => {
-            const serviceLog = [
-              {
-                jobCard: 'JC-2024-9182',
-                date: 'Oct 12, 2023',
-                description: 'Hydraulic pump failure & filter replacement',
-                mechanic: 'Mark Henderson',
-                labour: '$450.00',
-                parts: '$1,240.50',
-                total: '$1,690.50'
-              },
-              {
-                jobCard: 'JC-2024-9245',
-                date: 'Feb 15, 2024',
-                description: 'Engine diagnostic & routine 1000hr service',
-                mechanic: 'Sarah Jenkins',
-                labour: '$280.00',
-                parts: '$310.20',
-                total: '$590.20'
-              },
-              {
-                jobCard: 'JC-2023-8812',
-                date: 'Nov 05, 2023',
-                description: 'Track adjustment & sprocket inspection',
-                mechanic: 'Mark Henderson',
-                labour: '$320.00',
-                parts: '$0.00',
-                total: '$320.00'
-              },
-              {
-                jobCard: 'JC-2023-8700',
-                date: 'Aug 22, 2023',
-                description: 'Electrical short in lighting system',
-                mechanic: 'David Smith',
-                labour: '$120.00',
-                parts: '$45.50',
-                total: '$165.50'
-              }
-            ];
+            const serviceLog = dbJobCards.map(jc => ({
+              jobCard: jc.jcNumber,
+              date: jc.inTime ? new Date(jc.inTime).toLocaleDateString('en-IN') : 'Unknown',
+              description: jc.complaintSummary,
+              mechanic: jc.mechanicName,
+              labour: '-',
+              parts: '-',
+              total: jc.status
+            }));
 
             const filteredLogs = serviceLog.filter(log => 
               log.jobCard.toLowerCase().includes(serviceSearchTerm.toLowerCase()) ||
@@ -560,7 +552,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
                 {/* Table Footer */}
                 <div className="p-4 bg-slate-50/10 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
                   <div>
-                    Showing {filteredLogs.length} of 24 records
+                    Showing {filteredLogs.length} of {dbJobCards.length} records
                   </div>
                   <div className="flex items-center gap-1">
                     <button className="w-7 h-7 bg-white border border-slate-200 rounded-md flex items-center justify-center text-slate-400 cursor-pointer hover:bg-slate-50" disabled>
@@ -581,50 +573,39 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
 
           {/* PAYMENTS TAB */}
           {activeTab === 'payments' && (() => {
-            const paymentHistory = [
-              {
-                invoiceNo: '#INV-2023-0892',
-                subtitle: 'Parts & Spare Maintenance',
-                date: 'Oct 12, 2023',
-                amount: '1,45,000.00',
-                paid: '1,45,000.00',
-                balance: '0.00',
-                method: 'Bank Transfer',
+            const paymentHistory = [];
+            dbSales.forEach(s => {
+              paymentHistory.push({
+                invoiceNo: s.invoiceNo,
+                subtitle: s.vehicleModel,
+                date: s.deliveryDate,
+                amount: s.grandTotal,
+                paid: s.advancePaid || (s.status === 'DELIVERED' ? s.grandTotal : '₹0'),
+                balance: s.balanceAmount || (s.status === 'DELIVERED' ? '₹0' : s.grandTotal),
+                method: s.status === 'DELIVERED' ? 'Bank Transfer' : 'Not Applicable',
                 isUpi: false,
+                isNa: s.status !== 'DELIVERED',
+                status: s.status === 'DELIVERED' ? 'PAID' : (s.status === 'PENDING' ? 'UNPAID' : 'CANCELLED'),
+                statusClass: s.status === 'DELIVERED' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100',
+                receiptAvailable: s.status === 'DELIVERED'
+              });
+            });
+            dbTransactions.forEach(t => {
+              paymentHistory.push({
+                invoiceNo: t.refId,
+                subtitle: t.vehicleJob,
+                date: t.date,
+                amount: t.amount,
+                paid: t.amount,
+                balance: '₹0',
+                method: t.method,
+                isUpi: t.method.includes('UPI'),
                 isNa: false,
                 status: 'PAID',
                 statusClass: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
                 receiptAvailable: true
-              },
-              {
-                invoiceNo: '#INV-2023-0714',
-                subtitle: 'JCB Excavator 3DX Service',
-                date: 'Sep 28, 2023',
-                amount: '4,28,500.00',
-                paid: '0.00',
-                balance: '4,28,500.00',
-                method: 'Not Applicable',
-                isUpi: false,
-                isNa: true,
-                status: 'UNPAID',
-                statusClass: 'bg-amber-50 text-amber-600 border border-amber-100',
-                receiptAvailable: false
-              },
-              {
-                invoiceNo: '#INV-2023-0601',
-                subtitle: 'Engine Overhaul - Unit B4',
-                date: 'Aug 15, 2023',
-                amount: '8,75,200.00',
-                paid: '5,00,000.00',
-                balance: '3,75,200.00',
-                method: 'UPI / Digital',
-                isUpi: true,
-                isNa: false,
-                status: 'PARTIAL',
-                statusClass: 'bg-blue-50 text-blue-600 border border-blue-100',
-                receiptAvailable: true
-              }
-            ];
+              });
+            });
 
             return (
               <div className="flex flex-col w-full">

@@ -20,7 +20,19 @@ import SignUp from './pages/SignUp';
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedCustomerName, setSelectedCustomerName] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(() => {
+    const saved = localStorage.getItem('dms_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const handleSetCurrentUser = (user: { name: string; email: string } | null) => {
+    setCurrentUser(user);
+    if (user) {
+      localStorage.setItem('dms_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('dms_user');
+    }
+  };
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -105,7 +117,7 @@ function App() {
   });
 
   // Lifted Service sub-tab and search state
-  const [serviceSubTab, setServiceSubTab] = useState<'dashboard' | 'open-job-cards' | 'completed-jobs' | 'service-history'>('dashboard');
+  const [serviceSubTab, setServiceSubTab] = useState<'dashboard' | 'open-job-cards' | 'completed-jobs' | 'service-history' | 'job-queue'>('dashboard');
   const [serviceSearchTerm, setServiceSearchTerm] = useState('');
 
   const updateCompanySettingsState = (newSettings: any) => {
@@ -162,13 +174,13 @@ function App() {
     setServiceSearchTerm('');
   };
 
-  const handleNavigateToService = (subTab: 'dashboard' | 'open-job-cards' | 'completed-jobs' | 'service-history') => {
+  const handleNavigateToService = (subTab: 'dashboard' | 'open-job-cards' | 'completed-jobs' | 'service-history' | 'job-queue') => {
     setServiceSubTab(subTab);
     handleSetActiveTab('service');
   };
 
   if (!currentUser) {
-    return <SignUp onAuthSuccess={setCurrentUser} />;
+    return <SignUp onAuthSuccess={handleSetCurrentUser} />;
   }
 
   return (
@@ -188,6 +200,7 @@ function App() {
           searchTerm={serviceSearchTerm}
           setSearchTerm={setServiceSearchTerm}
           userName={currentUser.name}
+          onLogout={() => handleSetCurrentUser(null)}
         />
         <main className="flex-1 flex flex-col box-border">
           {activeTab === 'dashboard' ? (

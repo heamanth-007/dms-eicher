@@ -13,7 +13,6 @@ import {
   FileText,
   Clock,
   Search,
-  CheckCircle,
   FolderOpen
 } from 'lucide-react';
 

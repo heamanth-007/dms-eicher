@@ -147,130 +147,48 @@ export const Mechanics: React.FC = () => {
       .catch(err => console.error('Error assigning job:', err));
   };
 
-  const historyJobs = [
-    {
-      id: '#JOB-22481',
-      mechanicName: 'Mark Benson',
-      mechanicInitials: 'MB',
-      mechanicBg: 'bg-blue-100 text-blue-650',
-      customerName: 'Elena Rodriguez',
-      vehicle: 'Tesla Model 3 • ABC-1234',
-      serviceType: 'WARRANTY REPAIR',
-      serviceBg: 'bg-blue-50 text-blue-600 border border-blue-100',
-      serviceColor: 'text-blue-600',
-      inDate: '12 Oct',
-      outDate: '14 Oct',
-      hours: '14.5 hrs',
-      rating: 5
-    },
-    {
-      id: '#JOB-22479',
-      mechanicName: 'John Harrison',
-      mechanicInitials: 'JH',
-      mechanicBg: 'bg-indigo-50 text-indigo-600',
-      customerName: 'Sam Wilson',
-      vehicle: 'Ford F-150 • XYZ-9876',
-      serviceType: 'ROUTINE SERVICE',
-      serviceBg: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
-      serviceColor: 'text-emerald-600',
-      inDate: '14 Oct',
-      outDate: '14 Oct',
-      hours: '2.0 hrs',
-      rating: 4
-    },
-    {
-      id: '#JOB-22475',
-      mechanicName: 'Andre Lopez',
-      mechanicInitials: 'AL',
-      mechanicBg: 'bg-[#e0e7ff] text-[#4f46e5]',
-      customerName: 'Sarah Connor',
-      vehicle: 'Toyota Camry • T800-444',
-      serviceType: 'ENGINE REBUILD',
-      serviceBg: 'bg-orange-50 text-orange-655 border border-orange-100',
-      serviceColor: 'text-orange-655',
-      inDate: '05 Oct',
-      outDate: '13 Oct',
-      hours: '48.0 hrs',
-      rating: 5
-    }
-  ];
+  const formattedJobCards = jobCards.map(jc => {
+    const colors = ['bg-emerald-100 text-emerald-600', 'bg-orange-100 text-orange-600', 'bg-rose-100 text-rose-600', 'bg-blue-100 text-blue-600', 'bg-purple-100 text-purple-650'];
+    const charCode = jc.mechanicName ? jc.mechanicName.charCodeAt(0) : 0;
+    const mechanicBg = colors[charCode % colors.length];
 
+    let statusDisplay = 'Pending';
+    if (jc.status === 'IN PROGRESS') statusDisplay = 'In Progress';
+    if (jc.status === 'COMPLETED') statusDisplay = 'Completed';
+    if (jc.status === 'ASSIGNED') statusDisplay = 'Pending';
+    if (jc.status === 'READY') statusDisplay = 'Waiting for Parts';
 
-  const queueJobs = [
-    {
-      id: '#JO-8821',
-      mechanic: 'Mark Stevens',
-      mechanicInitials: 'MS',
-      mechanicBg: 'bg-blue-100 text-blue-650',
-      customer: 'Jonathan Wick',
-      vehicle: '2023 Ford F-150 Raptor',
-      serviceType: 'Engine Diagnostics',
-      assigned: 'Oct 24',
-      expected: 'Oct 25, 14:00',
-      expectedBold: true,
-      expectedRed: true,
-      status: 'In Progress',
-      statusDot: 'bg-blue-500',
-      statusColor: 'text-blue-600',
-      statusBg: 'bg-blue-50 text-blue-600 border-blue-100',
-      priority: 'High',
-      priorityBg: 'bg-rose-50 text-rose-600 border border-rose-100'
-    },
-    {
-      id: '#JO-8822',
-      mechanic: 'Laura Chen',
-      mechanicInitials: 'LC',
-      mechanicBg: 'bg-purple-100 text-purple-650',
-      customer: 'Sarah Miller',
-      vehicle: '2021 Toyota Camry Hybrid',
-      serviceType: 'Brake Pad Replace',
-      assigned: 'Oct 24',
-      expected: 'Oct 26, 10:00',
-      expectedBold: true,
-      expectedRed: false,
-      status: 'Waiting for Parts',
-      statusDot: 'bg-slate-400',
-      statusColor: 'text-slate-600',
-      statusBg: 'bg-slate-50 text-slate-650 border-slate-200',
-      priority: 'Medium',
-      priorityBg: 'bg-amber-50 text-amber-600 border border-amber-100'
-    },
-    {
-      id: '#JO-8825',
-      mechanic: 'David Jones',
-      mechanicInitials: 'DJ',
-      mechanicBg: 'bg-blue-150 text-blue-700',
-      customer: 'Robert Evans',
-      vehicle: '2024 Chevrolet Silverado',
-      serviceType: 'Oil Change & Filter',
-      assigned: 'Oct 25',
-      expected: 'Oct 25, 17:00',
+    return {
+      id: jc.jcNumber,
+      mechanic: jc.mechanicName || 'Unassigned',
+      mechanicInitials: jc.mechanicInitials || 'UN',
+      mechanicBg,
+      customer: jc.customerName,
+      vehicle: `${jc.vehicleModel} • ${jc.vehicleReg}`,
+      serviceType: jc.complaintSummary,
+      assigned: jc.inTime,
+      expected: jc.expectedDelivery || 'TBD',
       expectedBold: false,
-      expectedRed: false,
-      status: 'Pending',
-      statusIcon: 'Clock',
-      statusColor: 'text-slate-600',
-      priority: 'Low',
-      priorityBg: 'bg-blue-50 text-[#184edb] border border-blue-100'
-    },
-    {
-      id: '#JO-8819',
-      mechanic: 'Laura Chen',
-      mechanicInitials: 'LC',
-      mechanicBg: 'bg-slate-100 text-slate-450',
-      customer: 'Amanda King',
-      vehicle: '2020 Honda CR-V',
-      assigned: '',
-      expected: '',
-      doneTime: 'Done: 09:45 AM',
-      status: 'Completed',
-      statusIcon: 'CheckCircle',
-      statusColor: 'text-emerald-600',
-      priority: 'Low',
-      priorityBg: 'bg-slate-100 text-slate-500 border border-slate-200',
-      faded: true
-    }
-  ];
+      expectedRed: jc.isDelayed,
+      status: statusDisplay,
+      priority: jc.isDelayed ? 'High' : 'Medium',
+      priorityBg: jc.isDelayed ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-amber-50 text-amber-600 border border-amber-100',
+      doneTime: jc.status === 'COMPLETED' ? jc.expectedDelivery : '',
+      faded: jc.status === 'COMPLETED',
+      // Fields specific to historyJobs
+      mechanicName: jc.mechanicName || 'Unassigned',
+      serviceColor: 'text-blue-600',
+      serviceBg: 'bg-blue-50 text-blue-600 border border-blue-100',
+      inDate: jc.inTime,
+      outDate: jc.expectedDelivery || 'TBD',
+      hours: 'N/A',
+      rating: 5,
+      customerName: jc.customerName
+    };
+  });
+
+  const historyJobs = formattedJobCards.filter(j => j.faded);
+  const queueJobs = formattedJobCards.filter(j => !j.faded);
 
   // Register form states
   const [fullName, setFullName] = useState('');

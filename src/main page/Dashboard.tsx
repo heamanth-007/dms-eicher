@@ -73,6 +73,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
   const [parts, setParts] = useState<PartType[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierType[]>([]);
   const [jobcards, setJobcards] = useState<JobCardType[]>([]);
+  const [sales, setSales] = useState<any[]>([]);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -83,11 +84,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           setCustomers(data);
-        } else {
-          setFallbackCustomers();
         }
       })
-      .catch(() => setFallbackCustomers());
+      .catch(err => console.error('Error fetching customers:', err));
 
     // Fetch transactions
     fetch(`${API_URL}/api/transactions`)
@@ -95,11 +94,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           setTransactions(data);
-        } else {
-          setFallbackTransactions();
         }
       })
-      .catch(() => setFallbackTransactions());
+      .catch(err => console.error('Error fetching transactions:', err));
 
     // Fetch parts
     fetch(`${API_URL}/api/parts`)
@@ -130,70 +127,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
         }
       })
       .catch(err => console.error('Error fetching jobcards:', err));
+
+    // Fetch sales
+    fetch(`${API_URL}/api/sales`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setSales(data);
+        }
+      })
+      .catch(err => console.error('Error fetching sales:', err));
   }, []);
 
-  const setFallbackCustomers = () => {
-    setCustomers([
-      {
-        id: '#CUST-8291',
-        name: 'Arjun Mehta',
-        avatar: 'AM',
-        avatarBg: 'bg-green-100 text-green-600',
-        phone: '',
-        district: '',
-        vehicles: 0,
-        lastService: '',
-        outstanding: '',
-        status: 'Active'
-      },
-      {
-        id: '#CUST-8292',
-        name: 'Priya Transport',
-        avatar: 'PT',
-        avatarBg: 'bg-blue-50 text-blue-500',
-        phone: '',
-        district: '',
-        vehicles: 0,
-        lastService: '',
-        outstanding: '',
-        status: 'Priority'
-      }
-    ]);
-  };
 
-  const setFallbackTransactions = () => {
-    setTransactions([
-      {
-        refId: 'TRX-10294',
-        payeeName: 'Metro Logistics',
-        method: 'RTGS/Bank',
-        vehicleJob: 'Eicher Pro 2055',
-        date: 'Oct 14, 2023',
-        amount: '₹1,45,000',
-        status: 'Paid'
-      },
-      {
-        refId: 'TRX-10295',
-        payeeName: 'Kishan Singh',
-        method: 'UPI/QR',
-        vehicleJob: 'Eicher Skyline',
-        date: 'Oct 14, 2023',
-        amount: '₹12,400',
-        status: 'Partially Paid'
-      }
-    ]);
-  };
 
   // Helper calculations
-  const openJobsCount = jobcards.filter(jc => jc.status !== 'COMPLETED').length || 45;
-  const closedJobsCount = jobcards.filter(jc => jc.status === 'COMPLETED').length || 18;
-  const pendingDeliveryCount = jobcards.filter(jc => jc.readyForPickup).length || 15;
+  const openJobsCount = jobcards.filter(jc => jc.status !== 'COMPLETED').length;
+  const closedJobsCount = jobcards.filter(jc => jc.status === 'COMPLETED').length;
+  const pendingDeliveryCount = jobcards.filter(jc => jc.readyForPickup).length;
 
-  const totalOutstanding = customers.reduce((sum, c) => {
-    if (!c.outstanding) return sum;
-    const value = parseFloat(c.outstanding.replace(/[^\d.]/g, ''));
-    return isNaN(value) ? sum : sum + value;
-  }, 0) || 210000;
+  const totalOutstanding = sales.reduce((sum, s) => {
+    if (s.status === 'PENDING') {
+      const balStr = s.balanceAmount || s.grandTotal || '0';
+      const balNum = Number(balStr.toString().replace(/[^\d.]/g, '')) || 0;
+      return sum + balNum;
+    }
+    return sum;
+  }, 0);
 
   const outstandingStr = totalOutstanding >= 100000
     ? `₹${(totalOutstanding / 100000).toFixed(2)}L`
@@ -203,13 +163,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
     if (!t.amount) return sum;
     const value = parseFloat(t.amount.replace(/[^\d.]/g, ''));
     return isNaN(value) ? sum : sum + value;
-  }, 0) || 840000;
+  }, 0);
 
   const collectionStr = totalCollection >= 100000
     ? `₹${(totalCollection / 100000).toFixed(2)}L`
     : `₹${totalCollection.toLocaleString('en-IN')}`;
 
-  const lowStockCount = parts.filter(p => p.stockStatus === 'low' || p.stockStatus === 'out').length || 32;
+  const lowStockCount = parts.filter(p => p.stockStatus === 'low' || p.stockStatus === 'out').length;
 
   const filteredTransactions = transactions.filter(t =>
     t.payeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
