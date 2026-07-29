@@ -631,11 +631,11 @@ app.get('/api/vehicles', async (req, res) => {
 app.put('/api/vehicles/:id', async (req, res) => {
   try {
     let updateData = { ...req.body };
-    if (updateData.stock !== undefined) {
+    if (!updateData.status && updateData.stock !== undefined) {
       const currentStock = Number(updateData.stock);
       if (currentStock <= 0) {
         updateData.status = 'Out of Stock';
-      } else if (currentStock > 0 && (!updateData.status || updateData.status === 'Out of Stock' || updateData.status === 'Sold')) {
+      } else {
         updateData.status = 'Available';
       }
     }

@@ -23,9 +23,6 @@ import {
   RefreshCw,
   History,
   Info,
-  Clock,
-  ExternalLink,
-  Sliders,
   ArrowLeft,
   Eye,
   Edit,
@@ -47,6 +44,7 @@ interface VehicleType {
   imageSvg: React.ReactNode;
   imageUrl?: string;
   stock: number;
+  year: string;
 }
 
 export const VehicleInventory: React.FC = () => {
@@ -66,27 +64,18 @@ export const VehicleInventory: React.FC = () => {
   const [regNumber, setRegNumber] = useState('MH-12-FG-8821');
   const [chassisNumber, setChassisNumber] = useState('EIC3015X2024KL9902');
   const [engineNumber, setEngineNumber] = useState('E494-CRT-24');
-  const [fuelType, setFuelType] = useState('Diesel');
-  const [gvw, setGvw] = useState('16,020 KG');
-  const [wheelbase, setWheelbase] = useState('4490 mm');
-  const [transmission, setTransmission] = useState('6-Speed ET40S6');
-  const [mfgYear, setMfgYear] = useState('2024');
-  const [odometer, setOdometer] = useState('12450');
   const [vehicleStock, setVehicleStock] = useState('1');
+  const [vehicleStatus, setVehicleStatus] = useState('Available');
 
   // Register view form states
   const [regVehicleType, setRegVehicleType] = useState('Eicher');
-  const [regBrand, setRegBrand] = useState('Eicher');
   const [regModel, setRegModel] = useState('');
   const [regImage, setRegImage] = useState<string | null>(null);
   const [regColor, setRegColor] = useState('');
   const [regEngineNum, setRegEngineNum] = useState('');
   const [regChassisNum, setRegChassisNum] = useState('');
-  const [regPurchaseDate, setRegPurchaseDate] = useState('');
   const [regPurchasePrice, setRegPurchasePrice] = useState('');
   const [regSellingPrice, setRegSellingPrice] = useState('');
-  const [regStockLoc, setRegStockLoc] = useState('Main Warehouse (Bay A)');
-  const [regRemarks, setRegRemarks] = useState('');
   const [regStock, setRegStock] = useState('1');
 
   // SVGs for the vehicles
@@ -240,13 +229,30 @@ export const VehicleInventory: React.FC = () => {
             status: v.status || 'Available',
             stock: v.stock || 0,
             imageSvg: getVehicleSVG(v.type),
-            imageUrl: v.imageUrl
+            imageUrl: v.imageUrl,
+            year: v.createdAt ? new Date(v.createdAt).getFullYear().toString() : '2024'
           }));
           setVehicles(formatted);
         }
       })
       .catch(err => console.error('Error fetching vehicles:', err));
   };
+
+  // Filter logic
+  const filteredVehicles = vehicles.filter(v => {
+    if (statusFilter !== 'All' && v.status !== statusFilter) return false;
+    if (brandFilter !== 'All' && !v.model.toLowerCase().includes(brandFilter.toLowerCase())) return false;
+    if (typeFilter !== 'All' && v.category !== typeFilter) return false;
+    if (searchTerm) {
+      const lower = searchTerm.toLowerCase();
+      if (!v.model.toLowerCase().includes(lower) && 
+          !v.id.toLowerCase().includes(lower) && 
+          !(v.chs && v.chs.toLowerCase().includes(lower))) {
+        return false;
+      }
+    }
+    return true;
+  });
 
   useEffect(() => {
     fetchVehicles();
@@ -302,7 +308,8 @@ export const VehicleInventory: React.FC = () => {
       modelName: vehicleModel,
       engineNo: engineNumber,
       chassisNo: chassisNumber,
-      stock: Number(vehicleStock) || 0
+      stock: Number(vehicleStock) || 0,
+      status: vehicleStatus
     };
 
     fetch(`${API_URL}/api/vehicles/${encodeURIComponent(editingVehicleId)}`, {
@@ -350,7 +357,8 @@ export const VehicleInventory: React.FC = () => {
               setRegNumber(selectedVehicle.id);
               setChassisNumber(selectedVehicle.chs);
               setEngineNumber(selectedVehicle.eng);
-              setVehicleStock(selectedVehicle.stock.toString());
+              setVehicleStock(selectedVehicle.stock?.toString() || '0');
+              setVehicleStatus(selectedVehicle.status || 'Available');
               setEditingVehicleId(selectedVehicle.id);
               setIsEditing(true);
               setViewingDetails(false);
@@ -383,7 +391,7 @@ export const VehicleInventory: React.FC = () => {
         </div>
 
         {/* Main Info Blocks (Visuals and Spec Highlights) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch w-full box-border">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start w-full box-border">
           {/* Visual Container */}
           <div className="lg:col-span-1 rounded-xl overflow-hidden border border-slate-200 relative min-h-[220px] bg-slate-100 flex items-center justify-center p-4">
             <div className="w-full h-full max-h-36 flex items-center justify-center">
@@ -404,8 +412,8 @@ export const VehicleInventory: React.FC = () => {
           </div>
 
           {/* Quick Specs Highlight Box */}
-          <div className="lg:col-span-2 flex flex-col justify-between gap-4">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-1">
+          <div className="lg:col-span-2 flex flex-col justify-start gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {/* Brand */}
               <div className="bg-[#f1f3fa] rounded-xl p-4 flex flex-col gap-1.5 border border-slate-150">
                 <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Brand</span>
@@ -414,7 +422,7 @@ export const VehicleInventory: React.FC = () => {
               {/* Year */}
               <div className="bg-[#f1f3fa] rounded-xl p-4 flex flex-col gap-1.5 border border-slate-150">
                 <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Year</span>
-                <span className="text-[16px] font-bold text-slate-800">2024</span>
+                <span className="text-[16px] font-bold text-slate-800">{selectedVehicle.year}</span>
               </div>
               {/* Engine */}
               <div className="bg-[#f1f3fa] rounded-xl p-4 flex flex-col gap-1.5 border border-slate-150">
@@ -428,25 +436,7 @@ export const VehicleInventory: React.FC = () => {
               </div>
             </div>
 
-            {/* Feature Pills */}
-            <div className="flex flex-wrap gap-3">
-              <span className="bg-[#eff2fc] text-slate-700 text-[13px] font-semibold px-4 py-2 rounded-lg flex items-center gap-2 border border-[#d2d9f9]">
-                <Clock size={16} className="text-[#184edb]" />
-                0 Operating Hours
-              </span>
-              <span className="bg-[#eff2fc] text-slate-700 text-[13px] font-semibold px-4 py-2 rounded-lg flex items-center gap-2 border border-[#d2d9f9]">
-                <Sliders size={16} className="text-[#184edb]" />
-                Power Shift
-              </span>
-              <span className="bg-[#eff2fc] text-slate-700 text-[13px] font-semibold px-4 py-2 rounded-lg flex items-center gap-2 border border-[#d2d9f9]">
-                <Wrench size={16} className="text-[#184edb]" />
-                Registered Unit
-              </span>
-              <span className="bg-[#eff2fc] text-slate-700 text-[13px] font-semibold px-4 py-2 rounded-lg flex items-center gap-2 border border-[#d2d9f9]">
-                <ShoppingCart size={16} className="text-[#184edb]" />
-                In Stock: {selectedVehicle.stock} Units
-              </span>
-            </div>
+
           </div>
         </div>
 
@@ -492,51 +482,7 @@ export const VehicleInventory: React.FC = () => {
           </div>
         </div>
 
-        {/* Technical Specs Detail Card */}
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 flex flex-col gap-5 w-full box-border">
-          <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
-            <h2 className="text-[16px] font-bold text-slate-800 m-0">
-              Technical Specifications
-            </h2>
-            <div className="text-slate-400 hover:text-[#184edb] cursor-pointer">
-              <ExternalLink size={16} />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3.5 text-[14px]">
-            {/* Column 1 */}
-            <div className="flex flex-col gap-3.5">
-              <div className="flex justify-between items-center py-1.5 border-b border-slate-55">
-                <span className="text-slate-550 font-medium">Engine Model</span>
-                <span className="font-bold text-slate-800">{selectedVehicle.eng}</span>
-              </div>
-              <div className="flex justify-between items-center py-1.5 border-b border-slate-55">
-                <span className="text-slate-550 font-medium">Transmission</span>
-                <span className="font-bold text-slate-800">Hydrostatic / Manual</span>
-              </div>
-              <div className="flex justify-between items-center py-1.5 border-b border-slate-55">
-                <span className="text-slate-550 font-medium">Emission Level</span>
-                <span className="font-bold text-slate-800">BS-VI Compliant</span>
-              </div>
-            </div>
-
-            {/* Column 2 */}
-            <div className="flex flex-col gap-3.5">
-              <div className="flex justify-between items-center py-1.5 border-b border-slate-55">
-                <span className="text-slate-505 font-medium">Max Digging Depth</span>
-                <span className="font-bold text-slate-800">7.2 Meters</span>
-              </div>
-              <div className="flex justify-between items-center py-1.5 border-b border-slate-55">
-                <span className="text-slate-505 font-medium">Bucket Capacity</span>
-                <span className="font-bold text-slate-800">1.4 m³</span>
-              </div>
-              <div className="flex justify-between items-center py-1.5 border-b border-slate-55">
-                <span className="text-slate-505 font-medium">Drive Type</span>
-                <span className="font-bold text-slate-800">Crawler Track</span>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     );
   }
@@ -608,15 +554,7 @@ export const VehicleInventory: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Brand</label>
-                  <input
-                    type="text"
-                    value={regBrand}
-                    onChange={(e) => setRegBrand(e.target.value)}
-                    className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
-                  />
-                </div>
+
 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Model</label>
@@ -662,16 +600,7 @@ export const VehicleInventory: React.FC = () => {
                   />
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Purchase Date</label>
-                  <input
-                    type="text"
-                    placeholder="mm/dd/yyyy"
-                    value={regPurchaseDate}
-                    onChange={(e) => setRegPurchaseDate(e.target.value)}
-                    className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
-                  />
-                </div>
+
 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Purchase Price (₹)</label>
@@ -691,6 +620,17 @@ export const VehicleInventory: React.FC = () => {
                     placeholder="0.00"
                     value={regSellingPrice}
                     onChange={(e) => setRegSellingPrice(e.target.value)}
+                    className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Initial Stock Quantity</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={regStock}
+                    onChange={(e) => setRegStock(e.target.value)}
                     className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
                   />
                 </div>
@@ -725,58 +665,7 @@ export const VehicleInventory: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-col gap-6">
-            <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-              <div className="bg-[#eef2ff] text-[#184edb] p-2 rounded-lg flex items-center justify-center">
-                <ImageIcon size={18} />
-              </div>
-              <h2 className="text-[16px] font-bold text-slate-800 m-0">
-                Inventory & Logistics
-              </h2>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Stock Location</label>
-                <div className="relative">
-                  <select
-                    value={regStockLoc}
-                    onChange={(e) => setRegStockLoc(e.target.value)}
-                    className="w-full appearance-none bg-[#fff] border border-slate-200 rounded-lg py-2.5 pl-4 pr-10 text-[14px] text-slate-850 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
-                  >
-                    <option value="Main Warehouse (Bay A)">Main Warehouse (Bay A)</option>
-                    <option value="Offsite Lot B">Offsite Lot B</option>
-                    <option value="Staging Lot C">Staging Lot C</option>
-                  </select>
-                  <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 pointer-events-none">
-                    <ChevronDown size={16} />
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5 md:col-span-2">
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Remarks / Additional Notes</label>
-                <textarea
-                  placeholder="Mention any specific accessories, pre-existing conditions, or delivery notes..."
-                  value={regRemarks}
-                  onChange={(e) => setRegRemarks(e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors resize-none font-sans"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Initial Stock Quantity</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={regStock}
-                  onChange={(e) => setRegStock(e.target.value)}
-                  className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
-                />
-              </div>
-            </div>
-          </div>
         </div>
 
         <div className="bg-[#f8fafc] border border-slate-100 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 box-border">
@@ -948,91 +837,30 @@ export const VehicleInventory: React.FC = () => {
                     className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
                   />
                 </div>
-              </div>
-            </div>
 
-            {/* Technical Specifications */}
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 flex flex-col gap-5 box-border">
-              <div className="flex items-center gap-3 pb-3.5 border-b border-slate-100">
-                <div className="bg-[#eef2ff] text-[#184edb] p-2 rounded-lg flex items-center justify-center">
-                  <Settings size={18} />
-                </div>
-                <h2 className="text-[16px] font-bold text-slate-800 m-0">
-                  Technical Specifications
-                </h2>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">FUEL TYPE</label>
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">STATUS</label>
                   <div className="relative">
                     <select
-                      value={fuelType}
-                      onChange={(e) => setFuelType(e.target.value)}
+                      value={vehicleStatus}
+                      onChange={(e) => setVehicleStatus(e.target.value)}
                       className="w-full appearance-none bg-[#fff] border border-slate-200 rounded-lg py-2.5 pl-4 pr-10 text-[14px] text-slate-850 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
                     >
-                      <option value="Diesel">Diesel</option>
-                      <option value="Petrol">Petrol</option>
-                      <option value="CNG">CNG</option>
-                      <option value="Electric">Electric</option>
+                      <option value="Available">Available</option>
+                      <option value="Reserved">Reserved</option>
+                      <option value="Sold">Sold</option>
+                      <option value="In Service">In Service</option>
+                      <option value="Out of Stock">Out of Stock</option>
                     </select>
                     <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 pointer-events-none">
                       <ChevronDown size={16} />
                     </span>
                   </div>
                 </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">GVW (GROSS VEHICLE WEIGHT)</label>
-                  <input
-                    type="text"
-                    value={gvw}
-                    onChange={(e) => setGvw(e.target.value)}
-                    className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">WHEELBASE</label>
-                  <input
-                    type="text"
-                    value={wheelbase}
-                    onChange={(e) => setWheelbase(e.target.value)}
-                    className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">TRANSMISSION</label>
-                  <input
-                    type="text"
-                    value={transmission}
-                    onChange={(e) => setTransmission(e.target.value)}
-                    className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">MANUFACTURING YEAR</label>
-                  <input
-                    type="text"
-                    value={mfgYear}
-                    onChange={(e) => setMfgYear(e.target.value)}
-                    className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">ODOMETER (KM)</label>
-                  <input
-                    type="text"
-                    value={odometer}
-                    onChange={(e) => setOdometer(e.target.value)}
-                    className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
-                  />
-                </div>
               </div>
             </div>
+
+
 
             {/* Vehicle Visuals */}
             <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 flex flex-col gap-5 box-border">
@@ -1064,110 +892,7 @@ export const VehicleInventory: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-col gap-6">
-            {/* Inventory Insights */}
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 flex flex-col gap-5 box-border">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h2 className="text-[16px] font-bold text-slate-850 m-0">
-                  Inventory Insights
-                </h2>
-                <span className="bg-emerald-50 text-emerald-600 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-100">
-                  In Stock
-                </span>
-              </div>
 
-              <div className="bg-[#f3f4f6] rounded-lg p-3.5 flex flex-col gap-1">
-                <span className="text-[10px] font-bold text-slate-450 uppercase tracking-widest">LAST SYSTEM UPDATE</span>
-                <span className="text-[13.5px] font-bold text-slate-800">Oct 24, 2023 • 14:22 PM</span>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">INVENTORY HISTORY</span>
-                <div className="border border-slate-100 rounded-lg overflow-hidden">
-                  <table className="w-full text-left text-[12.5px]">
-                    <thead>
-                      <tr className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b border-slate-100">
-                        <th className="py-2.5 px-4 font-semibold">Action</th>
-                        <th className="py-2.5 px-4 font-semibold">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
-                      <tr>
-                        <td className="py-2.5 px-4">Procurement</td>
-                        <td className="py-2.5 px-4 text-slate-500">22/10/23</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2.5 px-4">QC Passed</td>
-                        <td className="py-2.5 px-4 text-slate-500">23/10/23</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2.5">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">PRICE HISTORY</span>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between p-3 border border-slate-150 rounded-lg">
-                    <div className="flex flex-col">
-                      <span className="text-[12.5px] font-bold text-slate-800">Current MSRP</span>
-                      <span className="text-[10px] text-slate-400 font-medium">Changed on 15 Oct</span>
-                    </div>
-                    <span className="text-lg font-bold text-[#184edb]">₹24.50L</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 border border-slate-100 rounded-lg bg-slate-50/50">
-                    <div className="flex flex-col">
-                      <span className="text-[12.5px] font-medium text-slate-500">Previous MSRP</span>
-                      <span className="text-[10px] text-slate-400 font-medium">Effective 1 Jan</span>
-                    </div>
-                    <span className="text-[15px] font-bold text-slate-500">₹23.85L</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">STATUS TIMELINE</span>
-                <div className="flex flex-col pl-2.5 relative border-l border-slate-200 gap-6 ml-1.5">
-                  <div className="relative flex flex-col gap-0.5">
-                    <span className="absolute -left-[15px] top-1.5 w-2 h-2 rounded-full bg-[#184edb] border-4 border-blue-100" />
-                    <span className="text-[13px] font-bold text-slate-800">Arrival at Workshop</span>
-                    <span className="text-[11px] text-slate-400 font-medium">Oct 20, 2023</span>
-                  </div>
-                  <div className="relative flex flex-col gap-0.5">
-                    <span className="absolute -left-[14px] top-1.5 w-1.5 h-1.5 rounded-full bg-slate-400 ring-4 ring-white" />
-                    <span className="text-[13px] font-bold text-slate-650">Diagnostic Phase</span>
-                    <span className="text-[11px] text-slate-400 font-medium">Oct 21, 2023</span>
-                  </div>
-                  <div className="relative flex flex-col gap-0.5">
-                    <span className="absolute -left-[14px] top-1.5 w-1.5 h-1.5 rounded-full bg-slate-400 ring-4 ring-white" />
-                    <span className="text-[13px] font-bold text-slate-650">Scheduled for Service</span>
-                    <span className="text-[11px] text-slate-400 font-medium">Oct 25, 2023</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Service Lifecycle */}
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 flex flex-col gap-4 box-border">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">SERVICE LIFECYCLE</span>
-
-              <div className="flex flex-col gap-2">
-                <div className="flex justify-between items-center text-[12px] font-semibold text-slate-500">
-                  <span>Arrival</span>
-                  <span>Ready</span>
-                </div>
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-[#184edb] h-full w-1/2" />
-                </div>
-              </div>
-
-              <div className="text-center pt-2">
-                <span className="text-[13.5px] font-bold text-[#184edb]">
-                  Currently: Diagnostic
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     );
@@ -1396,7 +1121,7 @@ export const VehicleInventory: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-[13.5px]">
-              {vehicles.map((v, idx) => (
+              {filteredVehicles.map((v, idx) => (
                 <tr
                   key={idx}
                   className={`hover:bg-slate-50/50 transition-colors cursor-pointer border-l-[3px] ${
@@ -1499,6 +1224,8 @@ export const VehicleInventory: React.FC = () => {
                           setRegNumber(v.id);
                           setChassisNumber(v.chs);
                           setEngineNumber(v.eng);
+                          setVehicleStock(v.stock?.toString() || '0');
+                          setVehicleStatus(v.status || 'Available');
                           setEditingVehicleId(v.id);
                           setIsEditing(true);
                           setIsRegistering(false);
@@ -1535,7 +1262,7 @@ export const VehicleInventory: React.FC = () => {
         {/* Table Footer / Pagination */}
         <div className="bg-[#f8fafc] border-t border-slate-100 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 w-full box-border">
           <span className="text-[13px] text-slate-500 font-medium">
-            Showing 1 to {vehicles.length} of {vehicles.length} entries
+            Showing 1 to {filteredVehicles.length} of {vehicles.length} entries
           </span>
 
           <div className="flex items-center gap-1.5">

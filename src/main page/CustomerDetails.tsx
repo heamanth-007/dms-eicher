@@ -104,73 +104,87 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
   }, [initialCustomer.name]);
 
   const getVehicleHistory = () => {
-    const vehiclesSet = new Map<string, any>();
-    
-    dbJobCards.forEach(jc => {
-      if (!vehiclesSet.has(jc.vehicleReg)) {
-        const v = dbVehicles.find(v => v.modelName === jc.vehicleModel) || {};
-        const pDate = v.createdAt ? new Date(v.createdAt).toLocaleDateString('en-IN') : 'Unknown';
-        let warrantyStr = 'N/A';
-        if (pDate !== 'Unknown') {
-          const parts = pDate.split('/');
-          if (parts.length === 3) {
-            const d = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
-            d.setFullYear(d.getFullYear() + 2);
-            warrantyStr = `Yes (Till ${d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })})`;
-          }
-        }
-        vehiclesSet.set(jc.vehicleReg, {
-          model: jc.vehicleModel,
-          registration: jc.vehicleReg,
-          chassis: v.chassisNo || 'Unknown',
-          purchaseDate: pDate,
-          status: 'Active',
-          statusClass: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
-          image: v.imageUrl || 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=100',
-          engine: v.engineNo,
-          category: v.type,
-          price: v.sellPrice ? `₹${Number(v.sellPrice).toLocaleString('en-IN')}` : 'N/A',
-          warrantyStr,
-          transmission: v.type?.toLowerCase().includes('auto') ? 'Automatic' : 'Manual',
-          brakes: v.type?.toLowerCase().includes('heavy') ? 'Air Brakes' : 'Disc/Drum'
-        });
-      }
-    });
+    const vehiclesList: any[] = [];
+    const modelCounts = new Map<string, number>();
 
+    // 1. Process all Sales first (Source of Truth for purchases)
     dbSales.forEach(sale => {
-      const key = `SALE-${sale.invoiceNo}`;
-      if (!Array.from(vehiclesSet.values()).find(v => v.model === sale.vehicleModel)) {
-        // Try exact match first, then partial match to find the generic vehicle template
-        const v = dbVehicles.find(v => v.modelName === sale.vehicleModel || 
-                                       sale.vehicleModel.includes(v.modelName) || 
-                                       v.modelName.includes(sale.vehicleModel)) || {};
-        let warrantyStr = 'N/A';
-        if (sale.deliveryDate) {
-          const d = new Date(sale.deliveryDate);
-          if (!isNaN(d.getTime())) {
-            d.setFullYear(d.getFullYear() + 2);
-            warrantyStr = `Yes (Till ${d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })})`;
+      const model = sale.vehicleModel;
+      const v = dbVehicles.find(v => v.modelName === model || model.includes(v.modelName) || v.modelName.includes(model)) || {};
+      
+      let isDelivered = sale.status === 'DELIVERED';
+      
+      if (sale.deliveryDate) {
+        const d = new Date(sale.deliveryDate);
+        if (!isNaN(d.getTime())) {
+          d.setFullYear(d.getFullYear() + 2);
+
+          
+          // If delivery date is past or today, automatically consider it delivered
+          const deliveryDateObj = new Date(sale.deliveryDate);
+          // Set time to 0 to only compare dates
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          deliveryDateObj.setHours(0, 0, 0, 0);
+          
+          if (deliveryDateObj <= today) {
+            isDelivered = true;
           }
         }
-        vehiclesSet.set(key, {
-          model: sale.vehicleModel,
-          registration: 'Pending Reg.',
-          chassis: v.chassisNo || 'Unknown',
-          purchaseDate: sale.deliveryDate,
-          status: sale.status === 'DELIVERED' ? 'Active' : sale.status,
-          statusClass: sale.status === 'DELIVERED' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100',
-          image: v.imageUrl || 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=100',
-          engine: v.engineNo,
-          category: v.type,
-          price: sale.grandTotal ? `₹${Number(sale.grandTotal.toString().replace(/[^\d.]/g, '')).toLocaleString('en-IN')}` : 'N/A',
-          warrantyStr,
-          transmission: v.type?.toLowerCase().includes('auto') ? 'Automatic' : 'Manual',
-          brakes: v.type?.toLowerCase().includes('heavy') ? 'Air Brakes' : 'Disc/Drum'
-        });
+      }
+
+      vehiclesList.push({
+        id: `SALE-${sale.invoiceNo}`,
+        model: model,
+        registration: 'Pending Reg.',
+        chassis: v.chassisNo || 'Unknown',
+        purchaseDate: sale.deliveryDate,
+        status: isDelivered ? 'Active' : sale.status,
+        statusClass: isDelivered ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100',
+        image: v.imageUrl || 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=100'
+      });
+    });
+
+    // 2. Process Job Cards
+    dbJobCards.forEach(jc => {
+      const model = jc.vehicleModel;
+      const reg = jc.vehicleReg;
+
+      const alreadyHasReg = vehiclesList.find(v => v.registration === reg);
+      
+      if (!alreadyHasReg) {
+        const unassignedSale = vehiclesList.find(v => v.model === model && v.registration === 'Pending Reg.');
+        
+        if (unassignedSale) {
+          unassignedSale.registration = reg;
+        } else {
+          const v = dbVehicles.find(v => v.modelName === model) || {};
+          const pDate = v.createdAt ? new Date(v.createdAt).toLocaleDateString('en-IN') : 'Unknown';
+          vehiclesList.push({
+            id: `JC-${reg}`,
+            model: model,
+            registration: reg,
+            chassis: v.chassisNo || 'Unknown',
+            purchaseDate: pDate,
+            status: 'Active',
+            statusClass: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+            image: v.imageUrl || 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=100'
+          });
+        }
       }
     });
 
-    return Array.from(vehiclesSet.values());
+    // 3. Count occurrences to mark duplicates for highlighting
+    vehiclesList.forEach(v => {
+      modelCounts.set(v.model, (modelCounts.get(v.model) || 0) + 1);
+    });
+
+    vehiclesList.forEach(v => {
+      v.isMultiple = (modelCounts.get(v.model) || 0) > 1;
+      v.count = modelCounts.get(v.model);
+    });
+
+    return vehiclesList;
   };
 
   const vehicleHistory = getVehicleHistory();
@@ -290,7 +304,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
             </div>
             <div className="flex flex-col gap-1 mt-2">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Vehicles</span>
-              <h2 className="text-3xl font-extrabold text-slate-900 m-0 font-heading">{customer.vehicles || vehicleHistory.length}</h2>
+              <h2 className="text-3xl font-extrabold text-slate-900 m-0 font-heading">{vehicleHistory.length}</h2>
             </div>
           </div>
 
@@ -418,19 +432,24 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
                 </thead>
                 <tbody>
                   {vehicleHistory.map((veh, i) => (
-                    <tr key={i} className="hover:bg-slate-50/40 transition-colors">
+                    <tr key={i} className={`hover:bg-slate-50/80 transition-colors ${veh.isMultiple ? 'bg-blue-50/40' : ''}`}>
                       <td className="p-4 px-6 border-b border-slate-100">
                         <div className="flex items-center gap-3">
                           <img 
                             src={veh.image} 
                             alt={veh.model}
-                            className="w-10 h-8 object-cover rounded-md border border-slate-100 shadow-xs flex-shrink-0"
+                            className={`w-10 h-8 object-cover rounded-md border shadow-xs flex-shrink-0 ${veh.isMultiple ? 'border-blue-300 ring-2 ring-blue-100' : 'border-slate-100'}`}
                           />
-                          <span 
-                            className="font-extrabold text-slate-800 hover:underline hover:text-[#184edb]"
-                          >
-                            {veh.model}
-                          </span>
+                          <div className="flex flex-col">
+                            <span className="font-extrabold text-slate-800 hover:underline hover:text-[#184edb]">
+                              {veh.model}
+                            </span>
+                            {veh.isMultiple && (
+                              <span className="text-[9px] font-extrabold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded w-max mt-1">
+                                {veh.count}x Purchased
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="p-4 px-6 border-b border-slate-100 text-slate-700 font-semibold">{veh.registration}</td>
@@ -497,6 +516,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
             ];
 
             const realServiceLog = dbJobCards.map(jc => ({
+            const serviceLog = dbJobCards.map(jc => ({
               jobCard: jc.jcNumber,
               date: jc.inTime ? new Date(jc.inTime).toLocaleDateString('en-IN') : 'Unknown',
               description: jc.complaintSummary || 'N/A',

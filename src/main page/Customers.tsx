@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Upload,
   UserPlus,
-  Calendar,
+  Search,
   FileText,
   ChevronLeft,
   ChevronRight,
@@ -38,9 +38,7 @@ interface CustomersProps {
 
 export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clearSelectedCustomer }) => {
   const [district, setDistrict] = useState('All Districts');
-  const [state, setState] = useState('All States');
-  const [vehicleType, setVehicleType] = useState('All Types');
-  const [dateRange, setDateRange] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [customers, setCustomers] = useState<CustomerType[]>([]);
   const [sales, setSales] = useState<any[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerType | null>(null);
@@ -158,14 +156,22 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
 
   const handleClearFilters = () => {
     setDistrict('All Districts');
-    setState('All States');
-    setVehicleType('All Types');
-    setDateRange('');
+    setSearchTerm('');
   };
+
+  const uniqueDistricts = Array.from(new Set(customers.map(c => c.district).filter(Boolean)));
 
   // Filter customers locally
   const filteredCustomers = customers.filter(c => {
     if (district !== 'All Districts' && c.district !== district) return false;
+    if (searchTerm) {
+      const lower = searchTerm.toLowerCase();
+      if (!c.name.toLowerCase().includes(lower) && 
+          !c.id.toLowerCase().includes(lower) && 
+          !c.phone.toLowerCase().includes(lower)) {
+        return false;
+      }
+    }
     return true;
   });
 
@@ -190,6 +196,13 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
     return `₹${custOut.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
   };
 
+  const getCustomerVehiclesCount = (cName: string, defaultCount: number) => {
+    const dynamicCount = sales.filter(s => s.customerName === cName).length;
+    // If they have sales, use the dynamic count from sales so deletions reflect instantly.
+    // If no sales, fallback to the default count they were registered with.
+    return dynamicCount > 0 ? dynamicCount : (defaultCount || 0);
+  };
+
   const outstandingStr = totalOutstanding >= 100000 
     ? `₹${(totalOutstanding / 100000).toFixed(2)}L` 
     : `₹${totalOutstanding.toLocaleString('en-IN')}`;
@@ -201,6 +214,7 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
   if (isAddingCustomer) {
     return (
       <AddCustomer
+        customers={customers}
         onBack={() => setIsAddingCustomer(false)}
         onSave={() => {
           setIsAddingCustomer(false);
@@ -253,70 +267,40 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
 
       {/* Filters Card */}
       <div className="bg-white rounded-xl p-6 border border-[#eef2f6] shadow-sm flex flex-col md:flex-row md:items-end gap-4">
+        {/* Search */}
+        <div className="flex-[2] flex flex-col gap-2">
+          <label className="text-[10px] font-bold text-slate-400 tracking-wider">SEARCH CUSTOMERS</label>
+          <div className="relative flex items-center">
+            <Search className="absolute left-3 text-slate-400" size={14} />
+            <input
+              type="text"
+              placeholder="Search by ID, Name or Phone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 pr-3 py-2 border border-slate-200 rounded-md text-xs outline-none w-full bg-slate-50 text-slate-700 font-medium focus:border-blue-400 focus:bg-white transition-all"
+            />
+          </div>
+        </div>
+
         {/* District Select */}
         <div className="flex-1 flex flex-col gap-2">
           <label className="text-[10px] font-bold text-slate-400 tracking-wider">DISTRICT</label>
           <select
             value={district}
             onChange={(e) => setDistrict(e.target.value)}
-            className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 text-slate-700 font-medium"
+            className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 text-slate-700 font-medium focus:border-blue-400 focus:bg-white transition-all"
           >
-            <option>All Districts</option>
-            <option>Central Valley</option>
-            <option>Northern Hills</option>
-            <option>Coastal Plains</option>
+            <option value="All Districts">All Districts</option>
+            {uniqueDistricts.map(d => (
+              <option key={d} value={d}>{d}</option>
+            ))}
           </select>
-        </div>
-
-        {/* State Select */}
-        <div className="flex-1 flex flex-col gap-2">
-          <label className="text-[10px] font-bold text-slate-400 tracking-wider">STATE</label>
-          <select
-            value={state}
-            onChange={(e) => setState(e.target.value)}
-            className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 text-slate-700 font-medium"
-          >
-            <option>All States</option>
-            <option>California</option>
-            <option>Texas</option>
-            <option>New York</option>
-          </select>
-        </div>
-
-        {/* Vehicle Type Select */}
-        <div className="flex-1 flex flex-col gap-2">
-          <label className="text-[10px] font-bold text-slate-400 tracking-wider">VEHICLE TYPE</label>
-          <select
-            value={vehicleType}
-            onChange={(e) => setVehicleType(e.target.value)}
-            className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 text-slate-700 font-medium"
-          >
-            <option>All Types</option>
-            <option>Tractor</option>
-            <option>Excavator</option>
-            <option>Truck</option>
-          </select>
-        </div>
-
-        {/* Date Range Picker */}
-        <div className="flex-1 flex flex-col gap-2">
-          <label className="text-[10px] font-bold text-slate-400 tracking-wider">DATE RANGE</label>
-          <div className="relative flex items-center">
-            <Calendar className="absolute left-3 text-slate-400" size={14} />
-            <input
-              type="text"
-              placeholder="Select dates"
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="pl-9 pr-3 py-2 border border-slate-200 rounded-md text-xs outline-none w-full bg-slate-50 text-slate-700 font-medium"
-            />
-          </div>
         </div>
 
         {/* Clear Filters Button */}
         <button
           onClick={handleClearFilters}
-          className="bg-blue-50/70 border-none text-[#184edb] font-semibold text-xs py-2 px-5 rounded-md cursor-pointer transition-colors hover:bg-blue-100/70"
+          className="bg-blue-50/70 border-none text-[#184edb] font-semibold text-xs py-2 px-5 rounded-md cursor-pointer transition-colors hover:bg-blue-100/70 flex-shrink-0"
         >
           Clear Filters
         </button>
@@ -360,7 +344,7 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
                   </td>
                   <td className="p-4 border-b border-slate-100 text-slate-500 font-medium">{customer.phone}</td>
                   <td className="p-4 border-b border-slate-100 text-slate-600">{customer.district}</td>
-                  <td className="p-4 border-b border-slate-100 text-slate-600 font-semibold">{customer.vehicles}</td>
+                  <td className="p-4 border-b border-slate-100 text-slate-600 font-semibold">{getCustomerVehiclesCount(customer.name, customer.vehicles)}</td>
                   <td className="p-4 border-b border-slate-100 text-slate-500">{customer.lastService}</td>
                   <td className="p-4 border-b border-slate-100 font-bold text-slate-700">{getCustomerOutstandingStr(customer.name)}</td>
                   <td className="p-4 border-b border-slate-100">
@@ -458,7 +442,7 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold text-slate-400 tracking-wider">FLEET COVERAGE</span>
             <h3 className="text-2xl font-extrabold text-slate-800 m-0">
-              {customers.reduce((acc, c) => acc + (c.vehicles || 0), 0)}
+              {customers.reduce((acc, c) => acc + getCustomerVehiclesCount(c.name, c.vehicles), 0)}
             </h3>
             <span className="text-[10.5px] font-bold text-slate-400 flex items-center gap-1 mt-0.5">
               <AlertCircle size={12} /> Registered Units

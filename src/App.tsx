@@ -37,6 +37,7 @@ function App() {
     return saved ? JSON.parse(saved) : null;
   };
 
+  };
   const handleSetCurrentUser = (user: { name: string; email: string } | null) => {
     setCurrentUser(user);
     if (user) {
