@@ -457,7 +457,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
 
           {/* SERVICES TAB */}
           {activeTab === 'services' && (() => {
-            const serviceLog = [
+            const mockServiceLog = [
               {
                 jobCard: 'JC-2024-9182',
                 date: 'Oct 12, 2023',
@@ -495,15 +495,18 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
                 total: '₹165.50'
               }
             ];
-            const serviceLog = dbJobCards.map(jc => ({
+
+            const realServiceLog = dbJobCards.map(jc => ({
               jobCard: jc.jcNumber,
               date: jc.inTime ? new Date(jc.inTime).toLocaleDateString('en-IN') : 'Unknown',
-              description: jc.complaintSummary,
-              mechanic: jc.mechanicName,
+              description: jc.complaintSummary || 'N/A',
+              mechanic: jc.mechanicName || 'Unassigned',
               labour: '-',
               parts: '-',
-              total: jc.status
+              total: jc.status || '-'
             }));
+
+            const serviceLog = dbJobCards.length > 0 ? realServiceLog : mockServiceLog;
 
             const filteredLogs = serviceLog.filter(log => 
               log.jobCard.toLowerCase().includes(serviceSearchTerm.toLowerCase()) ||
@@ -764,3 +767,5 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
 };
 
 export default CustomerDetails;
+
+// Updated CustomerDetails.tsx
