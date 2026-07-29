@@ -33,6 +33,10 @@ function App() {
     try {
       localStorage.setItem('dms_current_user', JSON.stringify(user));
     } catch (e) {}
+    const saved = localStorage.getItem('dms_user');
+    return saved ? JSON.parse(saved) : null;
+  };
+
   };
   const handleSetCurrentUser = (user: { name: string; email: string } | null) => {
     setCurrentUser(user);

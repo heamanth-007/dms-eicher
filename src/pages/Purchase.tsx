@@ -19,7 +19,11 @@ import {
   AlertCircle,
   CheckCircle,
   Trash2,
-  Info
+  Info,
+  Mail,
+  Wallet,
+  QrCode,
+  Smartphone
 } from 'lucide-react';
 
 import {
@@ -80,7 +84,10 @@ interface SupplierInvoice {
   issueDate: string;
   dueDate: string;
   amount: number;
+  paidAmount?: number;
+  balanceDue?: number;
   status: 'PAID' | 'PARTIAL' | 'UNPAID' | 'OVERDUE';
+  items?: PurchaseItem[];
 }
 
 interface PurchaseItem {
@@ -120,6 +127,8 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
   const [showNewReturnModal, setShowNewReturnModal] = useState(false);
   const [showNewInvoiceModal, setShowNewInvoiceModal] = useState(false);
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseOrder | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<SupplierInvoice | null>(null);
+  const [showSupplierBreakdownModal, setShowSupplierBreakdownModal] = useState(false);
   const [shouldTriggerPrint, setShouldTriggerPrint] = useState(false);
 
   useEffect(() => {
@@ -138,24 +147,29 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
   const [searchTerm, setSearchTerm] = useState('');
   const [dateRange, setDateRange] = useState('All');
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // QR Payment Modal state
+  const [showQrPaymentModal, setShowQrPaymentModal] = useState(false);
+  const [qrPaymentInvoice, setQrPaymentInvoice] = useState<SupplierInvoice | null>(null);
+  const [customPaymentAmount, setCustomPaymentAmount] = useState<number>(0);
+
+  // Reset to page 1 whenever subTab or filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [subTab, supplierFilter, statusFilter, searchTerm, dateRange]);
+
   // --- MOCK DATA ---
 
-  // Initial Purchases with localStorage persistence
-  const [purchases, setPurchases] = useState<PurchaseOrder[]>(() => {
-    try {
-      const saved = localStorage.getItem('dms_purchases_list');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch (e) {}
+  // Synced Initial Data Setup for Overview (purchases) & Invoices (invoices)
+  const initialSyncedData = (() => {
     const todayStr = getTodayFormattedDate();
-    return [
+    const mockP: PurchaseOrder[] = [
       {
         id: 'PO-2026-0943',
-        invoiceNo: 'INV/8843/26',
+        invoiceNo: 'INV-7728',
         supplier: 'Precision Parts Co.',
         supplierInitials: 'PP',
         supplierBg: 'bg-indigo-50 text-indigo-600 border border-indigo-100',
@@ -163,11 +177,13 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
         itemsCount: 14,
         gstAmount: 1240.00,
         grandTotal: 13640.00,
-        status: 'PAID'
+        status: 'PAID',
+        debit: 13640.00,
+        balance: 0.00
       },
       {
         id: 'PO-2026-0942',
-        invoiceNo: 'EMW/92/2026',
+        invoiceNo: 'INV-7727',
         supplier: 'Elite Motors Wholesale',
         supplierInitials: 'EM',
         supplierBg: 'bg-purple-50 text-purple-600 border border-purple-100',
@@ -175,11 +191,13 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
         itemsCount: 8,
         gstAmount: 840.00,
         grandTotal: 9240.00,
-        status: 'PARTIAL'
+        status: 'PARTIAL',
+        debit: 4000.00,
+        balance: 5240.00
       },
       {
-        id: 'PO-2023-0940',
-        invoiceNo: 'GT-INV-551',
+        id: 'PO-2026-0940',
+        invoiceNo: 'INV-7726',
         supplier: 'Global Tyres Ltd.',
         supplierInitials: 'GT',
         supplierBg: 'bg-rose-50 text-rose-600 border border-rose-100',
@@ -187,11 +205,13 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
         itemsCount: 210,
         gstAmount: 2450.00,
         grandTotal: 26950.00,
-        status: 'PENDING'
+        status: 'PENDING',
+        debit: 0.00,
+        balance: 26950.00
       },
       {
-        id: 'PO-2023-0938',
-        invoiceNo: 'INV-7731',
+        id: 'PO-2026-0938',
+        invoiceNo: 'INV-7725',
         supplier: 'Apex Hydraulics',
         supplierInitials: 'AH',
         supplierBg: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
@@ -199,24 +219,60 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
         itemsCount: 12,
         gstAmount: 150.00,
         grandTotal: 1800.00,
-        status: 'PAID'
+        status: 'PAID',
+        debit: 1800.00,
+        balance: 0.00
+      },
+      {
+        id: 'PO-2026-0937',
+        invoiceNo: 'INV-7724',
+        supplier: 'Standard Engines Co.',
+        supplierInitials: 'SE',
+        supplierBg: 'bg-slate-50 text-slate-600 border border-slate-100',
+        date: 'Oct 15, 2023',
+        itemsCount: 2,
+        gstAmount: 2150.00,
+        grandTotal: 22150.00,
+        status: 'PENDING',
+        debit: 0.00,
+        balance: 22150.00
       }
     ];
-  });
 
-  useEffect(() => {
+    const mockI: SupplierInvoice[] = mockP.map(p => ({
+      id: p.invoiceNo,
+      poRef: p.id,
+      supplier: p.supplier,
+      issueDate: p.date,
+      dueDate: 'Nov 30, 2026',
+      amount: p.grandTotal,
+      paidAmount: p.debit || 0,
+      balanceDue: p.balance !== undefined ? p.balance : p.grandTotal,
+      status: p.status === 'PAID' ? 'PAID' : (p.status === 'PARTIAL' ? 'PARTIAL' : (p.id === 'PO-2026-0940' ? 'OVERDUE' : 'UNPAID'))
+    }));
+
+    return { purchases: mockP, invoices: mockI };
+  })();
+
+  // Initial Purchases with localStorage persistence
+  const [purchases, setPurchases] = useState<PurchaseOrder[]>(() => {
     try {
-      if (purchases && purchases.length > 0) {
-        localStorage.setItem('dms_purchases_list', JSON.stringify(purchases));
+      const saved = localStorage.getItem('dms_purchases_list');
+      if (saved !== null) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
       }
     } catch (e) {}
-  }, [purchases]);
+    return initialSyncedData.purchases;
+  });
 
   // Initial Returns
   const [returns, setReturns] = useState<PurchaseReturn[]>([
     {
       id: 'RET-2023-010',
-      poRef: 'PO-2023-0941',
+      poRef: 'PO-2026-0942',
       supplier: 'Elite Motors Wholesale',
       date: 'Oct 25, 2023',
       itemsCount: 5,
@@ -226,7 +282,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     },
     {
       id: 'RET-2023-009',
-      poRef: 'PO-2023-0938',
+      poRef: 'PO-2026-0938',
       supplier: 'Apex Hydraulics',
       date: 'Oct 20, 2023',
       itemsCount: 2,
@@ -236,83 +292,109 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     },
     {
       id: 'RET-2023-008',
-      poRef: 'PO-2023-0935',
+      poRef: 'PO-2026-0940',
       supplier: 'Global Tyres Ltd.',
       date: 'Oct 14, 2023',
       itemsCount: 8,
       refundValue: 960.00,
       reason: 'Sidewall rubber cracking',
       status: 'COMPLETED'
-    },
-    {
-      id: 'RET-2023-007',
-      poRef: 'PO-2023-0939',
-      supplier: 'Precision Parts Co.',
-      date: 'Oct 22, 2023',
-      itemsCount: 1,
-      refundValue: 100.00,
-      reason: 'Damaged packaging',
-      status: 'REJECTED'
     }
   ]);
 
-  // Initial Invoices
-  const [invoices, setInvoices] = useState<SupplierInvoice[]>([
-    {
-      id: 'INV/8842/23',
-      poRef: 'PO-2023-0942',
-      supplier: 'Precision Parts Co.',
-      issueDate: 'Oct 24, 2023',
-      dueDate: 'Nov 24, 2023',
-      amount: 13640.00,
-      status: 'PAID'
-    },
-    {
-      id: 'EMW/92/2023',
-      poRef: 'PO-2023-0941',
-      supplier: 'Elite Motors Wholesale',
-      issueDate: 'Oct 23, 2023',
-      dueDate: 'Nov 23, 2023',
-      amount: 9240.00,
-      status: 'PARTIAL'
-    },
-    {
-      id: 'GT-INV-551',
-      poRef: 'PO-2023-0940',
-      supplier: 'Global Tyres Ltd.',
-      issueDate: 'Oct 22, 2023',
-      dueDate: 'Nov 22, 2023',
-      amount: 26950.00,
-      status: 'OVERDUE'
-    },
-    {
-      id: 'PR-920-X',
-      poRef: 'PO-2023-0939',
-      supplier: 'Precision Parts Co.',
-      issueDate: 'Oct 21, 2023',
-      dueDate: 'Nov 21, 2023',
-      amount: 4510.00,
-      status: 'PAID'
-    },
-    {
-      id: 'INV-7731',
-      poRef: 'PO-2023-0938',
-      supplier: 'Apex Hydraulics',
-      issueDate: 'Oct 18, 2023',
-      dueDate: 'Nov 18, 2023',
-      amount: 1800.00,
-      status: 'PAID'
-    },
-    {
-      id: 'INV-7720',
-      poRef: 'PO-2023-0937',
-      supplier: 'Standard Engines Co.',
-      issueDate: 'Oct 15, 2023',
-      dueDate: 'Nov 15, 2023',
-      amount: 22150.00,
-      status: 'UNPAID'
+  // Helper for invoice financial status
+  const getPaidAmount = (inv: SupplierInvoice) => {
+    if (inv.paidAmount !== undefined) return inv.paidAmount;
+    if (inv.status === 'PAID') return inv.amount;
+    if (inv.status === 'PARTIAL') return Math.round(inv.amount * 0.4);
+    return 0;
+  };
+
+  const getBalanceDue = (inv: SupplierInvoice) => {
+    if (inv.balanceDue !== undefined) return inv.balanceDue;
+    const paid = getPaidAmount(inv);
+    return Math.max(0, inv.amount - paid);
+  };
+
+  // Initial Invoices with localStorage persistence
+  const [invoices, setInvoices] = useState<SupplierInvoice[]>(() => {
+    try {
+      const saved = localStorage.getItem('dms_supplier_invoices_list');
+      if (saved !== null) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return initialSyncedData.invoices;
+  });
+
+  // Unified sync helper to update purchases and invoices in state, localStorage, and Supplier Ledger
+  const saveAndSyncPurchasesAndInvoices = (updatedPurchases: PurchaseOrder[], updatedInvoices: SupplierInvoice[]) => {
+    setPurchases(updatedPurchases);
+    setInvoices(updatedInvoices);
+    try {
+      localStorage.setItem('dms_purchases_list', JSON.stringify(updatedPurchases));
+      localStorage.setItem('dms_supplier_invoices_list', JSON.stringify(updatedInvoices));
+    } catch (e) {}
+    window.dispatchEvent(new Event('dms_purchases_updated'));
+  };
+
+  // Automatic Sequential Invoice Number Generator (INV-7728 Order & Alphabet Extension)
+  const generateNextInvoiceNumber = (allInvoices: SupplierInvoice[], allPurchases: PurchaseOrder[]) => {
+    let maxNum = 7727;
+    let maxLetterCode = 0;
+
+    const allNos = [
+      ...allInvoices.map(i => i.id),
+      ...allPurchases.map(p => p.invoiceNo)
+    ];
+
+    allNos.forEach(no => {
+      if (!no) return;
+      // Match pattern INV-7728 or INV-7728-A
+      const match = no.match(/INV[/-]?(\d+)(?:[/-]?([A-Z]))?/i);
+      if (match && match[1]) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxNum) {
+          maxNum = num;
+        }
+        if (match[2]) {
+          const letterCode = match[2].toUpperCase().charCodeAt(0) - 64; // A=1, B=2
+          if (letterCode > maxLetterCode) {
+            maxLetterCode = letterCode;
+          }
+        }
+      }
+    });
+
+    // If numeric range exceeds 9999, append alphabet series (e.g. INV-9999-A, INV-9999-B...)
+    if (maxNum >= 9999) {
+      const nextLetter = String.fromCharCode(65 + maxLetterCode);
+      return `INV-9999-${nextLetter}`;
     }
-  ]);
+
+    const nextNum = maxNum + 1;
+    return `INV-${nextNum}`;
+  };
+
+  // Automatic Sequential PO ID Generator (Order Padi)
+  const generateNextPoId = (allPurchases: PurchaseOrder[]) => {
+    const yearStr = new Date().getFullYear();
+    let maxSeq = 943;
+    allPurchases.forEach(p => {
+      if (p.id) {
+        const match = p.id.match(/PO-(?:\d{4})-(\d+)/i);
+        if (match && match[1]) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxSeq) {
+            maxSeq = num;
+          }
+        }
+      }
+    });
+    const nextSeq = String(maxSeq + 1).padStart(4, '0');
+    return `PO-${yearStr}-${nextSeq}`;
+  };
 
   // --- NEW ENTRY STATE VARIABLES ---
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -484,18 +566,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     return date.getFullYear() === 2023 && date.getMonth() === 9; // October is index 9
   };
 
-  // --- STATS COMPUTATION ---
-  const totalPurchasesCount = purchases.length;
-  const todayPurchasesCount = purchases.filter(p => isTodayPurchase(p.date)).length;
-  const totalPurchasesValue = purchases.reduce((acc, p) => acc + p.grandTotal, 0);
-  const pendingPaymentsValue = purchases.filter(p => p.status !== 'PAID').reduce((acc, p) => acc + (p.status === 'PENDING' ? p.grandTotal : p.grandTotal * 0.5), 0);
 
-  const totalReturnsCount = returns.length + 38;
-  const pendingReturnsCount = returns.filter(r => r.status === 'PENDING').length;
-  const totalRefundsValue = returns.filter(r => r.status === 'COMPLETED').reduce((acc, r) => acc + r.refundValue, 0) + 7200;
-
-  const totalInvoicedValue = invoices.reduce((acc, i) => acc + i.amount, 0);
-  const unpaidInvoicesCount = invoices.filter(i => i.status !== 'PAID').length;
 
   // List of suppliers for dropdown
   const suppliersList = ['All', ...activeSuppliersList.map(s => s.name)];
@@ -751,20 +822,51 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     setNewRetId(`RET-2023-0${Number(newRetId.split('-')[2]) + 1}`);
   };
 
-  // Handle New Invoice Submit
   const handleCreateInvoice = (e: React.FormEvent) => {
     e.preventDefault();
+    const invAmount = Number(newInvAmount) || 0;
+    const invPaid = newInvStatus === 'PAID' ? invAmount : (newInvStatus === 'PARTIAL' ? Math.round(invAmount / 2) : 0);
+    const invBal = Math.max(0, invAmount - invPaid);
+    const poStat: 'PAID' | 'PARTIAL' | 'PENDING' = newInvStatus === 'PAID' ? 'PAID' : (newInvStatus === 'PARTIAL' ? 'PARTIAL' : 'PENDING');
+
     const newInvoice: SupplierInvoice = {
-      id: newInvNo,
-      poRef: newInvPoRef,
+      id: newInvNo || generateNextInvoiceNumber(invoices, purchases),
+      poRef: newInvPoRef || generateNextPoId(purchases),
       supplier: newInvSupplier,
       issueDate: newInvIssueDate,
       dueDate: newInvDueDate,
-      amount: Number(newInvAmount),
+      amount: invAmount,
+      paidAmount: invPaid,
+      balanceDue: invBal,
       status: newInvStatus
     };
 
-    setInvoices([newInvoice, ...invoices]);
+    const autoPurchase: PurchaseOrder = {
+      id: newInvoice.poRef,
+      invoiceNo: newInvoice.id,
+      supplier: newInvoice.supplier,
+      supplierInitials: newInvoice.supplier.substring(0, 2).toUpperCase(),
+      supplierBg: 'bg-indigo-50 text-indigo-600 border border-indigo-100',
+      date: newInvoice.issueDate,
+      itemsCount: 1,
+      gstAmount: Math.round(invAmount * 0.18),
+      grandTotal: invAmount,
+      status: poStat,
+      debit: invPaid,
+      balance: invBal
+    };
+
+    const nextInvoices = [newInvoice, ...invoices.filter(i => i.id !== newInvoice.id)];
+    const nextPurchases = purchases.some(p => p.id === autoPurchase.id || p.invoiceNo === autoPurchase.invoiceNo)
+      ? purchases.map(p => (p.id === autoPurchase.id || p.invoiceNo === autoPurchase.invoiceNo) ? {
+          ...p,
+          status: poStat,
+          debit: invPaid,
+          balance: invBal
+        } : p)
+      : [autoPurchase, ...purchases];
+
+    saveAndSyncPurchasesAndInvoices(nextPurchases, nextInvoices);
     setShowNewInvoiceModal(false);
 
     // Reset Form
@@ -775,11 +877,10 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
   // Delete Handlers
   const handleDeletePurchase = (id: string) => {
     if (window.confirm(`Are you sure you want to delete purchase order ${id}?`)) {
-      const updated = purchases.filter(p => p.id !== id);
-      setPurchases(updated);
-      try {
-        localStorage.setItem('dms_purchases_list', JSON.stringify(updated));
-      } catch (err) {}
+      const targetP = purchases.find(p => p.id === id);
+      const updatedP = purchases.filter(p => p.id !== id);
+      const updatedI = invoices.filter(i => i.poRef !== id && (targetP ? i.id !== targetP.invoiceNo : true));
+      saveAndSyncPurchasesAndInvoices(updatedP, updatedI);
       alert(`Purchase Order ${id} has been deleted successfully.`);
     }
   };
@@ -792,7 +893,11 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
   const handleDeleteInvoice = (id: string) => {
     if (window.confirm(`Are you sure you want to delete invoice ${id}?`)) {
-      setInvoices(invoices.filter(i => i.id !== id));
+      const targetI = invoices.find(i => i.id === id);
+      const updatedI = invoices.filter(i => i.id !== id);
+      const updatedP = purchases.filter(p => p.invoiceNo !== id && (targetI ? p.id !== targetI.poRef : true));
+      saveAndSyncPurchasesAndInvoices(updatedP, updatedI);
+      alert(`Invoice ${id} has been deleted successfully.`);
     }
   };
 
@@ -909,6 +1014,73 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     return true;
   });
 
+  // --- PAGINATION COMPUTATION ---
+  const activeList = subTab === 'overview' ? filteredPurchases : (subTab === 'return' ? filteredReturns : filteredInvoices);
+  const totalItems = activeList.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+
+  const paginatedPurchases = filteredPurchases.slice(startIndex, endIndex);
+  const paginatedReturns = filteredReturns.slice(startIndex, endIndex);
+  const paginatedInvoices = filteredInvoices.slice(startIndex, endIndex);
+
+  // --- OVERALL WORKSHOP KPI SUMMARY METRICS (FIXED OVERALL TOTALS THAT DO NOT CHANGE ON TABLE FILTERING) ---
+  // Overview Metrics (overall purchases)
+  const totalPurchasesCount = purchases.length;
+  const todayPurchasesCount = purchases.filter(p => isTodayPurchase(p.date)).length;
+  const totalPurchasesValue = purchases.reduce((acc, p) => acc + (p.grandTotal || 0), 0);
+  const totalPurchasesPaid = purchases.reduce((acc, p) => {
+    const paid = p.credit !== undefined && p.credit > 0 
+      ? p.credit 
+      : (p.debit !== undefined ? p.debit : (p.status === 'PAID' ? p.grandTotal : 0));
+    return acc + paid;
+  }, 0);
+  const pendingPaymentsValue = purchases.reduce((acc, p) => {
+    const bal = p.balance !== undefined 
+      ? p.balance 
+      : (p.status === 'PAID' ? 0 : Math.max(0, (p.grandTotal || 0) - (p.debit || 0)));
+    return acc + bal;
+  }, 0);
+
+  // Invoices Metrics (overall invoices)
+  const totalInvoicedValue = invoices.reduce((acc, i) => acc + (i.amount || 0), 0);
+  const totalInvoiceAmount = totalInvoicedValue;
+  const totalInvoicePaid = invoices.reduce((acc, i) => acc + getPaidAmount(i), 0);
+  const totalInvoiceBalance = invoices.reduce((acc, i) => acc + getBalanceDue(i), 0);
+  const totalPaidInvoicesCount = invoices.filter(i => i.status === 'PAID').length;
+  const totalPendingInvoicesCount = invoices.filter(i => i.status !== 'PAID').length;
+  const unpaidInvoicesCount = totalPendingInvoicesCount;
+  const totalOverdueInvoicesCount = invoices.filter(i => i.status === 'OVERDUE').length;
+  const uniqueSuppliersCount = new Set(invoices.map(i => i.supplier)).size;
+
+  // Returns Metrics (overall returns)
+  const totalReturnsCount = returns.length;
+  const pendingReturnsCount = returns.filter(r => r.status === 'PENDING').length;
+  const pendingRefundValue = returns.filter(r => r.status === 'PENDING').reduce((acc, r) => acc + r.refundValue, 0);
+  const totalRefundsValue = returns.filter(r => r.status === 'COMPLETED').reduce((acc, r) => acc + r.refundValue, 0);
+
+  // Supplier Breakdown Data (Ethana supplier ku ethana bill)
+  const supplierBillSummary = Array.from(new Set(invoices.map(i => i.supplier))).map(sup => {
+    const supInvoices = invoices.filter(i => i.supplier === sup);
+    const totalAmt = supInvoices.reduce((a, b) => a + b.amount, 0);
+    const paidAmt = supInvoices.reduce((a, b) => a + getPaidAmount(b), 0);
+    const balDue = supInvoices.reduce((a, b) => a + getBalanceDue(b), 0);
+    const paidCount = supInvoices.filter(i => i.status === 'PAID').length;
+    const pendingCount = supInvoices.filter(i => i.status !== 'PAID').length;
+    return {
+      supplier: sup,
+      totalBills: supInvoices.length,
+      paidBills: paidCount,
+      pendingBills: pendingCount,
+      totalAmount: totalAmt,
+      paidAmount: paidAmt,
+      balanceDue: balDue
+    };
+  });
+
   if (showNewPurchaseModal) {
     let itemsToSave = [...purchaseItems];
     if (quickProdName.trim()) {
@@ -928,7 +1100,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     const calculatedGrandTotal = Math.round(calculatedSubtotal + calculatedGst + newPoAdditionalCharges - newPoDiscount);
 
     const effectivePaidAmount = newPoPaidAmount === ''
-      ? calculatedGrandTotal
+      ? 0
       : Math.max(0, Number(newPoPaidAmount) || 0);
 
     const calculatedBalanceAmount = Math.max(0, calculatedGrandTotal - effectivePaidAmount);
@@ -970,19 +1142,24 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
         remarks: newPoRemarks
       };
 
-      setPurchases([newPurchase, ...purchases]);
-
-      // Auto-generate invoice for this purchase in invoices tab
+      // Auto-generate synced invoice for this purchase in invoices tab
       const autoInvoice: SupplierInvoice = {
         id: newPurchase.invoiceNo,
         poRef: newPurchase.id,
         supplier: newPurchase.supplier,
         issueDate: newPurchase.date,
-        dueDate: 'Nov 26, 2023',
+        dueDate: 'Nov 30, 2026',
         amount: newPurchase.grandTotal,
-        status: finalStatus === 'PAID' ? 'PAID' : 'UNPAID'
+        paidAmount: finalPaid,
+        balanceDue: finalBalance,
+        status: finalStatus === 'PAID' ? 'PAID' : (finalStatus === 'PARTIAL' ? 'PARTIAL' : 'UNPAID'),
+        items: itemsToSave
       };
-      setInvoices([autoInvoice, ...invoices]);
+
+      const updatedP = [newPurchase, ...purchases.filter(p => p.id !== newPurchase.id)];
+      const updatedI = [autoInvoice, ...invoices.filter(i => i.id !== autoInvoice.id)];
+
+      saveAndSyncPurchasesAndInvoices(updatedP, updatedI);
 
       // Reset Form
       setNewPoInvoice('');
@@ -996,10 +1173,9 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
       setNewPoPaymentMode('Bank Transfer');
       setNewPoPaidAmount('');
       setNewPoDate(getTodayFormattedDate());
-      setNewPoId(`PO-2026-0${Math.floor(1000 + Math.random() * 9000)}`);
       setShowNewPurchaseModal(false);
 
-      alert(`Purchase Order #${newPurchase.id} saved successfully!\nStatus: ${finalStatus}\nAmount Paid: ₹${finalPaid.toLocaleString('en-IN')}\nBalance Amount: ₹${finalBalance.toLocaleString('en-IN')}`);
+      alert(`Purchase Order #${newPurchase.id} (${newPurchase.invoiceNo}) saved successfully!\nStatus: ${finalStatus}\nAmount Paid: ₹${finalPaid.toLocaleString('en-IN')}\nBalance Amount: ₹${finalBalance.toLocaleString('en-IN')}`);
     };
 
     return (
@@ -1467,7 +1643,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                         min="0"
                         max={calculatedGrandTotal}
                         step="any"
-                        placeholder={calculatedGrandTotal.toString()}
+                        placeholder="0.00"
                         value={newPoPaidAmount}
                         onChange={(e) => setNewPoPaidAmount(e.target.value)}
                         className="w-full p-1.5 bg-white border border-emerald-200 rounded text-sm font-extrabold text-emerald-800 focus:outline-none focus:border-emerald-500"
@@ -1847,6 +2023,314 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     );
   }
 
+  if (selectedInvoice) {
+    const inv = selectedInvoice;
+    const paidAmt = getPaidAmount(inv);
+    const balDue = getBalanceDue(inv);
+    const relatedPurchase = purchases.find(p => p.invoiceNo === inv.id || p.id === inv.poRef);
+
+    // Line items list
+    const itemsList = (inv.items && inv.items.length > 0)
+      ? inv.items
+      : ((relatedPurchase && relatedPurchase.items && relatedPurchase.items.length > 0)
+          ? relatedPurchase.items
+          : [
+              { id: '1', productName: 'Ceramic Brake Pads (Set)', qty: 4, rate: 12500, gstPercent: 18, sku: 'BRK-C-902' },
+              { id: '2', productName: 'Synthetic Engine Oil 5W-30', qty: 6, rate: 2400, gstPercent: 18, sku: 'OIL-SYN-5L' },
+              { id: '3', productName: 'Premium Oil Filter', qty: 2, rate: 450, gstPercent: 18, sku: 'FLT-O-01' },
+              { id: '4', productName: 'Cleaning Service Bundle', qty: 1, rate: 466.10, gstPercent: 18, sku: 'SVC-CLN-X' }
+            ]);
+
+    return (
+      <div className="flex-1 flex flex-col p-8 bg-[#f8fafc] w-full box-border font-sans min-h-[calc(100vh-64px)] text-left text-slate-700">
+        
+        {/* Breadcrumbs: Purchase > Invoices History > INV-8847 */}
+        <div className="flex items-center gap-2 text-[13px] text-slate-400 font-semibold mb-4">
+          <span 
+            onClick={() => setSelectedInvoice(null)} 
+            className="hover:text-[#184edb] cursor-pointer transition-colors"
+          >
+            Purchase
+          </span>
+          <span>&gt;</span>
+          <span 
+            onClick={() => setSelectedInvoice(null)} 
+            className="hover:text-[#184edb] cursor-pointer transition-colors"
+          >
+            Invoices History
+          </span>
+          <span>&gt;</span>
+          <span className="text-slate-900 font-bold">{inv.id}</span>
+        </div>
+
+        {/* Title Header with Action Buttons */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight m-0 font-heading">
+              Invoice #{inv.id}
+            </h1>
+            {inv.status === 'PAID' && (
+              <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-600 border border-emerald-200 tracking-wider">
+                PAID
+              </span>
+            )}
+            {inv.status === 'PARTIAL' && (
+              <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-amber-50 text-amber-600 border border-amber-200 tracking-wider uppercase">
+                PARTIAL
+              </span>
+            )}
+            {inv.status === 'UNPAID' && (
+              <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-slate-100 text-slate-700 border border-slate-200 tracking-wider">
+                UNPAID
+              </span>
+            )}
+            {inv.status === 'OVERDUE' && (
+              <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-rose-50 text-rose-600 border border-rose-200 tracking-wider">
+                OVERDUE
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 font-bold text-[13px] px-4 py-2 rounded-lg border border-slate-200 shadow-sm cursor-pointer transition-all"
+            >
+              <Printer size={16} className="text-slate-500" />
+              <span>Print</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => alert(`Downloading PDF for Invoice #${inv.id}`)}
+              className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 font-bold text-[13px] px-4 py-2 rounded-lg border border-slate-200 shadow-sm cursor-pointer transition-all"
+            >
+              <FileText size={16} className="text-slate-500" />
+              <span>PDF</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => alert(`Sending Email for Invoice #${inv.id} to ${inv.supplier}`)}
+              className="flex items-center gap-2 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-[13px] px-4 py-2 rounded-lg shadow-md cursor-pointer transition-all border-none"
+            >
+              <Mail size={16} />
+              <span>Email Invoice</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Top Grid: Summary Card (Left) & Payment Details Card (Right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+          
+          {/* Left Card: Summary */}
+          <div className="lg:col-span-8 bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col gap-4">
+            <div className="flex items-center gap-2 text-slate-800 font-bold text-base pb-3 border-b border-slate-100 font-heading">
+              <Info size={18} className="text-[#184edb]" />
+              <span>Summary</span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-1">
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">SUPPLIER</span>
+                <span className="text-[14px] font-extrabold text-slate-900">{inv.supplier}</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">PO REFERENCE</span>
+                <span className="text-[14px] font-extrabold text-[#184edb] hover:underline cursor-pointer">{inv.poRef}</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">ISSUE DATE</span>
+                <span className="text-[14px] font-extrabold text-slate-800">{inv.issueDate}</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">DUE DATE</span>
+                <span className="text-[14px] font-extrabold text-slate-800">{inv.dueDate}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Card: Payment Details (Dark Navy Background) */}
+          <div className="lg:col-span-4 bg-[#0f172a] text-white rounded-2xl p-6 shadow-md flex flex-col justify-between relative overflow-hidden">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[15px] font-bold tracking-tight flex items-center gap-2">
+                Payment Details
+              </span>
+              <Wallet size={18} className="text-slate-400" />
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between text-[13.5px]">
+                <span className="text-slate-400 font-medium">Total Amount</span>
+                <span className="font-extrabold text-white">₹{inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex items-center justify-between text-[13.5px]">
+                <span className="text-slate-400 font-medium">Paid Amount</span>
+                <span className="font-extrabold text-[#10b981]">₹{paidAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+
+              <div className="border-t border-slate-700/80 my-1"></div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">BALANCE DUE</span>
+                  <span className="text-2xl font-extrabold text-white">₹{balDue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Line Items Section Table */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mb-6">
+          <div className="px-6 py-4.5 border-b border-slate-100 flex items-center justify-between bg-white">
+            <h3 className="text-base font-extrabold text-slate-800 m-0 font-heading">Line Items</h3>
+            <span className="text-[12.5px] font-bold text-slate-400">{itemsList.length} Items Listed</span>
+          </div>
+
+          <div className="overflow-x-auto w-full">
+            <table className="w-full text-left border-collapse text-[13.5px]">
+              <thead>
+                <tr className="bg-slate-50/75 border-b border-slate-100 text-slate-400 text-[11px] uppercase tracking-wider font-bold">
+                  <th className="py-3.5 px-6">ITEM NAME</th>
+                  <th className="py-3.5 px-5 text-center">QTY</th>
+                  <th className="py-3.5 px-5 text-right">UNIT PRICE</th>
+                  <th className="py-3.5 px-5 text-right">TAX (18%)</th>
+                  <th className="py-3.5 px-6 text-right">TOTAL</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {itemsList.map((item: any, idx: number) => {
+                  const qty = item.qty || 1;
+                  const rate = item.rate || 0;
+                  const itemSubtotal = qty * rate;
+                  const gst = itemSubtotal * ((item.gstPercent || 18) / 100);
+                  const itemTotal = itemSubtotal + gst;
+
+                  const itemIcons = [
+                    <div key="1" className="w-9 h-9 rounded-lg bg-blue-50 text-[#184edb] flex items-center justify-center font-bold text-xs"><ShoppingBag size={18} /></div>,
+                    <div key="2" className="w-9 h-9 rounded-lg bg-[#f0f5ff] text-[#184edb] flex items-center justify-center font-bold text-xs"><FileText size={18} /></div>,
+                    <div key="3" className="w-9 h-9 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-xs"><TrendingUp size={18} /></div>,
+                    <div key="4" className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xs"><CheckCircle size={18} /></div>
+                  ];
+
+                  return (
+                    <tr key={item.id || idx} className="hover:bg-slate-50/40 transition-colors">
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-3">
+                          {itemIcons[idx % itemIcons.length]}
+                          <div className="flex flex-col">
+                            <span className="font-extrabold text-slate-900">{item.productName}</span>
+                            <span className="text-[11px] font-semibold text-slate-400">SKU: {item.sku || `SKU-PART-${idx + 101}`}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-5 text-center font-extrabold text-slate-800">{qty}</td>
+                      <td className="py-4 px-5 text-right font-medium text-slate-700">₹{rate.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 px-5 text-right font-medium text-slate-500">₹{gst.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 px-6 text-right font-extrabold text-slate-900">₹{itemTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="bg-[#f0f7ff] border-t border-slate-200 text-slate-900">
+                  <td colSpan={4} className="py-4 px-6 text-right font-extrabold text-[13px] uppercase tracking-wider text-slate-500">
+                    Grand Total
+                  </td>
+                  <td className="py-4 px-6 text-right font-extrabold text-xl text-[#184edb]">
+                    ₹{inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        {/* Bottom Grid: Payment History Card (Left) & Internal Notes Card (Right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+          {/* Left Card: Payment History */}
+          <div className="lg:col-span-6 bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col justify-between">
+            <div className="flex items-center gap-2 text-slate-800 font-bold text-base mb-4 font-heading">
+              <RotateCcw size={18} className="text-[#184edb]" />
+              <span>Payment History</span>
+            </div>
+
+            <div className="flex flex-col gap-3 mb-4">
+              {paidAmt > 0 ? (
+                <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3.5 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                      <CheckCircle size={16} />
+                    </div>
+                    <div className="flex flex-col text-xs">
+                      <span className="font-extrabold text-slate-900">Partial Payment #PAY-{inv.id.replace(/[^0-9]/g, '') || '1022'}</span>
+                      <span className="text-slate-400 font-medium">via Bank Transfer • {inv.issueDate}</span>
+                    </div>
+                  </div>
+                  <span className="font-extrabold text-emerald-600 text-sm">+ ₹{paidAmt.toLocaleString()}</span>
+                </div>
+              ) : null}
+
+              {/* Dashed Add Payment Box */}
+              <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center gap-2 text-center bg-slate-50/30">
+                <span className="text-xs text-slate-400 font-semibold">
+                  {paidAmt > 0 ? 'No other transactions recorded' : 'No payment recorded yet'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQrPaymentInvoice(inv);
+                    setCustomPaymentAmount(balDue);
+                    setShowQrPaymentModal(true);
+                  }}
+                  className="text-[#184edb] font-bold text-xs hover:underline cursor-pointer bg-transparent border-none p-0"
+                >
+                  Add New Payment
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Card: Internal Notes */}
+          <div className="lg:col-span-6 bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col justify-between">
+            <div className="flex items-center gap-2 text-slate-800 font-bold text-base mb-4 font-heading">
+              <FileText size={18} className="text-[#184edb]" />
+              <span>Internal Notes</span>
+            </div>
+
+            {/* Note Yellow Card */}
+            <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-4 mb-4 text-xs text-amber-900 flex flex-col gap-2">
+              <p className="m-0 italic leading-relaxed font-medium">
+                "Customer requested to pay the balance in two installments by the end of next month. Approval pending from Finance Department."
+              </p>
+              <span className="text-[10.5px] font-bold text-amber-700 self-end">— Added by Admin on {inv.issueDate}</span>
+            </div>
+
+            {/* Textarea & Save Button */}
+            <div className="flex flex-col gap-3">
+              <textarea
+                rows={2}
+                placeholder="Add a note..."
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-[#184edb] resize-none"
+              />
+              <button
+                type="button"
+                onClick={() => alert('Internal note saved successfully!')}
+                className="self-end bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shadow border-none"
+              >
+                Save Note
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 flex flex-col p-8 bg-[#f8fafc] w-full box-border font-sans min-h-[calc(100vh-64px)]">
 
@@ -1872,12 +2356,6 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
           </p>
         </div>
         <div className="flex items-center gap-3.5 self-start md:self-center">
-          <button
-            onClick={() => setShowFigmaInvoice(true)}
-            className="flex items-center gap-2 bg-[#184edb] hover:bg-[#133eb5] text-white font-semibold text-[13.5px] px-4.5 py-2.5 rounded-lg border-none shadow-md cursor-pointer transition-all duration-200"
-          >
-            <span>View Invoice</span>
-          </button>
 
           <button
             onClick={handleExportCSV}
@@ -1892,10 +2370,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
               type="button"
               onClick={() => {
                 if (window.confirm('Are you sure you want to clear all purchase history?')) {
-                  setPurchases([]);
-                  try {
-                    localStorage.setItem('dms_purchases_list', JSON.stringify([]));
-                  } catch (e) {}
+                  saveAndSyncPurchasesAndInvoices([], []);
                 }
               }}
               className="flex items-center gap-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold text-[13.5px] px-4 py-2.5 rounded-lg border border-rose-200 cursor-pointer transition-all duration-200"
@@ -1908,7 +2383,13 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
           {subTab === 'overview' && (
             <button
-              onClick={() => setShowNewPurchaseModal(true)}
+              onClick={() => {
+                const autoInv = generateNextInvoiceNumber(invoices, purchases);
+                const autoPo = generateNextPoId(purchases);
+                setNewPoInvoice(autoInv);
+                setNewPoId(autoPo);
+                setShowNewPurchaseModal(true);
+              }}
               className="flex items-center gap-2 bg-[#184edb] hover:bg-[#133eb5] text-white font-semibold text-[13.5px] px-4.5 py-2.5 rounded-lg border-none shadow-md cursor-pointer transition-all duration-200"
             >
               <Plus size={16} />
@@ -1926,7 +2407,11 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
           )}
           {subTab === 'invoice' && (
             <button
-              onClick={() => setShowNewInvoiceModal(true)}
+              onClick={() => {
+                const autoInv = generateNextInvoiceNumber(invoices, purchases);
+                setNewInvNo(autoInv);
+                setShowNewInvoiceModal(true);
+              }}
               className="flex items-center gap-2 bg-[#184edb] hover:bg-[#133eb5] text-white font-semibold text-[13.5px] px-4.5 py-2.5 rounded-lg border-none shadow-md cursor-pointer transition-all duration-200"
             >
               <Plus size={16} />
@@ -2050,13 +2535,20 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
         {/* Metric 1: Total Purchases / Total Returns / Total Invoices */}
         <div 
-          onClick={() => { setStatusFilter('All'); setDateRange('All'); }}
+          onClick={() => { 
+            if (subTab === 'invoice') {
+              setShowSupplierBreakdownModal(true);
+            } else {
+              setStatusFilter('All'); 
+              setDateRange('All'); 
+            }
+          }}
           className={`bg-white rounded-2xl p-6 shadow-sm border flex items-center justify-between cursor-pointer transition-all hover:scale-[1.01] ${
             statusFilter === 'All' && (subTab !== 'overview' || dateRange === 'All')
               ? 'border-[#184edb] ring-2 ring-[#184edb]/20 bg-blue-50/20'
               : 'border-slate-100/60 hover:border-slate-300'
           }`}
-          title="Click to view all"
+          title={subTab === 'invoice' ? "Click to view Supplier Bills Breakdown" : "Click to view all"}
         >
           <div className="flex flex-col gap-2">
             <span className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wider">
@@ -2067,8 +2559,13 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
             <span className="text-3xl font-extrabold text-slate-850 tracking-tight">
               {subTab === 'overview' && totalPurchasesCount.toLocaleString()}
               {subTab === 'return' && totalReturnsCount}
-              {subTab === 'invoice' && invoices.length + 84}
+              {subTab === 'invoice' && `${invoices.length} Bills`}
             </span>
+            {subTab === 'invoice' && (
+              <span className="text-[12px] font-bold text-[#184edb] hover:underline flex items-center gap-1">
+                Across {uniqueSuppliersCount} Suppliers • View Breakdown &rarr;
+              </span>
+            )}
           </div>
           <div className="flex flex-col items-end gap-2.5">
             <div className="w-10 h-10 rounded-xl bg-indigo-50 text-[#184edb] flex items-center justify-center">
@@ -2107,13 +2604,18 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
             <span className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wider">
               {subTab === 'overview' && "Today's Purchases"}
               {subTab === 'return' && 'Pending Refund Value'}
-              {subTab === 'invoice' && 'Paid Invoices'}
+              {subTab === 'invoice' && 'Paid Invoices (Count & Paid Amt)'}
             </span>
             <span className="text-3xl font-extrabold text-slate-850 tracking-tight">
               {subTab === 'overview' && todayPurchasesCount}
               {subTab === 'return' && `₹${returns.filter(r => r.status === 'PENDING').reduce((acc, r) => acc + r.refundValue, 0).toLocaleString()}`}
-              {subTab === 'invoice' && invoices.filter(i => i.status === 'PAID').length + 65}
+              {subTab === 'invoice' && `${totalPaidInvoicesCount} Paid`}
             </span>
+            {subTab === 'invoice' && (
+              <span className="text-[12px] font-bold text-emerald-600">
+                Total Paid: ₹{totalInvoicePaid.toLocaleString()}
+              </span>
+            )}
           </div>
           <div className="flex flex-col items-end gap-2.5">
             <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -2155,13 +2657,18 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
             <span className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wider">
               {subTab === 'overview' && 'Total Purchase Value'}
               {subTab === 'return' && 'Completed Refund Value'}
-              {subTab === 'invoice' && 'Outstanding Amount'}
+              {subTab === 'invoice' && 'Balance Due (Ino Evalo Iruku)'}
             </span>
             <span className="text-3xl font-extrabold text-slate-850 tracking-tight">
               {subTab === 'overview' && `₹${totalPurchasesValue.toLocaleString()}`}
               {subTab === 'return' && `₹${totalRefundsValue.toLocaleString()}`}
-              {subTab === 'invoice' && `₹${invoices.filter(i => i.status !== 'PAID').reduce((acc, i) => acc + i.amount, 0 + 24120).toLocaleString()}`}
+              {subTab === 'invoice' && `₹${totalInvoiceBalance.toLocaleString()}`}
             </span>
+            {subTab === 'invoice' && (
+              <span className="text-[12px] font-bold text-amber-600">
+                {totalPendingInvoicesCount} Pending/Partial Bills
+              </span>
+            )}
           </div>
           <div className="flex flex-col items-end gap-2.5">
             <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
@@ -2208,14 +2715,19 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
             <span className="text-3xl font-extrabold text-slate-850 tracking-tight">
               {subTab === 'overview' && `₹${pendingPaymentsValue.toLocaleString()}`}
               {subTab === 'return' && returns.filter(r => r.status === 'REJECTED').length}
-              {subTab === 'invoice' && `₹${invoices.filter(i => i.status === 'OVERDUE').reduce((acc, i) => acc + i.amount, 0).toLocaleString()}`}
+              {subTab === 'invoice' && `₹${invoices.filter(i => i.status === 'OVERDUE').reduce((acc, i) => acc + getBalanceDue(i), 0).toLocaleString()}`}
             </span>
+            {subTab === 'invoice' && (
+              <span className="text-[12px] font-bold text-rose-600">
+                {totalOverdueInvoicesCount} Overdue Bills
+              </span>
+            )}
           </div>
           <div className="flex flex-col items-end gap-2.5">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
               (subTab === 'overview' && pendingPaymentsValue > 0) ||
               (subTab === 'return' && returns.filter(r => r.status === 'REJECTED').length > 0) ||
-              (subTab === 'invoice' && invoices.filter(i => i.status === 'OVERDUE').length > 0)
+              (subTab === 'invoice' && totalOverdueInvoicesCount > 0)
                 ? 'bg-amber-50 text-amber-600'
                 : 'bg-slate-50 text-slate-500'
             }`}>
@@ -2462,7 +2974,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                     </td>
                   </tr>
                 ) : (
-                  filteredPurchases.map((p) => (
+                  paginatedPurchases.map((p) => (
                     <tr key={p.id} className="hover:bg-slate-50/40 transition-colors">
                       {/* ID */}
                       <td className="py-4 px-6 whitespace-nowrap">
@@ -2630,6 +3142,39 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                   ))
                 )}
               </tbody>
+              {filteredPurchases.length > 0 && (
+                <tfoot>
+                  <tr className="bg-slate-50/90 border-t-2 border-slate-200 text-xs font-bold text-slate-800">
+                    <td colSpan={4} className="py-4 px-6 text-right font-extrabold uppercase tracking-wider text-slate-500">
+                      Total Summary ({filteredPurchases.length} Entries):
+                    </td>
+                    <td className="py-4 px-5 text-center font-extrabold text-slate-800">
+                      {filteredPurchases.reduce((acc, p) => acc + p.itemsCount, 0)} Units
+                    </td>
+                    <td className="py-4 px-5 text-right font-mono text-slate-600 font-bold">
+                      ₹{filteredPurchases.reduce((acc, p) => acc + p.gstAmount, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-4 px-5 text-right font-mono font-extrabold text-[#184edb]">
+                      <div className="flex flex-col text-right">
+                        <span>₹{filteredPurchases.reduce((acc, p) => acc + p.grandTotal, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-[10px] font-bold text-emerald-600">
+                          Paid: ₹{filteredPurchases.reduce((acc, p) => {
+                            const paid = p.credit !== undefined && p.credit > 0 ? p.credit : (p.debit !== undefined ? p.debit : (p.status === 'PAID' ? p.grandTotal : 0));
+                            return acc + paid;
+                          }, 0).toLocaleString()}
+                        </span>
+                        <span className="text-[10px] font-bold text-rose-600">
+                          Pending: ₹{filteredPurchases.reduce((acc, p) => {
+                            const bal = p.balance !== undefined ? p.balance : (p.status === 'PAID' ? 0 : Math.max(0, p.grandTotal - (p.debit || 0)));
+                            return acc + bal;
+                          }, 0).toLocaleString()}
+                        </span>
+                      </div>
+                    </td>
+                    <td colSpan={2}></td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           )}
 
@@ -2657,7 +3202,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                     </td>
                   </tr>
                 ) : (
-                  filteredReturns.map((r) => (
+                  paginatedReturns.map((r) => (
                     <tr key={r.id} className="hover:bg-slate-50/40 transition-colors">
 
                       {/* ID */}
@@ -2743,7 +3288,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
           {/* INVOICE TAB TABLE */}
           {subTab === 'invoice' && (
-            <table className="w-full text-left border-collapse min-w-[1000px]">
+            <table className="w-full text-left border-collapse min-w-[1100px]">
               <thead>
                 <tr className="bg-slate-50/75 border-b border-slate-100 text-slate-400 text-[11px] uppercase tracking-wider font-bold">
                   <th className="py-4.5 px-6 font-bold">Invoice No</th>
@@ -2751,7 +3296,9 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                   <th className="py-4.5 px-5 font-bold">Supplier</th>
                   <th className="py-4.5 px-5 font-bold">Issue Date</th>
                   <th className="py-4.5 px-5 font-bold">Due Date</th>
-                  <th className="py-4.5 px-5 text-right font-bold">Amount</th>
+                  <th className="py-4.5 px-5 text-right font-bold">Total Amount</th>
+                  <th className="py-4.5 px-5 text-right font-bold">Paid Amount</th>
+                  <th className="py-4.5 px-5 text-right font-bold">Balance Due</th>
                   <th className="py-4.5 px-5 text-center font-bold">Payment Status</th>
                   <th className="py-4.5 px-6 text-right font-bold">Actions</th>
                 </tr>
@@ -2759,126 +3306,199 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
               <tbody className="divide-y divide-slate-100 text-[14px]">
                 {filteredInvoices.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-10 text-center text-slate-400 font-semibold bg-white">
+                    <td colSpan={10} className="py-10 text-center text-slate-400 font-semibold bg-white">
                       No invoices found matching the filters.
                     </td>
                   </tr>
                 ) : (
-                  filteredInvoices.map((i) => (
-                    <tr key={i.id} className="hover:bg-slate-50/40 transition-colors">
+                  paginatedInvoices.map((i) => {
+                    const paidAmt = getPaidAmount(i);
+                    const balAmt = getBalanceDue(i);
+                    return (
+                      <tr key={i.id} className="hover:bg-slate-50/40 transition-colors">
 
-                      {/* Invoice No */}
-                      <td className="py-4 px-6 font-bold text-slate-800 whitespace-nowrap">
-                        {i.id}
-                      </td>
+                        {/* Invoice No */}
+                        <td className="py-4 px-6 font-bold text-slate-800 whitespace-nowrap">
+                          {i.id}
+                        </td>
 
-                      {/* PO Ref */}
-                      <td className="py-4 px-5 font-semibold text-[#184edb] whitespace-nowrap">
-                        {i.poRef}
-                      </td>
+                        {/* PO Ref */}
+                        <td className="py-4 px-5 font-semibold text-[#184edb] whitespace-nowrap">
+                          {i.poRef}
+                        </td>
 
-                      {/* Supplier */}
-                      <td className="py-4 px-5 font-bold text-slate-850 whitespace-nowrap">
-                        {i.supplier}
-                      </td>
+                        {/* Supplier */}
+                        <td className="py-4 px-5 font-bold text-slate-850 whitespace-nowrap">
+                          {i.supplier}
+                        </td>
 
-                      {/* Issue Date */}
-                      <td className="py-4 px-5 text-slate-600 font-medium whitespace-nowrap">
-                        {i.issueDate}
-                      </td>
+                        {/* Issue Date */}
+                        <td className="py-4 px-5 text-slate-600 font-medium whitespace-nowrap">
+                          {i.issueDate}
+                        </td>
 
-                      {/* Due Date */}
-                      <td className="py-4 px-5 text-slate-600 font-medium whitespace-nowrap">
-                        {i.dueDate}
-                      </td>
+                        {/* Due Date */}
+                        <td className="py-4 px-5 text-slate-600 font-medium whitespace-nowrap">
+                          {i.dueDate}
+                        </td>
 
-                      {/* Amount */}
-                      <td className="py-4 px-5 text-slate-900 text-right font-bold whitespace-nowrap">
-                        ₹{i.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </td>
+                        {/* Total Amount */}
+                        <td className="py-4 px-5 text-slate-900 text-right font-bold whitespace-nowrap">
+                          ₹{i.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
 
-                      {/* Payment Status */}
-                      <td className="py-4 px-5 text-center whitespace-nowrap">
-                        {i.status === 'PAID' && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
-                            PAID
-                          </span>
-                        )}
-                        {i.status === 'PARTIAL' && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-amber-50 text-amber-600 border border-amber-100">
-                            PARTIAL
-                          </span>
-                        )}
-                        {i.status === 'UNPAID' && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                            UNPAID
-                          </span>
-                        )}
-                        {i.status === 'OVERDUE' && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-rose-50 text-rose-600 border border-rose-100">
-                            OVERDUE
-                          </span>
-                        )}
-                      </td>
+                        {/* Paid Amount */}
+                        <td className="py-4 px-5 text-emerald-600 text-right font-bold whitespace-nowrap">
+                          ₹{paidAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
 
-                      {/* Actions */}
-                      <td className="py-4 px-6 whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-3.5">
-                          <button
-                            onClick={() => alert(`Downloading Invoice PDF: ${i.id}`)}
-                            className="text-slate-400 hover:text-[#184edb] p-0 border-none bg-transparent cursor-pointer transition-colors"
-                            title="Download PDF"
-                          >
-                            <Download size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteInvoice(i.id)}
-                            className="text-slate-400 hover:text-rose-600 p-0 border-none bg-transparent cursor-pointer transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
+                        {/* Balance Due */}
+                        <td className={`py-4 px-5 text-right font-bold whitespace-nowrap ${balAmt > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                          ₹{balAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
 
-                    </tr>
-                  ))
+                        {/* Payment Status */}
+                        <td className="py-4 px-5 text-center whitespace-nowrap">
+                          {i.status === 'PAID' && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
+                              PAID
+                            </span>
+                          )}
+                          {i.status === 'PARTIAL' && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-amber-50 text-amber-600 border border-amber-100">
+                              PARTIAL
+                            </span>
+                          )}
+                          {i.status === 'UNPAID' && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                              UNPAID
+                            </span>
+                          )}
+                          {i.status === 'OVERDUE' && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11.5px] font-bold bg-rose-50 text-rose-600 border border-rose-100">
+                              OVERDUE
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-4 px-6 whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-3.5">
+                            <button
+                              onClick={() => setSelectedInvoice(i)}
+                              className="text-slate-400 hover:text-[#184edb] p-0 border-none bg-transparent cursor-pointer transition-colors"
+                              title="View & Edit Invoice Details"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            <button
+                              onClick={() => alert(`Downloading Invoice PDF: ${i.id}`)}
+                              className="text-slate-400 hover:text-[#184edb] p-0 border-none bg-transparent cursor-pointer transition-colors"
+                              title="Download PDF"
+                            >
+                              <Download size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteInvoice(i.id)}
+                              className="text-slate-400 hover:text-rose-600 p-0 border-none bg-transparent cursor-pointer transition-colors"
+                              title="Delete Invoice"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
+              {filteredInvoices.length > 0 && (
+                <tfoot>
+                  <tr className="bg-slate-50/90 border-t-2 border-slate-200 text-xs font-bold text-slate-800">
+                    <td colSpan={5} className="py-4 px-6 text-right font-extrabold uppercase tracking-wider text-slate-500">
+                      Total Summary ({filteredInvoices.length} Bills):
+                    </td>
+                    <td className="py-4 px-5 text-right font-mono font-extrabold text-[#184edb]">
+                      ₹{filteredInvoices.reduce((acc, i) => acc + i.amount, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-4 px-5 text-right font-mono font-extrabold text-emerald-600">
+                      ₹{filteredInvoices.reduce((acc, i) => acc + getPaidAmount(i), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-4 px-5 text-right font-mono font-extrabold text-rose-600">
+                      ₹{filteredInvoices.reduce((acc, i) => acc + getBalanceDue(i), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td colSpan={2}></td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           )}
 
         </div>
 
-        {/* Footer / Pagination links */}
+        {/* Footer / Interactive Pagination links */}
         <div className="bg-slate-50/70 border-t border-slate-100 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 w-full box-border text-[13.5px] font-semibold text-slate-500">
-          <div className="flex items-center gap-2">
-            <span>Show</span>
-            <select className="border border-slate-200 rounded-lg p-1 text-[13px] bg-white cursor-pointer focus:outline-none">
-              <option value="10">10 entries</option>
-              <option value="25">25 entries</option>
-              <option value="50">50 entries</option>
-            </select>
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span>Show</span>
+              <select 
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="border border-slate-200 rounded-lg px-2 py-1 text-[13px] bg-white cursor-pointer focus:outline-none font-bold text-slate-700 shadow-sm"
+              >
+                <option value={10}>10 entries</option>
+                <option value={25}>25 entries</option>
+                <option value={50}>50 entries</option>
+                <option value={100}>100 entries</option>
+              </select>
+            </div>
+            <span className="text-[13px] text-slate-600 font-medium">
+              Showing <strong className="text-slate-900 font-bold">{totalItems === 0 ? 0 : startIndex + 1} - {Math.min(endIndex, totalItems)}</strong> of <strong className="text-slate-900 font-bold">{totalItems}</strong> entries
+            </span>
           </div>
 
-          <div className="flex items-center gap-1">
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 bg-white hover:bg-slate-50 text-slate-400 cursor-pointer">
+          <div className="flex items-center gap-1.5">
+            <button 
+              disabled={safeCurrentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 transition-all ${
+                safeCurrentPage === 1 
+                  ? 'bg-slate-100 text-slate-300 cursor-not-allowed border-slate-100' 
+                  : 'bg-white hover:bg-slate-50 text-slate-700 cursor-pointer hover:border-slate-300 shadow-sm'
+              }`}
+              title="Previous Page"
+            >
               <ChevronLeft size={16} />
             </button>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#184edb] text-white font-bold text-[13px] border-none shadow-sm cursor-pointer">
-              1
-            </button>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 bg-white hover:bg-slate-50 text-slate-650 cursor-pointer">
-              2
-            </button>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 bg-white hover:bg-slate-50 text-slate-650 cursor-pointer">
-              3
-            </button>
-            <span className="px-2">...</span>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 bg-white hover:bg-slate-50 text-slate-650 cursor-pointer">
-              12
-            </button>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 bg-white hover:bg-slate-50 text-slate-400 cursor-pointer">
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-[13px] transition-all cursor-pointer ${
+                  safeCurrentPage === page
+                    ? 'bg-[#184edb] text-white shadow-md border-none'
+                    : 'bg-white border border-slate-200 text-slate-650 hover:bg-slate-50 hover:border-slate-300'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button 
+              disabled={safeCurrentPage >= totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 transition-all ${
+                safeCurrentPage >= totalPages 
+                  ? 'bg-slate-100 text-slate-300 cursor-not-allowed border-slate-100' 
+                  : 'bg-white hover:bg-slate-50 text-slate-700 cursor-pointer hover:border-slate-300 shadow-sm'
+              }`}
+              title="Next Page"
+            >
               <ChevronRight size={16} />
             </button>
           </div>
@@ -3911,6 +4531,492 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
             document.body
           )}
         </>
+      )}
+
+      {/* 5. SUPPLIER BILLS BREAKDOWN MODAL (Ethana Supplier ku Ethana Bill) */}
+      {showSupplierBreakdownModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[85vh]">
+            <div className="px-6 py-4.5 bg-[#184edb] text-white flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="font-extrabold text-[16px]">Supplier Bills Breakdown</span>
+                <span className="text-[12px] text-blue-100 font-medium">Ethana Supplier ku Ethana Bill Poturukom Summary</span>
+              </div>
+              <button
+                onClick={() => setShowSupplierBreakdownModal(false)}
+                className="text-white/80 hover:text-white border-none bg-transparent cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex flex-col gap-4 box-border">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-blue-50/70 border border-blue-100 p-4 rounded-xl flex flex-col gap-1">
+                  <span className="text-[11px] font-bold text-blue-600 uppercase">Total Suppliers</span>
+                  <span className="text-2xl font-extrabold text-slate-850">{supplierBillSummary.length}</span>
+                </div>
+                <div className="bg-emerald-50/70 border border-emerald-100 p-4 rounded-xl flex flex-col gap-1">
+                  <span className="text-[11px] font-bold text-emerald-600 uppercase">Total Invoiced Amount</span>
+                  <span className="text-2xl font-extrabold text-slate-850">₹{totalInvoiceAmount.toLocaleString()}</span>
+                </div>
+                <div className="bg-amber-50/70 border border-amber-100 p-4 rounded-xl flex flex-col gap-1">
+                  <span className="text-[11px] font-bold text-amber-600 uppercase">Total Balance Due</span>
+                  <span className="text-2xl font-extrabold text-slate-850">₹{totalInvoiceBalance.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 text-[11px] uppercase tracking-wider font-bold border-b border-slate-200">
+                      <th className="py-3 px-4">Supplier Name</th>
+                      <th className="py-3 px-4 text-center">Bills Count</th>
+                      <th className="py-3 px-4 text-center">Status Breakdown</th>
+                      <th className="py-3 px-4 text-right">Total Amount</th>
+                      <th className="py-3 px-4 text-right">Paid Amount</th>
+                      <th className="py-3 px-4 text-right">Balance Due</th>
+                      <th className="py-3 px-4 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-[13.5px]">
+                    {supplierBillSummary.map((sum) => (
+                      <tr key={sum.supplier} className="hover:bg-slate-50/60">
+                        <td className="py-3.5 px-4 font-bold text-slate-800">{sum.supplier}</td>
+                        <td className="py-3.5 px-4 text-center font-bold text-[#184edb]">{sum.totalBills} Bills</td>
+                        <td className="py-3.5 px-4 text-center">
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 border border-emerald-100 mr-1">
+                            {sum.paidBills} Paid
+                          </span>
+                          {sum.pendingBills > 0 && (
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100">
+                              {sum.pendingBills} Pending
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-bold text-slate-800">₹{sum.totalAmount.toLocaleString()}</td>
+                        <td className="py-3.5 px-4 text-right font-bold text-emerald-600">₹{sum.paidAmount.toLocaleString()}</td>
+                        <td className={`py-3.5 px-4 text-right font-bold ${sum.balanceDue > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                          ₹{sum.balanceDue.toLocaleString()}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <button
+                            onClick={() => {
+                              setSupplierFilter(sum.supplier);
+                              setShowSupplierBreakdownModal(false);
+                            }}
+                            className="px-2.5 py-1 text-[11.5px] font-bold bg-blue-50 text-[#184edb] hover:bg-[#184edb] hover:text-white rounded-lg border border-blue-200 cursor-pointer transition-colors"
+                          >
+                            Filter Bills
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end">
+              <button
+                onClick={() => setShowSupplierBreakdownModal(false)}
+                className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-[12.5px] border-none rounded-lg cursor-pointer transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. VIEW & EDIT SUPPLIER INVOICE DETAILS MODAL */}
+      {selectedInvoice && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 my-8 flex flex-col">
+            {/* Modal Header */}
+            <div className="px-6 py-4.5 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <FileText size={22} className="text-[#184edb]" />
+                <div className="flex flex-col">
+                  <span className="font-extrabold text-[16px]">Supplier Invoice: {selectedInvoice.id}</span>
+                  <span className="text-[12px] text-slate-400 font-medium">PO Ref: {selectedInvoice.poRef}</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedInvoice(null)}
+                className="text-white/80 hover:text-white border-none bg-transparent cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex flex-col gap-6 box-border max-h-[75vh] overflow-y-auto">
+
+              {/* Status Header Badge */}
+              <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Supplier Name</span>
+                  <span className="text-lg font-extrabold text-slate-850">{selectedInvoice.supplier}</span>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Payment Status</span>
+                  {selectedInvoice.status === 'PAID' && (
+                    <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                      PAID
+                    </span>
+                  )}
+                  {selectedInvoice.status === 'PARTIAL' && (
+                    <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-100 text-amber-700 border border-amber-200">
+                      PARTIAL PAYMENT
+                    </span>
+                  )}
+                  {selectedInvoice.status === 'UNPAID' && (
+                    <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-slate-200 text-slate-700 border border-slate-300">
+                      UNPAID
+                    </span>
+                  )}
+                  {selectedInvoice.status === 'OVERDUE' && (
+                    <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-rose-100 text-rose-700 border border-rose-200">
+                      OVERDUE
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Dates & Reference grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white p-4 rounded-xl border border-slate-200">
+                <div className="flex flex-col">
+                  <span className="text-[10.5px] font-bold text-slate-400 uppercase">Invoice No</span>
+                  <span className="text-[13.5px] font-bold text-slate-800">{selectedInvoice.id}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10.5px] font-bold text-slate-400 uppercase">PO Reference</span>
+                  <span className="text-[13.5px] font-bold text-[#184edb]">{selectedInvoice.poRef}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10.5px] font-bold text-slate-400 uppercase">Issue Date</span>
+                  <span className="text-[13.5px] font-semibold text-slate-700">{selectedInvoice.issueDate}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10.5px] font-bold text-slate-400 uppercase">Due Date</span>
+                  <span className="text-[13.5px] font-semibold text-slate-700">{selectedInvoice.dueDate}</span>
+                </div>
+              </div>
+
+              {/* Financial Metrics Cards (Evalo Amount Iruku / Evalo Kattirukom / Ino Evalo Iruku) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-blue-50/80 border border-blue-100 rounded-xl p-4 flex flex-col gap-1">
+                  <span className="text-[11px] font-bold text-blue-600 uppercase">Total Bill Amount</span>
+                  <span className="text-xl font-extrabold text-slate-850">
+                    ₹{selectedInvoice.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                  <span className="text-[11px] font-semibold text-blue-700">Full Invoice Value</span>
+                </div>
+
+                <div className="bg-emerald-50/80 border border-emerald-100 rounded-xl p-4 flex flex-col gap-1">
+                  <span className="text-[11px] font-bold text-emerald-600 uppercase">Amount Paid (Kattirukom)</span>
+                  <span className="text-xl font-extrabold text-emerald-700">
+                    ₹{getPaidAmount(selectedInvoice).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                  <span className="text-[11px] font-semibold text-emerald-600">Total Payment Received</span>
+                </div>
+
+                <div className="bg-rose-50/80 border border-rose-100 rounded-xl p-4 flex flex-col gap-1">
+                  <span className="text-[11px] font-bold text-rose-600 uppercase">Balance Due (Ino Iruku)</span>
+                  <span className="text-xl font-extrabold text-rose-700">
+                    ₹{getBalanceDue(selectedInvoice).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                  <span className="text-[11px] font-semibold text-rose-600">Remaining Pending Due</span>
+                </div>
+              </div>
+
+              {/* Payment Status & Paid Amount Updater Form */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col gap-3">
+                <span className="text-[12.5px] font-extrabold text-slate-800 uppercase tracking-wider">
+                  Update Invoice Payment & Status
+                </span>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const statusSelect = document.getElementById('edit-inv-status') as HTMLSelectElement;
+                    const paidInput = document.getElementById('edit-inv-paid') as HTMLInputElement;
+                    if (statusSelect && paidInput) {
+                      const newStat = statusSelect.value as 'PAID' | 'PARTIAL' | 'UNPAID' | 'OVERDUE';
+                      const newPaid = Number(paidInput.value) || 0;
+                      const newBal = Math.max(0, selectedInvoice.amount - newPaid);
+                      const newPoStat: 'PAID' | 'PARTIAL' | 'PENDING' = newStat === 'PAID' ? 'PAID' : (newStat === 'PARTIAL' ? 'PARTIAL' : 'PENDING');
+
+                      const updatedInvoices = invoices.map(inv => inv.id === selectedInvoice.id ? {
+                        ...inv,
+                        status: newStat,
+                        paidAmount: newPaid,
+                        balanceDue: newBal
+                      } : inv);
+
+                      const updatedPurchases = purchases.map(p => (p.invoiceNo === selectedInvoice.id || p.id === selectedInvoice.poRef) ? {
+                        ...p,
+                        status: newPoStat,
+                        debit: newPaid,
+                        balance: newBal
+                      } : p);
+
+                      saveAndSyncPurchasesAndInvoices(updatedPurchases, updatedInvoices);
+
+                      setSelectedInvoice({
+                        ...selectedInvoice,
+                        status: newStat,
+                        paidAmount: newPaid,
+                        balanceDue: newBal
+                      });
+
+                      alert(`Invoice ${selectedInvoice.id} status updated to ${newStat} with ₹${newPaid.toLocaleString()} paid!`);
+                    }
+                  }}
+                  className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end"
+                >
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-bold text-slate-600 uppercase">Payment Status</label>
+                    <select
+                      id="edit-inv-status"
+                      defaultValue={selectedInvoice.status}
+                      className="p-2.5 border border-slate-300 rounded-lg text-[13.5px] font-semibold bg-white focus:outline-none focus:border-[#184edb]"
+                    >
+                      <option value="PAID">PAID</option>
+                      <option value="PARTIAL">PARTIAL</option>
+                      <option value="UNPAID">UNPAID</option>
+                      <option value="OVERDUE">OVERDUE</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-bold text-slate-600 uppercase">Paid Amount (₹)</label>
+                    <input
+                      type="number"
+                      id="edit-inv-paid"
+                      defaultValue={getPaidAmount(selectedInvoice)}
+                      className="p-2.5 border border-slate-300 rounded-lg text-[13.5px] font-bold text-slate-800 bg-white focus:outline-none focus:border-[#184edb]"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="py-2.5 px-4 bg-[#184edb] hover:bg-[#133eb5] text-white font-extrabold text-[13px] rounded-lg border-none cursor-pointer transition-colors shadow-md"
+                  >
+                    Save Status Update
+                  </button>
+                </form>
+              </div>
+
+              {/* Sample Line Items Table */}
+              <div className="flex flex-col gap-2">
+                <span className="text-[12.5px] font-extrabold text-slate-800 uppercase tracking-wider">
+                  Billed Products / Services Items
+                </span>
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-left border-collapse text-[13px]">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+                        <th className="py-2.5 px-4">Item Description</th>
+                        <th className="py-2.5 px-3 text-center">Qty</th>
+                        <th className="py-2.5 px-4 text-right">Unit Rate</th>
+                        <th className="py-2.5 px-4 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      <tr>
+                        <td className="py-2.5 px-4 font-bold text-slate-800">Eicher Genuine Brake Pads (Heavy Duty)</td>
+                        <td className="py-2.5 px-3 text-center">10</td>
+                        <td className="py-2.5 px-4 text-right">₹{Math.round(selectedInvoice.amount * 0.06).toLocaleString()}</td>
+                        <td className="py-2.5 px-4 text-right font-bold">₹{Math.round(selectedInvoice.amount * 0.60).toLocaleString()}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2.5 px-4 font-bold text-slate-800">Synthetic Engine Oil 15W-40 (20L Drum)</td>
+                        <td className="py-2.5 px-3 text-center">4</td>
+                        <td className="py-2.5 px-4 text-right">₹{Math.round(selectedInvoice.amount * 0.10).toLocaleString()}</td>
+                        <td className="py-2.5 px-4 text-right font-bold">₹{Math.round(selectedInvoice.amount * 0.40).toLocaleString()}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-[12.5px] px-5 py-2.5 border-none rounded-lg cursor-pointer transition-colors shadow-md"
+              >
+                <Printer size={15} />
+                <span>Print Invoice</span>
+              </button>
+              <button
+                onClick={() => setSelectedInvoice(null)}
+                className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold text-[12.5px] px-5 py-2.5 rounded-lg cursor-pointer transition-colors"
+              >
+                Close View
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. UPI QR CODE PAYMENT MODAL */}
+      {showQrPaymentModal && qrPaymentInvoice && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col">
+            
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-[#0f172a] text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-600/30 border border-blue-400/30 flex items-center justify-center text-blue-400">
+                  <QrCode size={20} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-extrabold text-[15px]">Scan & Pay via UPI</span>
+                  <span className="text-[11.5px] text-slate-400 font-medium">Invoice #{qrPaymentInvoice.id}</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowQrPaymentModal(false)}
+                className="text-slate-400 hover:text-white border-none bg-transparent cursor-pointer p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex flex-col items-center gap-4 text-center bg-slate-50/50">
+              
+              {/* Supplier Info Badge */}
+              <div className="w-full bg-white p-3.5 rounded-xl border border-slate-200 flex items-center justify-between shadow-xs text-left">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Payee / Supplier</span>
+                  <span className="text-[14px] font-extrabold text-slate-900">{qrPaymentInvoice.supplier}</span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">UPI VPA ID</span>
+                  <span className="text-[12px] font-mono font-extrabold text-[#184edb]">
+                    {(() => {
+                      const sup = activeSuppliersList.find(s => s.name === qrPaymentInvoice.supplier);
+                      return sup?.phone ? `${sup.phone}@upi` : `${qrPaymentInvoice.supplier.toLowerCase().replace(/[^a-z0-9]/g, '')}@okaxis`;
+                    })()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Editable Payable Amount */}
+              <div className="w-full flex flex-col gap-1 text-left">
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Payable Amount (₹)</label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-extrabold text-slate-400 text-lg">₹</span>
+                  <input
+                    type="number"
+                    value={customPaymentAmount}
+                    onChange={(e) => setCustomPaymentAmount(Math.max(0, Number(e.target.value)))}
+                    className="w-full pl-8 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-lg font-extrabold text-slate-900 focus:outline-none focus:border-[#184edb] shadow-xs"
+                  />
+                </div>
+              </div>
+
+              {/* QR Code Container */}
+              <div className="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md flex flex-col items-center gap-2 my-1">
+                {(() => {
+                  const sup = activeSuppliersList.find(s => s.name === qrPaymentInvoice.supplier);
+                  const vpa = sup?.phone ? `${sup.phone}@upi` : `${qrPaymentInvoice.supplier.toLowerCase().replace(/[^a-z0-9]/g, '')}@okaxis`;
+                  const upiPayload = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(qrPaymentInvoice.supplier)}&am=${customPaymentAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Inv_${qrPaymentInvoice.id}`)}`;
+                  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiPayload)}`;
+                  
+                  return (
+                    <>
+                      <img 
+                        src={qrUrl} 
+                        alt="UPI QR Code" 
+                        className="w-48 h-48 object-contain rounded-lg border border-slate-100"
+                      />
+                      <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5 mt-1">
+                        <Smartphone size={14} className="text-[#184edb]" />
+                        Scan with GPay, PhonePe, Paytm or BHIM
+                      </span>
+                    </>
+                  );
+                })()}
+              </div>
+
+              {/* Payment Apps Badges */}
+              <div className="flex items-center justify-center gap-2 text-[11px] font-extrabold text-slate-500">
+                <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md border border-blue-100">GPay</span>
+                <span className="px-2.5 py-1 bg-purple-50 text-purple-700 rounded-md border border-purple-100">PhonePe</span>
+                <span className="px-2.5 py-1 bg-sky-50 text-sky-700 rounded-md border border-sky-100">Paytm</span>
+                <span className="px-2.5 py-1 bg-orange-50 text-orange-700 rounded-md border border-orange-100">BHIM UPI</span>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-white border-t border-slate-100 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setShowQrPaymentModal(false)}
+                className="px-4 py-2.5 border border-slate-200 text-slate-650 font-bold text-[12.5px] rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const targetInv = qrPaymentInvoice;
+                  const paidAmt = getPaidAmount(targetInv);
+                  const payVal = customPaymentAmount || (targetInv.amount - paidAmt);
+
+                  if (payVal <= 0) {
+                    alert('Please enter a valid payment amount.');
+                    return;
+                  }
+
+                  const newPaid = Math.min(targetInv.amount, paidAmt + payVal);
+                  const newBal = Math.max(0, targetInv.amount - newPaid);
+                  const newStatus = newBal === 0 ? 'PAID' : 'PARTIAL';
+
+                  const updatedInvoices = invoices.map(i => i.id === targetInv.id ? {
+                    ...i,
+                    status: newStatus,
+                    paidAmount: newPaid,
+                    balanceDue: newBal
+                  } : i);
+
+                  const updatedPurchases = purchases.map(p => (p.invoiceNo === targetInv.id || p.id === targetInv.poRef) ? {
+                    ...p,
+                    status: newStatus === 'PAID' ? 'PAID' : 'PARTIAL',
+                    debit: newPaid,
+                    balance: newBal
+                  } : p);
+
+                  saveAndSyncPurchasesAndInvoices(updatedPurchases, updatedInvoices);
+                  
+                  if (selectedInvoice && selectedInvoice.id === targetInv.id) {
+                    setSelectedInvoice({
+                      ...targetInv,
+                      status: newStatus,
+                      paidAmount: newPaid,
+                      balanceDue: newBal
+                    });
+                  }
+
+                  setShowQrPaymentModal(false);
+                  alert(`✅ UPI Payment of ₹${payVal.toLocaleString()} recorded successfully for Invoice #${targetInv.id}!`);
+                }}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[13px] rounded-xl border-none cursor-pointer transition-colors shadow-md flex items-center gap-2"
+              >
+                <CheckCircle size={16} />
+                <span>Payment Complete</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
       )}
 
     </div>
