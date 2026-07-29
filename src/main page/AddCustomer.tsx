@@ -2,26 +2,34 @@ import React, { useState, useEffect } from 'react';
 import { 
   User, 
   MapPin, 
-  Truck, 
-  Clock, 
-  Wallet, 
   Lock, 
-  Calendar,
   Save 
 } from 'lucide-react';
 
 interface AddCustomerProps {
+  customers: any[];
   onBack: () => void;
   onSave: () => void;
   onSaveAndAddVehicle?: () => void;
 }
 
-export const AddCustomer: React.FC<AddCustomerProps> = ({ onBack, onSave }) => {
-  // Generate a random Customer ID on mount
+export const AddCustomer: React.FC<AddCustomerProps> = ({ customers = [], onBack, onSave }) => {
   const [customerId, setCustomerId] = useState('');
+  
   useEffect(() => {
-    setCustomerId(`#CUST-${Math.floor(1000 + Math.random() * 9000)}`);
-  }, []);
+    let maxIdNum = 1000;
+    if (customers && customers.length > 0) {
+      customers.forEach(c => {
+        if (c.id && c.id.includes('#CUST-')) {
+          const numPart = parseInt(c.id.split('-')[1]);
+          if (!isNaN(numPart) && numPart > maxIdNum) {
+            maxIdNum = numPart;
+          }
+        }
+      });
+    }
+    setCustomerId(`#CUST-${maxIdNum + 1}`);
+  }, [customers]);
 
   // Section 1: Customer Identity
   const [fullName, setFullName] = useState('');
@@ -37,18 +45,6 @@ export const AddCustomer: React.FC<AddCustomerProps> = ({ onBack, onSave }) => {
   const [state, setState] = useState('');
   const [pincode, setPincode] = useState('');
 
-  // Section 3: Vehicle Details
-  const [vehicleDistrict, setVehicleDistrict] = useState('');
-  const [vehicleState, setVehicleState] = useState('');
-  const [numVehicles, setNumVehicles] = useState('0');
-
-  // Section 4: Service History
-  const [lastServiceDate, setLastServiceDate] = useState('');
-  const [serviceFrequency, setServiceFrequency] = useState('Weekly');
-
-  // Section 5: Financial Summary
-  const [outstandingAmount, setOutstandingAmount] = useState('0.00');
-  const [accountStatus, setAccountStatus] = useState(true);
 
   const [saving, setSaving] = useState(false);
 
@@ -62,15 +58,6 @@ export const AddCustomer: React.FC<AddCustomerProps> = ({ onBack, onSave }) => {
     setSaving(true);
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-    const formattedOutstanding = `₹${parseFloat(outstandingAmount || '0').toLocaleString('en-IN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    })}`;
-
-    const formattedDate = lastServiceDate
-      ? new Date(lastServiceDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-      : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
     const newCustomer = {
       id: customerId,
       name: fullName,
@@ -78,10 +65,10 @@ export const AddCustomer: React.FC<AddCustomerProps> = ({ onBack, onSave }) => {
       avatarBg: 'bg-blue-100 text-blue-600',
       phone: phoneNumber,
       district: district || 'Main District',
-      vehicles: parseInt(numVehicles) || 0,
-      lastService: formattedDate,
-      outstanding: formattedOutstanding,
-      status: accountStatus ? 'ACTIVE' : 'INACTIVE'
+      vehicles: 0,
+      lastService: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      outstanding: '₹0.00',
+      status: 'ACTIVE'
     };
 
     // Update local storage first to guarantee instant visibility
@@ -290,140 +277,7 @@ export const AddCustomer: React.FC<AddCustomerProps> = ({ onBack, onSave }) => {
             </div>
           </div>
 
-          {/* SECTION 3: Vehicle Details */}
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-              <Truck size={16} className="text-blue-600" />
-              <h3 className="text-[12px] font-extrabold text-slate-800 m-0 uppercase tracking-wider font-heading">Vehicle Details</h3>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs font-semibold text-slate-500">
-              
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">District/Region</label>
-                <select 
-                  value={vehicleDistrict}
-                  onChange={(e) => setVehicleDistrict(e.target.value)}
-                  className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-semibold text-slate-700 w-full"
-                >
-                  <option value="">Select District</option>
-                  <option value="Central Valley">Central Valley</option>
-                  <option value="Northern Hills">Northern Hills</option>
-                  <option value="Coastal Plains">Coastal Plains</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">State</label>
-                <select 
-                  value={vehicleState}
-                  onChange={(e) => setVehicleState(e.target.value)}
-                  className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-semibold text-slate-700 w-full"
-                >
-                  <option value="">Select State</option>
-                  <option value="Rajasthan">Rajasthan</option>
-                  <option value="Maharashtra">Maharashtra</option>
-                  <option value="Karnataka">Karnataka</option>
-                  <option value="Delhi">Delhi</option>
-                  <option value="Tamil Nadu">Tamil Nadu</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Number of Vehicles</label>
-                <input 
-                  type="number" 
-                  value={numVehicles}
-                  onChange={(e) => setNumVehicles(e.target.value)}
-                  placeholder="0"
-                  min="0"
-                  className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700 placeholder-slate-400"
-                />
-              </div>
-
-            </div>
-          </div>
-
-          {/* SECTION 4: Service History */}
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-              <Clock size={16} className="text-blue-600" />
-              <h3 className="text-[12px] font-extrabold text-slate-800 m-0 uppercase tracking-wider font-heading">Service History</h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs font-semibold text-slate-500">
-              
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Last Service Date</label>
-                <div className="relative flex items-center">
-                  <input 
-                    type="date" 
-                    value={lastServiceDate}
-                    onChange={(e) => setLastServiceDate(e.target.value)}
-                    className="border border-slate-200 rounded-md py-2 pl-10 pr-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700 w-full"
-                  />
-                  <Calendar size={13} className="absolute left-3.5 text-slate-450" />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Service Frequency</label>
-                <select 
-                  value={serviceFrequency}
-                  onChange={(e) => setServiceFrequency(e.target.value)}
-                  className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-semibold text-slate-700 w-full"
-                >
-                  <option value="Weekly">Weekly</option>
-                  <option value="Bi-Weekly">Bi-Weekly</option>
-                  <option value="Monthly">Monthly</option>
-                  <option value="Quarterly">Quarterly</option>
-                </select>
-              </div>
-
-            </div>
-          </div>
-
-          {/* SECTION 5: Financial Summary */}
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-              <Wallet size={16} className="text-blue-600" />
-              <h3 className="text-[12px] font-extrabold text-slate-800 m-0 uppercase tracking-wider font-heading">Financial Summary</h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs font-semibold text-slate-500">
-              
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Outstanding Amount</label>
-                <div className="relative flex items-center">
-                  <span className="absolute left-3.5 text-xs text-slate-400 font-bold">₹</span>
-                  <input 
-                    type="text" 
-                    value={outstandingAmount}
-                    onChange={(e) => setOutstandingAmount(e.target.value)}
-                    placeholder="0.00"
-                    className="border border-slate-200 rounded-md py-2 pl-8 pr-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700 w-full"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5 justify-center">
-                <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1">Account Status</label>
-                <div className="flex items-center mt-1">
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      checked={accountStatus} 
-                      onChange={(e) => setAccountStatus(e.target.checked)} 
-                      className="sr-only peer" 
-                    />
-                    <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600"></div>
-                    <span className="ml-3 text-[11px] font-bold text-slate-650">Active Account</span>
-                  </label>
-                </div>
-              </div>
-
-            </div>
-          </div>
 
         </div>
 

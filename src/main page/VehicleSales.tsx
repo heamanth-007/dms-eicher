@@ -34,6 +34,9 @@ export interface SaleRecord {
   district: string;
   deliveryDate: string;
   salesExecutive: string;
+  customerPhone?: string;
+  customerDistrict?: string;
+  customerEmail?: string;
   advancePaid?: string;
   balanceAmount?: string;
 }
@@ -47,13 +50,17 @@ interface PrintModalProps {
 // Reusable print modal matching the mockup format exactly
 const PrintInvoiceModal: React.FC<PrintModalProps> = ({ printingSale, setPrintingSale, handlePrintTrigger }) => {
   const grandTotalNum = Number(printingSale.grandTotal.toString().replace(/[^\d.]/g, '')) || 0;
-  const basePriceNum = Math.round(grandTotalNum * 0.75);
+  
+  // Exact mathematical reverse-calculation to ensure taxes and subtotal match 18% GST correctly
+  const insuranceNum = Math.round(grandTotalNum * 0.05); // Insurance is approx 5% with 0% tax
+  const taxableAmount = Math.round((grandTotalNum - insuranceNum) / 1.18);
   const accessoriesNum = Math.round(grandTotalNum * 0.02);
-  const insuranceNum = Math.round(grandTotalNum * 0.05);
+  const basePriceNum = taxableAmount - accessoriesNum;
+  
   const subTotal = basePriceNum + accessoriesNum + insuranceNum;
   const taxesNum = grandTotalNum - subTotal;
-  const cgst = taxesNum / 2;
-  const sgst = taxesNum / 2;
+  const cgst = Math.round(taxesNum / 2);
+  const sgst = taxesNum - cgst;
 
   const invoiceItems = [
     { id: 1, desc: `${printingSale.vehicleModel} - Base Vehicle`, sub: 'Primary vehicle chassis and cabin', qty: '1', price: `₹${basePriceNum.toLocaleString('en-IN')}`, tax: '18%', total: `₹${basePriceNum.toLocaleString('en-IN')}` },
@@ -122,7 +129,6 @@ const PrintInvoiceModal: React.FC<PrintModalProps> = ({ printingSale, setPrintin
                   <div className="text-xs font-semibold text-slate-500 mt-2 flex flex-col items-end gap-0.5">
                     <span>INVOICE NO: &nbsp;<span className="font-bold text-slate-950">{printingSale.invoiceNo}</span></span>
                     <span>DATE: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="font-bold text-slate-800">{printingSale.deliveryDate.replace('Scheduled: ', '')}</span></span>
-                    <span>JOB CARD: &nbsp;&nbsp;&nbsp;&nbsp;<span className="font-bold text-slate-800">JC/882/2024</span></span>
                   </div>
                 </div>
               </div>
@@ -135,9 +141,8 @@ const PrintInvoiceModal: React.FC<PrintModalProps> = ({ printingSale, setPrintin
                   <span className="font-bold text-blue-600 tracking-wider text-[9px] uppercase">BILL TO:</span>
                   <h4 className="text-slate-900 font-bold m-0 text-[12.5px]">{printingSale.customerName}</h4>
                   <div className="text-slate-500 font-medium flex flex-col gap-0.5 mt-0.5">
-                    <span>45/A North Industrial Park, Mumbai</span>
-                    <span>Phone: +91 98765 43210</span>
-                    <span>GSTIN: 27AABCT8844D1Z2</span>
+                    <span>{printingSale.customerDistrict || 'Address Not Provided'}</span>
+                    <span>Phone: {printingSale.customerPhone || 'N/A'}</span>
                   </div>
                 </div>
 
@@ -147,12 +152,8 @@ const PrintInvoiceModal: React.FC<PrintModalProps> = ({ printingSale, setPrintin
                   <div className="grid grid-cols-3 gap-y-1 font-semibold text-slate-500">
                     <span className="text-slate-400">Model:</span>
                     <span className="col-span-2 text-slate-850 font-bold">{printingSale.vehicleModel}</span>
-                    <span className="text-slate-400">Reg. No:</span>
-                    <span className="col-span-2 text-slate-900 font-bold">MH-01-AX-9922</span>
-                    <span className="text-slate-400">Odometer:</span>
-                    <span className="col-span-2 text-slate-750">45,210 KM</span>
-                    <span className="text-slate-400">Chassis:</span>
-                    <span className="col-span-2 text-slate-750 font-mono text-[10.5px]">MC284HL99K201</span>
+                    <span className="text-slate-400">Status:</span>
+                    <span className="col-span-2 text-slate-900 font-bold">{printingSale.status}</span>
                   </div>
                 </div>
 
@@ -235,9 +236,6 @@ const PrintInvoiceModal: React.FC<PrintModalProps> = ({ printingSale, setPrintin
                     <span>Balance Due</span>
                     <span>{printingSale.balanceAmount || '₹0'}</span>
                   </div>
-                  <span className="text-[9px] text-slate-400 italic block mt-1 font-medium text-right">
-                    Rupees Seventeen Thousand Two Hundred Fifty Seven and Fifty Paise Only
-                  </span>
                 </div>
 
               </div>
@@ -247,7 +245,7 @@ const PrintInvoiceModal: React.FC<PrintModalProps> = ({ printingSale, setPrintin
                 <div className="flex flex-col gap-1 items-start text-left">
                   <div className="w-40 border-b border-slate-200 pb-1 h-6" />
                   <span className="text-slate-700">CUSTOMER SIGNATURE</span>
-                  <span className="text-[8.5px] text-slate-400 lowercase font-medium">Date: _____/_____/2024</span>
+                  <span className="text-[8.5px] text-slate-400 lowercase font-medium">Date: _____/_____/{new Date().getFullYear()}</span>
                 </div>
 
                 <div className="flex flex-col gap-1 items-end text-right">
@@ -380,19 +378,19 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
     }
   }, [dbVehicles, stocks]);
 
-  const [regInsuranceProvider, setRegInsuranceProvider] = useState('ICICI Lombard GIC');
-  const [regPolicyNumber, setRegPolicyNumber] = useState('POL-9921-X382');
-  const [regPremiumAmount, setRegPremiumAmount] = useState('35450');
+  const [regInsuranceProvider, setRegInsuranceProvider] = useState('');
+  const [regPolicyNumber, setRegPolicyNumber] = useState('');
+  const [regPremiumAmount, setRegPremiumAmount] = useState('');
   const [regSeatCovers, setRegSeatCovers] = useState(false);
-  const [regGpsTracker, setRegGpsTracker] = useState(true);
+  const [regGpsTracker, setRegGpsTracker] = useState(false);
   const [regWarranty, setRegWarranty] = useState(false);
   const [regDeliveryDate, setRegDeliveryDate] = useState('');
   const [regDeliveryLocation, setRegDeliveryLocation] = useState('Showroom Delivery');
   const [regInternalNotes, setRegInternalNotes] = useState('');
-  const [regPaymentMode, setRegPaymentMode] = useState('Bank Finance');
-  const [regFinanceProvider, setRegFinanceProvider] = useState('HDFC Bank');
-  const [regAdvancePaid, setRegAdvancePaid] = useState('50000');
-  const regDiscount = '15000';
+  const [regPaymentMode, setRegPaymentMode] = useState('Cash/Bank Transfer');
+  const [regFinanceProvider, setRegFinanceProvider] = useState('');
+  const [regAdvancePaid, setRegAdvancePaid] = useState('0');
+  const [regDiscount, setRegDiscount] = useState('0');
 
   // Form states for Editing
   const [editCustomer, setEditCustomer] = useState('');
@@ -512,11 +510,11 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
       grandTotal: `₹${Math.round(grandTotalPayable).toLocaleString('en-IN')}`,
       advancePaid: `₹${Math.round(advancePaidNum).toLocaleString('en-IN')}`,
       balanceAmount: `₹${Math.round(balancePayable).toLocaleString('en-IN')}`,
-      district: 'Central Valley',
+      district: regAddress || 'Not Provided',
       deliveryDate: regDeliveryDate
         ? new Date(regDeliveryDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
         : 'Scheduled: ' + new Date(Date.now() + 86400000 * 5).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-      salesExecutive: 'Vikram Singh'
+      salesExecutive: 'System User'
     };
 
     fetch(`${API_URL}/api/sales`, {
@@ -550,7 +548,8 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
         setRegEmail('');
         setRegDeliveryDate('');
         setRegInternalNotes('');
-        setRegAdvancePaid('50000');
+        setRegAdvancePaid('0');
+        setRegDiscount('0');
       })
       .catch(err => console.error('Error registering sale:', err));
   };
@@ -1375,7 +1374,7 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
 
   // --- Dynamic KPI Calculations ---
   const totalSalesAmount = sales.reduce((acc, sale) => {
-    if (sale.status === 'DELIVERED') {
+    if (sale.status !== 'CANCELLED') {
       const num = Number(sale.grandTotal.toString().replace(/[^\d.]/g, ''));
       return acc + (isNaN(num) ? 0 : num);
     }
@@ -1546,9 +1545,7 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
                 <th className="py-3.5 px-6 border-b border-slate-100">VEHICLE MODEL</th>
                 <th className="py-3.5 px-6 border-b border-slate-100">SALE STATUS</th>
                 <th className="py-3.5 px-6 border-b border-slate-100 text-right">GRAND TOTAL</th>
-                <th className="py-3.5 px-6 border-b border-slate-100">DISTRICT</th>
                 <th className="py-3.5 px-6 border-b border-slate-100">DELIVERY DATE</th>
-                <th className="py-3.5 px-6 border-b border-slate-100">SALES EXECUTIVE</th>
                 <th className="py-3.5 px-6 border-b border-slate-100 text-center">ACTIONS</th>
               </tr>
             </thead>
@@ -1587,9 +1584,7 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
                     </span>
                   </td>
                   <td className="py-4 px-6 border-b border-slate-100 text-right font-extrabold text-slate-900">{sale.grandTotal}</td>
-                  <td className="py-4 px-6 border-b border-slate-100 text-slate-550">{sale.district}</td>
                   <td className="py-4 px-6 border-b border-slate-100 text-slate-550">{sale.deliveryDate}</td>
-                  <td className="py-4 px-6 border-b border-slate-100 text-slate-800 font-semibold">{sale.salesExecutive}</td>
                   <td 
                     onClick={(e) => e.stopPropagation()}
                     className="py-4 px-6 border-b border-slate-100"
@@ -1657,78 +1652,12 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
 
       </div>
 
-      {/* Bottom Charts & Leaderboard Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* Sales Velocity */}
-        <div className="bg-white rounded-xl border border-[#eef2f6] shadow-sm p-6 lg:col-span-2 flex flex-col gap-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-[13.5px] font-extrabold text-slate-800 m-0 font-heading">Sales Velocity</h3>
-              <span className="text-[10px] text-slate-400">Monthly units sold summary</span>
-            </div>
-            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">Q3 2023</span>
-          </div>
-
-          {/* Graphical Bar Chart */}
-          <div className="flex items-end justify-between h-40 pt-4 px-2 border-b border-slate-100">
-            {[
-              { month: 'Feb 23', height: 'h-1/4', value: '4' },
-              { month: 'Mar 23', height: 'h-2/5', value: '8' },
-              { month: 'Apr 23', height: 'h-1/2', value: '10' },
-              { month: 'May 23', height: 'h-4/5', value: '16' },
-              { month: 'Jun 23', height: 'h-3/5', value: '12' },
-              { month: 'Jul 23', height: 'h-full', value: '20' }
-            ].map((bar, i) => (
-              <div key={i} className="flex flex-col items-center gap-2 w-12 flex-1 group cursor-pointer">
-                <span className="text-[9px] font-extrabold text-[#184edb] opacity-0 group-hover:opacity-100 transition-opacity">{bar.value}</span>
-                <div className={`w-8 bg-blue-100 rounded-t-md group-hover:bg-[#184edb] transition-all flex items-end justify-center ${bar.height}`}>
-                  <div className="w-8 bg-[#184edb]/10 group-hover:bg-transparent h-full rounded-t-md" />
-                </div>
-                <span className="text-[10px] font-bold text-slate-400 mt-1">{bar.month}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Executive Leaderboard */}
-        <div className="bg-gradient-to-br from-[#0d287a] to-[#06143c] rounded-xl p-6 text-white flex flex-col justify-between shadow-md">
-          <div className="flex flex-col gap-4">
-            <div>
-              <h3 className="text-[13.5px] font-extrabold m-0 text-white tracking-wide font-heading">Sales Executive Leaderboard</h3>
-              <span className="text-[10px] text-white/50">Top performers this quarter</span>
-            </div>
-
-            <div className="flex flex-col gap-3.5 mt-2">
-              {[
-                { rank: '1', name: 'Anjali Gupta', units: '48 Sold', bg: 'bg-white/10' },
-                { rank: '2', name: 'Vikram Singh', units: '36 Sold', bg: 'bg-white/5' },
-                { rank: '3', name: 'Rajesh Kumar', units: '28 Sold', bg: 'bg-white/5' }
-              ].map((exec, i) => (
-                <div key={i} className={`flex items-center justify-between p-3 rounded-lg ${exec.bg} border border-white/5`}>
-                  <div className="flex items-center gap-3">
-                    <span className="w-5 h-5 rounded-full bg-blue-600/50 flex items-center justify-center text-[10px] font-extrabold border border-blue-400/40">
-                      {exec.rank}
-                    </span>
-                    <span className="text-xs font-bold">{exec.name}</span>
-                  </div>
-                  <span className="text-xs font-extrabold text-[#95b4ff]">{exec.units}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <button className="bg-white/10 hover:bg-white/15 text-white border border-white/15 py-2 px-4 rounded-md text-[11px] font-bold cursor-pointer transition-colors w-full text-center mt-6">
-            View All Leaderboard
-          </button>
-        </div>
-
-      </div>
 
       {/* EDIT MODAL DIALOG */}
       {editingSale && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-lg border border-slate-100 w-full max-w-lg overflow-hidden flex flex-col">
+          <div className="bg-white rounded-xl shadow-lg border border-slate-100 w-full max-w-2xl overflow-hidden flex flex-col">
 
             {/* Header */}
             <div className="p-4 px-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -1742,28 +1671,30 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSaveEdit} className="p-6 flex flex-col gap-4 text-xs font-semibold text-slate-500">
+            <form onSubmit={handleSaveEdit} className="p-6 flex flex-col gap-4 text-xs font-semibold text-slate-500 max-h-[80vh] overflow-y-auto">
 
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Customer Name</label>
-                <input
-                  type="text"
-                  value={editCustomer}
-                  onChange={(e) => setEditCustomer(e.target.value)}
-                  required
-                  className="border border-slate-200 rounded-md py-2 px-3 outline-none focus:border-blue-400 bg-slate-50 focus:bg-white transition-all font-medium text-slate-700"
-                />
-              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Customer Name</label>
+                  <input
+                    type="text"
+                    value={editCustomer}
+                    onChange={(e) => setEditCustomer(e.target.value)}
+                    required
+                    className="border border-slate-200 rounded-md py-2 px-3 outline-none focus:border-blue-400 bg-slate-50 focus:bg-white transition-all font-medium text-slate-700"
+                  />
+                </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Vehicle Model</label>
-                <input
-                  type="text"
-                  value={editVehicle}
-                  onChange={(e) => setEditVehicle(e.target.value)}
-                  required
-                  className="border border-slate-200 rounded-md py-2 px-3 outline-none focus:border-blue-400 bg-slate-50 focus:bg-white transition-all font-medium text-slate-700"
-                />
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Vehicle Model</label>
+                  <input
+                    type="text"
+                    value={editVehicle}
+                    onChange={(e) => setEditVehicle(e.target.value)}
+                    required
+                    className="border border-slate-200 rounded-md py-2 px-3 outline-none focus:border-blue-400 bg-slate-50 focus:bg-white transition-all font-medium text-slate-700"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1794,21 +1725,21 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">District</label>
-                  <input
-                    type="text"
-                    value={editDistrict}
-                    onChange={(e) => setEditDistrict(e.target.value)}
-                    className="border border-slate-200 rounded-md py-2 px-3 outline-none focus:border-blue-400 bg-slate-50 focus:bg-white transition-all font-medium text-slate-700"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Delivery Date</label>
                   <input
                     type="text"
                     value={editDeliveryDate}
                     onChange={(e) => setEditDeliveryDate(e.target.value)}
+                    className="border border-slate-200 rounded-md py-2 px-3 outline-none focus:border-blue-400 bg-slate-50 focus:bg-white transition-all font-medium text-slate-700"
+                  />
+                </div>
+                
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">District</label>
+                  <input
+                    type="text"
+                    value={editDistrict}
+                    onChange={(e) => setEditDistrict(e.target.value)}
                     className="border border-slate-200 rounded-md py-2 px-3 outline-none focus:border-blue-400 bg-slate-50 focus:bg-white transition-all font-medium text-slate-700"
                   />
                 </div>

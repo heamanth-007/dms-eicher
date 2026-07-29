@@ -2,10 +2,7 @@ import React, { useState } from 'react';
 import { 
   ArrowLeft, 
   User, 
-  MapPin, 
-  Laptop, 
-  Pencil, 
-  Plus 
+  MapPin
 } from 'lucide-react';
 
 interface CustomerType {
@@ -34,34 +31,17 @@ export const EditCustomer: React.FC<EditCustomerProps> = ({ customer, onBack, on
   const [phoneNumber, setPhoneNumber] = useState(
     customer.phone.replace(/^\+91\s*|^\+1\s*|^\+\d+\s*/g, '').replace(/[^\d]/g, '') || '9876543210'
   );
-  const [emailAddress, setEmailAddress] = useState(
-    customer.id === 'CUST-1024' ? 'rajesh.kumar_agri@example.com' : `${customer.name.toLowerCase().replace(/\s+/g, '_')}@example.com`
-  );
+  const [emailAddress, setEmailAddress] = useState('');
   const [customerType, setCustomerType] = useState('Commercial Contractor');
 
   // Address states
-  const [streetAddress, setStreetAddress] = useState(
-    customer.id === 'CUST-1024' 
-      ? 'Plot No. 42, Sitapura Industrial Area, Phase II' 
-      : '102 Main Street, Industrial Zone'
-  );
-  const [district, setDistrict] = useState(customer.district || 'Jaipur');
-  const [state, setState] = useState(customer.id === 'CUST-1024' ? 'Rajasthan' : 'Maharashtra');
-  const [pincode, setPincode] = useState(customer.id === 'CUST-1024' ? '302022' : '411026');
-  const [landmark, setLandmark] = useState('Near RIICO Office');
+  const [streetAddress, setStreetAddress] = useState('');
+  const [district, setDistrict] = useState(customer.district || '');
+  const [state, setState] = useState('');
+  const [pincode, setPincode] = useState('');
+  const [landmark, setLandmark] = useState('');
 
-  // Account states
   const lifecycleState = customer.status || 'ACTIVE';
-  const [creditLimit, setCreditLimit] = useState('25,00,000');
-  const dealerNotes = customer.id === 'CUST-1024'
-    ? 'Frequent customer in the Jaipur industrial hub. Prefers weekend deliveries. Interested in upgrading fleet to ProSeries next quarter.'
-    : 'Prefers digital invoicing. Quick responder for maintenance updates.';
-
-  // Equipment lists matching the screen
-  const [equipmentList, setEquipmentList] = useState([
-    { model: 'TerraX 500', category: 'Excavator', serial: 'TX500-2023-A98', lastService: 'Jan 12, 2024', status: 'IN STOCK', statusClass: 'bg-emerald-50 text-emerald-600 border border-emerald-100' },
-    { model: 'ProHaul 20T', category: 'Trailer', serial: 'PH20T-99011-Z', lastService: 'Nov 05, 2023', status: 'RESERVED', statusClass: 'bg-amber-50 text-amber-600 border border-amber-100' }
-  ]);
 
   const [saving, setSaving] = useState(false);
 
@@ -116,17 +96,6 @@ export const EditCustomer: React.FC<EditCustomerProps> = ({ customer, onBack, on
       });
   };
 
-  const handleAddMachine = () => {
-    const newMachine = {
-      model: 'Eicher Skyline 20.15',
-      category: 'Hauler',
-      serial: `SKY-${Math.floor(1000 + Math.random() * 9000)}-Z`,
-      lastService: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      status: 'IN STOCK',
-      statusClass: 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-    };
-    setEquipmentList([...equipmentList, newMachine]);
-  };
 
   return (
     <div className="p-8 bg-[#f6f8fc] min-h-[calc(100vh-70px)] flex flex-col gap-6 box-border font-sans text-slate-700 text-left">
@@ -168,11 +137,10 @@ export const EditCustomer: React.FC<EditCustomerProps> = ({ customer, onBack, on
         </div>
       </div>
 
-      {/* Main Two Column Form Grid */}
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start w-full">
+      {/* Main Single Column Form */}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6 max-w-4xl w-full">
         
-        {/* Left Column (Forms & Equipment) */}
-        <div className="lg:col-span-2 flex flex-col gap-6">
+        <div className="flex flex-col gap-6">
           
           {/* Card 1: General Info */}
           <div className="bg-white rounded-xl border border-[#eef2f6] shadow-sm p-6 flex flex-col gap-5">
@@ -334,161 +302,7 @@ export const EditCustomer: React.FC<EditCustomerProps> = ({ customer, onBack, on
             </div>
           </div>
 
-          {/* Card 3: Registered Equipment */}
-          <div className="bg-white rounded-xl border border-[#eef2f6] shadow-sm p-6 flex flex-col gap-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 flex-shrink-0">
-                  <Laptop size={18} />
-                </div>
-                <h3 className="text-[13.5px] font-bold text-slate-800 m-0 uppercase tracking-wider font-heading">Registered Equipment</h3>
-              </div>
-              <button 
-                type="button"
-                onClick={handleAddMachine}
-                className="bg-transparent border-none text-[#184edb] hover:text-blue-800 font-bold text-xs cursor-pointer flex items-center gap-1"
-              >
-                <Plus size={14} /> Add Machine
-              </button>
-            </div>
-
-            {/* Table */}
-            <div className="overflow-x-auto w-full">
-              <table className="w-full border-collapse text-left text-[12px]">
-                <thead>
-                  <tr className="bg-slate-50/30 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
-                    <th className="py-2.5 px-4 border-b border-slate-100">Model</th>
-                    <th className="py-2.5 px-4 border-b border-slate-100">Serial Number</th>
-                    <th className="py-2.5 px-4 border-b border-slate-100">Last Service</th>
-                    <th className="py-2.5 px-4 border-b border-slate-100">Status</th>
-                    <th className="py-2.5 px-4 border-b border-slate-100 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {equipmentList.map((eq, i) => (
-                    <tr key={i} className="hover:bg-slate-50/20 text-slate-700 font-medium">
-                      <td className="py-3 px-4 border-b border-slate-100">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-800">{eq.model}</span>
-                          <span className="text-[10px] text-slate-400">{eq.category}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 border-b border-slate-100 font-mono text-[11px] text-slate-500">{eq.serial}</td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-slate-500">{eq.lastService}</td>
-                      <td className="py-3 px-4 border-b border-slate-100">
-                        <span className={`inline-block px-2 py-0.5 rounded text-[9.5px] font-bold ${eq.statusClass}`}>
-                          {eq.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 border-b border-slate-100 text-right">
-                        <button type="button" className="bg-transparent border-none text-slate-400 hover:text-slate-600 cursor-pointer">
-                          <Pencil size={13} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-          </div>
-
         </div>
-
-        {/* Right Column (Side status and timeline) */}
-        <div className="flex flex-col gap-6">
-          
-          {/* Card 1: Account Status */}
-          <div className="bg-white rounded-xl border border-[#eef2f6] shadow-sm p-6 flex flex-col gap-5">
-            <h3 className="text-[13.5px] font-bold text-slate-800 m-0 uppercase tracking-wider font-heading">Account Status</h3>
-            
-            {/* Lifecycle state indicator */}
-            <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-600">Lifecycle State</span>
-              <span className="bg-blue-600 text-white text-[9.5px] font-extrabold px-3 py-0.5 rounded-full uppercase tracking-wider">
-                {lifecycleState}
-              </span>
-            </div>
-
-            {/* Sales Rep */}
-            <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Assigned Sales Rep</label>
-              <div className="flex items-center gap-3 border border-slate-200 rounded-lg p-3">
-                <img 
-                  src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=100" 
-                  alt="Sales Rep" 
-                  className="w-9 h-9 rounded-full object-cover border border-slate-100"
-                />
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold text-slate-800">Priya Varma</span>
-                  <span className="text-[10px] text-slate-400 font-semibold uppercase mt-0.5">Key Account Executive</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Credit Limit */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Credit Limit (INR)</label>
-              <input 
-                type="text" 
-                value={creditLimit}
-                onChange={(e) => setCreditLimit(e.target.value)}
-                className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-semibold text-slate-700"
-              />
-            </div>
-          </div>
-
-          {/* Card 2: Recent Activity */}
-          <div className="bg-white rounded-xl border border-[#eef2f6] shadow-sm p-6 flex flex-col gap-5 text-left text-xs">
-            <h3 className="text-[13.5px] font-bold text-slate-800 m-0 uppercase tracking-wider font-heading">Recent Activity</h3>
-            
-            {/* Timeline */}
-            <div className="flex flex-col gap-5 relative pl-4 border-l border-slate-100 ml-1">
-              
-              {/* Event 1 */}
-              <div className="relative">
-                <span className="absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full bg-blue-600 border-2 border-white ring-4 ring-blue-50" />
-                <div className="flex flex-col">
-                  <span className="font-bold text-slate-800">Equipment Purchased</span>
-                  <span className="text-[10px] text-slate-400 mt-0.5 font-medium">2 days ago • TerraX 500</span>
-                </div>
-              </div>
-
-              {/* Event 2 */}
-              <div className="relative">
-                <span className="absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full bg-white border-2 border-blue-600" />
-                <div className="flex flex-col">
-                  <span className="font-semibold text-slate-700">Inquiry Closed</span>
-                  <span className="text-[10px] text-slate-400 mt-0.5 font-medium">1 week ago • Spare parts catalog</span>
-                </div>
-              </div>
-
-              {/* Event 3 */}
-              <div className="relative">
-                <span className="absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full bg-white border-2 border-blue-600" />
-                <div className="flex flex-col">
-                  <span className="font-semibold text-slate-700">Profile Created</span>
-                  <span className="text-[10px] text-slate-400 mt-0.5 font-medium">Jan 10, 2024 • Admin Entry</span>
-                </div>
-              </div>
-
-            </div>
-
-            <button type="button" className="bg-transparent border-none text-[#184edb] hover:text-blue-800 font-bold text-xs cursor-pointer text-center mt-2">
-              View All Logs
-            </button>
-          </div>
-
-          {/* Card 3: Dealer Notes */}
-          <div className="bg-white rounded-xl border border-[#eef2f6] shadow-sm p-6 flex flex-col gap-3">
-            <h3 className="text-[13.5px] font-bold text-slate-800 m-0 uppercase tracking-wider font-heading">Dealer Notes</h3>
-            <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 text-xs italic text-slate-500 font-medium text-center leading-relaxed">
-              "{dealerNotes}"
-            </div>
-          </div>
-
-        </div>
-
       </form>
 
     </div>
