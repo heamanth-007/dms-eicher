@@ -516,7 +516,6 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
             ];
 
             const realServiceLog = dbJobCards.map(jc => ({
-            const serviceLog = dbJobCards.map(jc => ({
               jobCard: jc.jcNumber,
               date: jc.inTime ? new Date(jc.inTime).toLocaleDateString('en-IN') : 'Unknown',
               description: jc.complaintSummary || 'N/A',

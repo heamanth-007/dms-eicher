@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { getStoredInventory, addInventoryStockFromPurchase, type PartType } from '../utils/inventory';
 import {
   ShoppingBag,
   RotateCcw,
@@ -23,7 +24,8 @@ import {
   Mail,
   Wallet,
   QrCode,
-  Smartphone
+  Smartphone,
+  ExternalLink
 } from 'lucide-react';
 
 import {
@@ -66,15 +68,25 @@ interface PurchaseOrder {
   remarks?: string;
 }
 
+interface ReturnItem {
+  id: string;
+  productName: string;
+  qty: number;
+  amount: number;
+  reason: string;
+}
+
 interface PurchaseReturn {
   id: string;
   poRef: string;
   supplier: string;
   date: string;
+  productName?: string;
   itemsCount: number;
   refundValue: number;
   reason: string;
   status: 'COMPLETED' | 'PENDING' | 'REJECTED';
+  items?: ReturnItem[];
 }
 
 interface SupplierInvoice {
@@ -476,6 +488,16 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
   const editQuickProdRateRef = useRef<HTMLInputElement>(null);
   const editQuickProdGstRef = useRef<HTMLSelectElement>(null);
 
+  const [sparePartsInventory, setSparePartsInventory] = useState<PartType[]>(() => getStoredInventory());
+
+  useEffect(() => {
+    const handleInvUpdate = () => {
+      setSparePartsInventory(getStoredInventory());
+    };
+    window.addEventListener('dms_inventory_updated', handleInvUpdate);
+    return () => window.removeEventListener('dms_inventory_updated', handleInvUpdate);
+  }, []);
+
   useEffect(() => {
     if (activeSuppliersList.length > 0 && (!newPoSupplier || !activeSuppliersList.some(s => s.name === newPoSupplier))) {
       setNewPoSupplier(activeSuppliersList[0].name);
@@ -516,13 +538,68 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
   // Return form state
   const [newRetId, setNewRetId] = useState('RET-2023-011');
-  const [newRetPoRef, setNewRetPoRef] = useState('PO-2023-0942');
   const [newRetSupplier, setNewRetSupplier] = useState(activeSuppliersList[0]?.name || '');
+  const [newRetPoRef, setNewRetPoRef] = useState('PO-2023-0942');
   const [newRetDate, setNewRetDate] = useState('Oct 26, 2023');
-  const [newRetQty, setNewRetQty] = useState(3);
-  const [newRetRefund, setNewRetRefund] = useState(150);
-  const [newRetReason, setNewRetReason] = useState('Faulty electronics');
   const [newRetStatus, setNewRetStatus] = useState<'COMPLETED' | 'PENDING' | 'REJECTED'>('PENDING');
+
+  // Multi-product return line items state & focus refs
+  const [newRetItems, setNewRetItems] = useState<ReturnItem[]>([]);
+  const [retLineProdName, setRetLineProdName] = useState('');
+  const [retLineQty, setRetLineQty] = useState<number | string>(1);
+  const [retLineAmount, setRetLineAmount] = useState<number | string>('');
+  const [retLineReason, setRetLineReason] = useState('');
+
+  const retProdNameRef = useRef<HTMLInputElement>(null);
+  const retQtyRef = useRef<HTMLInputElement>(null);
+  const retAmtRef = useRef<HTMLInputElement>(null);
+  const retReasonRef = useRef<HTMLInputElement>(null);
+
+  const handleAddReturnLineItem = () => {
+    const trimmedName = retLineProdName.trim();
+    if (!trimmedName) {
+      alert('Please enter or select a product name.');
+      retProdNameRef.current?.focus();
+      return;
+    }
+
+    // Prevent duplicate product additions in the return record!
+    const isDuplicate = newRetItems.some(
+      item => item.productName.toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (isDuplicate) {
+      alert(`Product "${trimmedName}" is already added to this return record. If you need to change quantity or amount, remove the existing line item first.`);
+      retProdNameRef.current?.focus();
+      return;
+    }
+
+    const qty = Number(retLineQty) || 1;
+    const amt = Number(retLineAmount) || 0;
+    const reasonText = retLineReason.trim() || 'Defective / Damaged part';
+
+    const newItem: ReturnItem = {
+      id: 'ret-item-' + Date.now(),
+      productName: trimmedName,
+      qty: qty,
+      amount: amt,
+      reason: reasonText
+    };
+
+    setNewRetItems(prev => [...prev, newItem]);
+    setRetLineProdName('');
+    setRetLineQty(1);
+    setRetLineAmount('');
+    setRetLineReason('');
+
+    // Focus back to Product Name for seamless step entry
+    setTimeout(() => {
+      retProdNameRef.current?.focus();
+    }, 50);
+  };
+
+  const handleRemoveReturnLineItem = (id: string) => {
+    setNewRetItems(prev => prev.filter(item => item.id !== id));
+  };
 
   // Invoice form state
   const [newInvNo, setNewInvNo] = useState('INV-8850');
@@ -537,13 +614,13 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     if (!dateStr) return false;
     const todayStr = getTodayFormattedDate();
     const shortToday = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const isoToday = new Date().toISOString().split('T')[0];
     return (
       dateStr === todayStr ||
       dateStr.includes(todayStr) ||
       dateStr.includes(shortToday) ||
-      dateStr.includes('Today') ||
-      dateStr.includes('Oct 26') ||
-      dateStr.includes('Oct 24')
+      dateStr.includes(isoToday) ||
+      dateStr.includes('Today')
     );
   };
 
@@ -801,25 +878,57 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
   // Handle New Return Submit
   const handleCreateReturn = (e: React.FormEvent) => {
     e.preventDefault();
+
+    let itemsToSave = [...newRetItems];
+    if (retLineProdName.trim()) {
+      const qty = Number(retLineQty) || 1;
+      const amt = Number(retLineAmount) || 0;
+      const reasonText = retLineReason.trim() || 'Defective / Damaged part';
+      itemsToSave.push({
+        id: 'ret-item-' + Date.now(),
+        productName: retLineProdName.trim(),
+        qty: qty,
+        amount: amt,
+        reason: reasonText
+      });
+    }
+
+    if (itemsToSave.length === 0) {
+      alert('Please add at least one product item to return.');
+      return;
+    }
+
+    const totalQty = itemsToSave.reduce((acc, i) => acc + i.qty, 0);
+    const totalRefundVal = itemsToSave.reduce((acc, i) => acc + i.amount, 0);
+    const summaryReasons = itemsToSave.map(i => `${i.productName}: ${i.reason}`).join(' | ');
+    const mainProdName = itemsToSave.length === 1 ? itemsToSave[0].productName : `${itemsToSave[0].productName} (+${itemsToSave.length - 1} items)`;
+
     const newReturn: PurchaseReturn = {
       id: newRetId,
       poRef: newRetPoRef,
       supplier: newRetSupplier,
       date: newRetDate,
-      itemsCount: Number(newRetQty),
-      refundValue: Number(newRetRefund),
-      reason: newRetReason,
-      status: newRetStatus
+      productName: mainProdName,
+      itemsCount: totalQty,
+      refundValue: totalRefundVal,
+      reason: summaryReasons,
+      status: newRetStatus,
+      items: itemsToSave
     };
 
     setReturns([newReturn, ...returns]);
     setShowNewReturnModal(false);
 
     // Reset Form
-    setNewRetReason('');
-    setNewRetQty(3);
-    setNewRetRefund(150);
-    setNewRetId(`RET-2023-0${Number(newRetId.split('-')[2]) + 1}`);
+    setNewRetItems([]);
+    setRetLineProdName('');
+    setRetLineQty(1);
+    setRetLineAmount('');
+    setRetLineReason('');
+    setNewRetId(`RET-2026-${String(returns.length + 2).padStart(3, '0')}`);
+    setNewRetDate(getTodayFormattedDate());
+    setRetLineAmount('');
+    setRetLineReason('');
   };
 
   const handleCreateInvoice = (e: React.FormEvent) => {
@@ -933,11 +1042,13 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
   // --- FILTERED LISTS ---
   const filteredPurchases = purchases.filter(p => {
-    if (supplierFilter !== 'All' && p.supplier !== supplierFilter) return false;
+    if (supplierFilter !== 'All' && !p.supplier?.toLowerCase().trim().includes(supplierFilter.toLowerCase().trim())) {
+      return false;
+    }
     if (statusFilter !== 'All') {
       if (statusFilter === 'PENDING') {
         if (p.status === 'PAID') return false;
-      } else if (p.status !== statusFilter) {
+      } else if (p.status?.toUpperCase() !== statusFilter.toUpperCase()) {
         return false;
       }
     }
@@ -951,19 +1062,26 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
       }
     }
     if (searchTerm) {
-      const q = searchTerm.toLowerCase();
+      const q = searchTerm.toLowerCase().trim();
+      const matchItems = p.items?.some(i => i.productName?.toLowerCase().includes(q));
       return (
-        p.id.toLowerCase().includes(q) ||
-        p.invoiceNo.toLowerCase().includes(q) ||
-        p.supplier.toLowerCase().includes(q)
+        p.id?.toLowerCase().includes(q) ||
+        p.invoiceNo?.toLowerCase().includes(q) ||
+        p.supplier?.toLowerCase().includes(q) ||
+        p.remarks?.toLowerCase().includes(q) ||
+        Boolean(matchItems)
       );
     }
     return true;
   });
 
   const filteredReturns = returns.filter(r => {
-    if (supplierFilter !== 'All' && r.supplier !== supplierFilter) return false;
-    if (statusFilter !== 'All' && r.status !== statusFilter) return false;
+    if (supplierFilter !== 'All' && !r.supplier?.toLowerCase().trim().includes(supplierFilter.toLowerCase().trim())) {
+      return false;
+    }
+    if (statusFilter !== 'All' && r.status?.toUpperCase() !== statusFilter.toUpperCase()) {
+      return false;
+    }
     if (dateRange !== 'All') {
       if (dateRange === 'Today') {
         if (!isTodayPurchase(r.date)) return false;
@@ -974,24 +1092,26 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
       }
     }
     if (searchTerm) {
-      const q = searchTerm.toLowerCase();
+      const q = searchTerm.toLowerCase().trim();
       return (
-        r.id.toLowerCase().includes(q) ||
-        r.poRef.toLowerCase().includes(q) ||
-        r.supplier.toLowerCase().includes(q) ||
-        r.reason.toLowerCase().includes(q)
+        r.id?.toLowerCase().includes(q) ||
+        r.poRef?.toLowerCase().includes(q) ||
+        r.supplier?.toLowerCase().includes(q) ||
+        r.reason?.toLowerCase().includes(q)
       );
     }
     return true;
   });
 
   const filteredInvoices = invoices.filter(i => {
-    if (supplierFilter !== 'All' && i.supplier !== supplierFilter) return false;
+    if (supplierFilter !== 'All' && !i.supplier?.toLowerCase().trim().includes(supplierFilter.toLowerCase().trim())) {
+      return false;
+    }
     if (statusFilter !== 'All') {
       if (statusFilter === 'OUTSTANDING' || statusFilter === 'PENDING' || statusFilter === 'UNPAID') {
         if (i.status === 'PAID') return false;
-      } else {
-        if (i.status !== statusFilter) return false;
+      } else if (i.status?.toUpperCase() !== statusFilter.toUpperCase()) {
+        return false;
       }
     }
     if (dateRange !== 'All') {
@@ -1004,11 +1124,13 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
       }
     }
     if (searchTerm) {
-      const q = searchTerm.toLowerCase();
+      const q = searchTerm.toLowerCase().trim();
+      const matchItems = i.items?.some(item => item.productName?.toLowerCase().includes(q));
       return (
-        i.id.toLowerCase().includes(q) ||
-        i.poRef.toLowerCase().includes(q) ||
-        i.supplier.toLowerCase().includes(q)
+        i.id?.toLowerCase().includes(q) ||
+        i.poRef?.toLowerCase().includes(q) ||
+        i.supplier?.toLowerCase().includes(q) ||
+        Boolean(matchItems)
       );
     }
     return true;
@@ -1032,12 +1154,6 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
   const totalPurchasesCount = purchases.length;
   const todayPurchasesCount = purchases.filter(p => isTodayPurchase(p.date)).length;
   const totalPurchasesValue = purchases.reduce((acc, p) => acc + (p.grandTotal || 0), 0);
-  const totalPurchasesPaid = purchases.reduce((acc, p) => {
-    const paid = p.credit !== undefined && p.credit > 0 
-      ? p.credit 
-      : (p.debit !== undefined ? p.debit : (p.status === 'PAID' ? p.grandTotal : 0));
-    return acc + paid;
-  }, 0);
   const pendingPaymentsValue = purchases.reduce((acc, p) => {
     const bal = p.balance !== undefined 
       ? p.balance 
@@ -1059,7 +1175,6 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
   // Returns Metrics (overall returns)
   const totalReturnsCount = returns.length;
   const pendingReturnsCount = returns.filter(r => r.status === 'PENDING').length;
-  const pendingRefundValue = returns.filter(r => r.status === 'PENDING').reduce((acc, r) => acc + r.refundValue, 0);
   const totalRefundsValue = returns.filter(r => r.status === 'COMPLETED').reduce((acc, r) => acc + r.refundValue, 0);
 
   // Supplier Breakdown Data (Ethana supplier ku ethana bill)
@@ -1160,6 +1275,9 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
       const updatedI = [autoInvoice, ...invoices.filter(i => i.id !== autoInvoice.id)];
 
       saveAndSyncPurchasesAndInvoices(updatedP, updatedI);
+      
+      // Auto-update / add to Spare Parts Inventory
+      addInventoryStockFromPurchase(itemsToSave, newPurchase.id);
 
       // Reset Form
       setNewPoInvoice('');
@@ -1369,8 +1487,21 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                   <input
                     ref={quickProdNameRef}
                     type="text"
+                    list="spare-parts-suggestions"
                     value={quickProdName}
-                    onChange={(e) => setQuickProdName(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setQuickProdName(val);
+                      const match = sparePartsInventory.find(
+                        p => p.partName.toLowerCase() === val.toLowerCase() || p.partNumber.toLowerCase() === val.toLowerCase()
+                      );
+                      if (match) {
+                        const cleanPrice = parseFloat(match.purchasePrice?.replace(/[^0-9.]/g, '') || '0');
+                        if (cleanPrice > 0) setQuickProdRate(cleanPrice);
+                        const cleanGst = parseInt(match.gstPercent?.replace(/[^0-9]/g, '') || '18', 10);
+                        if (cleanGst > 0) setQuickProdGst(cleanGst);
+                      }
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
@@ -1382,9 +1513,16 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                         quickProdQtyRef.current?.select();
                       }
                     }}
-                    placeholder="e.g. Engine Oil 15W40 / Filter"
+                    placeholder="Type or select from Spare Parts..."
                     className="p-2.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#184edb] bg-white shadow-2xs"
                   />
+                  <datalist id="spare-parts-suggestions">
+                    {sparePartsInventory.map((part) => (
+                      <option key={part.partNumber} value={part.partName}>
+                        {part.partNumber} - {part.partName} (Stock: {part.stock})
+                      </option>
+                    ))}
+                  </datalist>
                 </div>
 
                 {/* Quantity */}
@@ -2422,23 +2560,23 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
       </div>
 
       {/* --- SUB-TABS (THREE BOX TABS) BELOW NAVBAR --- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
 
         {/* Tab 1: Overview */}
         <button
           onClick={() => setSubTab('overview')}
-          className={`flex items-start gap-4 p-5 rounded-2xl border text-left cursor-pointer transition-all duration-300 relative overflow-hidden group hover:scale-[1.01] hover:shadow-md ${subTab === 'overview'
+          className={`flex items-center gap-3 p-3 px-4 rounded-xl border text-left cursor-pointer transition-all duration-300 relative overflow-hidden group hover:scale-[1.01] hover:shadow-md ${subTab === 'overview'
             ? 'bg-white border-[#184edb] shadow-sm ring-1 ring-[#184edb]/30'
             : 'bg-white border-slate-100 shadow-sm'
             }`}
         >
-          <div className={`p-3 rounded-xl ${subTab === 'overview' ? 'bg-[#184edb] text-white' : 'bg-slate-50 text-slate-500 group-hover:bg-[#184edb]/10 group-hover:text-[#184edb]'} transition-colors duration-300`}>
-            <ShoppingBag size={22} />
+          <div className={`p-2 rounded-lg ${subTab === 'overview' ? 'bg-[#184edb] text-white' : 'bg-slate-50 text-slate-500 group-hover:bg-[#184edb]/10 group-hover:text-[#184edb]'} transition-colors duration-300`}>
+            <ShoppingBag size={18} />
           </div>
-          <div className="flex flex-col gap-1.5 z-10">
-            <span className="text-[11.5px] font-bold text-slate-400 uppercase tracking-widest">SUB-TAB SELECTION</span>
-            <span className="text-lg font-bold text-slate-800 tracking-tight">Overview</span>
-            <span className="text-[13px] text-slate-500 font-semibold mt-0.5">
+          <div className="flex flex-col gap-0.5 z-10">
+            <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest">SUB-TAB SELECTION</span>
+            <span className="text-base font-bold text-slate-800 tracking-tight">Overview</span>
+            <span className="text-xs text-slate-500 font-semibold mt-0.5">
               {totalPurchasesCount.toLocaleString()} Purchases •{' '}
               <span
                 onClick={(e) => {
@@ -2462,18 +2600,18 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
         {/* Tab 2: Return */}
         <button
           onClick={() => setSubTab('return')}
-          className={`flex items-start gap-4 p-5 rounded-2xl border text-left cursor-pointer transition-all duration-300 relative overflow-hidden group hover:scale-[1.01] hover:shadow-md ${subTab === 'return'
+          className={`flex items-center gap-3 p-3 px-4 rounded-xl border text-left cursor-pointer transition-all duration-300 relative overflow-hidden group hover:scale-[1.01] hover:shadow-md ${subTab === 'return'
             ? 'bg-white border-[#184edb] shadow-sm ring-1 ring-[#184edb]/30'
             : 'bg-white border-slate-100 shadow-sm'
             }`}
         >
-          <div className={`p-3 rounded-xl ${subTab === 'return' ? 'bg-[#184edb] text-white' : 'bg-slate-50 text-slate-500 group-hover:bg-[#184edb]/10 group-hover:text-[#184edb]'} transition-colors duration-300`}>
-            <RotateCcw size={22} />
+          <div className={`p-2 rounded-lg ${subTab === 'return' ? 'bg-[#184edb] text-white' : 'bg-slate-50 text-slate-500 group-hover:bg-[#184edb]/10 group-hover:text-[#184edb]'} transition-colors duration-300`}>
+            <RotateCcw size={18} />
           </div>
-          <div className="flex flex-col gap-1.5 z-10">
-            <span className="text-[11.5px] font-bold text-slate-400 uppercase tracking-widest">SUB-TAB SELECTION</span>
-            <span className="text-lg font-bold text-slate-800 tracking-tight">Returns</span>
-            <span className="text-[13px] text-slate-500 font-semibold mt-0.5">
+          <div className="flex flex-col gap-0.5 z-10">
+            <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest">SUB-TAB SELECTION</span>
+            <span className="text-base font-bold text-slate-800 tracking-tight">Returns</span>
+            <span className="text-xs text-slate-500 font-semibold mt-0.5">
               {totalReturnsCount} Return Entries •{' '}
               <span
                 onClick={(e) => {
@@ -2497,18 +2635,18 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
         {/* Tab 3: Invoice */}
         <button
           onClick={() => setSubTab('invoice')}
-          className={`flex items-start gap-4 p-5 rounded-2xl border text-left cursor-pointer transition-all duration-300 relative overflow-hidden group hover:scale-[1.01] hover:shadow-md ${subTab === 'invoice'
+          className={`flex items-center gap-3 p-3 px-4 rounded-xl border text-left cursor-pointer transition-all duration-300 relative overflow-hidden group hover:scale-[1.01] hover:shadow-md ${subTab === 'invoice'
             ? 'bg-white border-[#184edb] shadow-sm ring-1 ring-[#184edb]/30'
             : 'bg-white border-slate-100 shadow-sm'
             }`}
         >
-          <div className={`p-3 rounded-xl ${subTab === 'invoice' ? 'bg-[#184edb] text-white' : 'bg-slate-50 text-slate-500 group-hover:bg-[#184edb]/10 group-hover:text-[#184edb]'} transition-colors duration-300`}>
-            <FileText size={22} />
+          <div className={`p-2 rounded-lg ${subTab === 'invoice' ? 'bg-[#184edb] text-white' : 'bg-slate-50 text-slate-500 group-hover:bg-[#184edb]/10 group-hover:text-[#184edb]'} transition-colors duration-300`}>
+            <FileText size={18} />
           </div>
-          <div className="flex flex-col gap-1.5 z-10">
-            <span className="text-[11.5px] font-bold text-slate-400 uppercase tracking-widest">SUB-TAB SELECTION</span>
-            <span className="text-lg font-bold text-slate-800 tracking-tight">Invoices</span>
-            <span className="text-[13px] text-slate-500 font-semibold mt-0.5">
+          <div className="flex flex-col gap-0.5 z-10">
+            <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest">SUB-TAB SELECTION</span>
+            <span className="text-base font-bold text-slate-800 tracking-tight">Invoices</span>
+            <span className="text-xs text-slate-500 font-semibold mt-0.5">
               ₹{totalInvoicedValue.toLocaleString()} Invoiced •{' '}
               <span
                 onClick={(e) => {
@@ -3212,7 +3350,22 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
                       {/* PO Ref */}
                       <td className="py-4 px-5 font-semibold text-slate-650 whitespace-nowrap">
-                        <span className="text-[#184edb] hover:underline cursor-pointer">{r.poRef}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const targetPo = purchases.find(p => p.id.toLowerCase() === r.poRef.toLowerCase());
+                            if (targetPo) {
+                              handleStartEditPurchase(targetPo);
+                            } else {
+                              alert(`Purchase Order details for ${r.poRef} not found in current records.`);
+                            }
+                          }}
+                          className="text-[#184edb] hover:text-[#133eb5] font-bold hover:underline cursor-pointer border-none bg-transparent p-0 text-left inline-flex items-center gap-1 group"
+                          title={`Click to view and edit Purchase Order ${r.poRef}`}
+                        >
+                          <span>{r.poRef}</span>
+                          <ExternalLink size={13} className="opacity-70 group-hover:opacity-100 transition-opacity" />
+                        </button>
                       </td>
 
                       {/* Supplier */}
@@ -3225,9 +3378,14 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                         {r.date}
                       </td>
 
-                      {/* Qty */}
+                      {/* Qty & Product */}
                       <td className="py-4 px-5 text-slate-700 font-semibold text-center whitespace-nowrap">
-                        {r.itemsCount} Items
+                        <div className="flex flex-col items-center">
+                          <span>{r.itemsCount} Items</span>
+                          {r.productName && (
+                            <span className="text-[11px] font-bold text-[#184edb]">{r.productName}</span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Refund Value */}
@@ -4195,98 +4353,88 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
         </div>
       )}
 
-      {/* 2. RECORD RETURN MODAL */}
+      {/* 2. RECORD RETURN MODAL (MULTI-PRODUCT ITEM ENTRY WITH PER-ITEM REASON & AMOUNT) */}
       {showNewReturnModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="px-6 py-4.5 bg-[#184edb] text-white flex items-center justify-between">
-              <span className="font-extrabold text-[16.5px]">Record Purchase Return</span>
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 my-6 flex flex-col max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-[#184edb] text-white flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+                  <RotateCcw size={18} />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="font-extrabold text-base">Record Purchase Return</span>
+                  <span className="text-[11.5px] text-blue-100 font-medium">Add returned products with individual reasons and amounts</span>
+                </div>
+              </div>
               <button
                 onClick={() => setShowNewReturnModal(false)}
-                className="text-white/80 hover:text-white border-none bg-transparent cursor-pointer"
+                className="text-white/80 hover:text-white border-none bg-transparent cursor-pointer p-1"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateReturn} className="p-6 flex flex-col gap-4 box-border">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Return ID</label>
+            <form onSubmit={handleCreateReturn} className="p-6 flex flex-col gap-5 overflow-y-auto box-border">
+
+              {/* Header Info Section (Return ID, Supplier, PO Ref, Return Date, Refund Status) */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-4 gap-3 text-left">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Return ID</label>
                   <input
                     type="text"
                     value={newRetId}
-                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold bg-slate-50 text-slate-500 cursor-not-allowed"
+                    className="p-2 border border-slate-200 rounded-lg text-xs font-bold bg-white text-slate-700 cursor-not-allowed"
                     readOnly
                   />
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">PO Reference</label>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Supplier *</label>
                   <select
-                    value={newRetPoRef}
-                    onChange={(e) => setNewRetPoRef(e.target.value)}
-                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-medium focus:outline-none focus:border-[#184edb]"
+                    value={newRetSupplier}
+                    onChange={(e) => {
+                      const selectedSup = e.target.value;
+                      setNewRetSupplier(selectedSup);
+                      const matchingPo = purchases.find(p => p.supplier === selectedSup);
+                      if (matchingPo) {
+                        setNewRetPoRef(matchingPo.id);
+                      }
+                    }}
+                    className="p-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 bg-white focus:outline-none focus:border-[#184edb]"
                   >
-                    {purchases.map(p => (
-                      <option key={p.id} value={p.id}>{p.id}</option>
+                    {suppliersList.filter(s => s !== 'All').map(s => (
+                      <option key={s} value={s}>{s}</option>
                     ))}
                   </select>
                 </div>
-              </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Supplier</label>
-                <select
-                  value={newRetSupplier}
-                  onChange={(e) => setNewRetSupplier(e.target.value)}
-                  className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-medium focus:outline-none focus:border-[#184edb]"
-                >
-                  {suppliersList.filter(s => s !== 'All').map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">PO Reference *</label>
+                  <select
+                    value={newRetPoRef}
+                    onChange={(e) => setNewRetPoRef(e.target.value)}
+                    className="p-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 bg-white focus:outline-none focus:border-[#184edb]"
+                  >
+                    {purchases
+                      .filter(p => !newRetSupplier || p.supplier === newRetSupplier)
+                      .map(p => (
+                        <option key={p.id} value={p.id}>{p.id}</option>
+                      ))}
+                    {purchases.filter(p => !newRetSupplier || p.supplier === newRetSupplier).length === 0 && (
+                      <option value={newRetPoRef}>{newRetPoRef}</option>
+                    )}
+                  </select>
+                </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="flex flex-col gap-1.5 col-span-2">
-                  <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Return Date</label>
-                  <input
-                    type="text"
-                    value={newRetDate}
-                    onChange={(e) => setNewRetDate(e.target.value)}
-                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] focus:outline-none focus:border-[#184edb] font-medium"
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Qty</label>
-                  <input
-                    type="number"
-                    value={newRetQty}
-                    onChange={(e) => setNewRetQty(Number(e.target.value))}
-                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] focus:outline-none focus:border-[#184edb] font-medium"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Refund Value ($)</label>
-                  <input
-                    type="number"
-                    value={newRetRefund}
-                    onChange={(e) => setNewRetRefund(Number(e.target.value))}
-                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] focus:outline-none focus:border-[#184edb] font-medium"
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Refund Status</label>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Refund Status</label>
                   <select
                     value={newRetStatus}
                     onChange={(e) => setNewRetStatus(e.target.value as any)}
-                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-medium focus:outline-none focus:border-[#184edb]"
+                    className="p-2 border border-slate-200 rounded-lg text-xs font-extrabold text-amber-700 bg-amber-50/50 focus:outline-none focus:border-[#184edb]"
                   >
                     <option value="PENDING">PENDING</option>
                     <option value="COMPLETED">COMPLETED</option>
@@ -4295,18 +4443,270 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Reason for Return</label>
-                <textarea
-                  value={newRetReason}
-                  onChange={(e) => setNewRetReason(e.target.value)}
-                  className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-medium focus:outline-none focus:border-[#184edb] resize-none h-20"
-                  placeholder="Describe return justification..."
-                  required
-                />
+              {/* Product Return Line Entry Box */}
+              {(() => {
+                const selectedPoForReturn = purchases.find(p => p.id === newRetPoRef);
+                const poReturnItems = selectedPoForReturn?.items || [];
+
+                return (
+                  <div className="bg-[#f8fafc] border border-blue-100 rounded-xl p-4 flex flex-col gap-3 shadow-2xs text-left">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-extrabold text-[#184edb] uppercase tracking-wider flex items-center gap-1.5">
+                        <Plus size={14} /> Add Product Return Line Item
+                      </span>
+                      {poReturnItems.length > 0 && (
+                        <span className="text-[11px] font-bold text-slate-500">
+                          {poReturnItems.length} Products in PO #{newRetPoRef}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Quick Selection Pills for Products Purchased under selected PO */}
+                    {poReturnItems.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 bg-blue-50/70 p-2.5 rounded-lg border border-blue-100">
+                        <span className="text-[10px] font-extrabold text-[#184edb] uppercase tracking-wider">
+                          Click to select items bought in {newRetPoRef}:
+                        </span>
+                        {poReturnItems.map((item, idx) => (
+                          <button
+                            key={`po-item-btn-${idx}`}
+                            type="button"
+                            onClick={() => {
+                              const isDuplicate = newRetItems.some(
+                                i => i.productName.toLowerCase() === item.productName.toLowerCase()
+                              );
+                              if (isDuplicate) {
+                                alert(`Product "${item.productName}" is already added to this return record.`);
+                                return;
+                              }
+                              setRetLineProdName(item.productName);
+                              setRetLineQty(item.qty);
+                              const totalVal = Math.round(item.qty * item.rate * (1 + (item.gstPercent || 0) / 100));
+                              setRetLineAmount(totalVal);
+                              setTimeout(() => {
+                                retReasonRef.current?.focus();
+                              }, 50);
+                            }}
+                            className="text-[11.5px] font-bold bg-white text-slate-800 hover:bg-[#184edb] hover:text-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs transition-all cursor-pointer flex items-center gap-1"
+                            title={`Click to fill ${item.productName}`}
+                          >
+                            <span>+ {item.productName}</span>
+                            <span className="text-[10px] opacity-80">({item.qty} Qty • ₹{item.rate})</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                      {/* Product Name */}
+                      <div className="sm:col-span-4 flex flex-col gap-1">
+                        <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Product Name / Part *</label>
+                        <input
+                          ref={retProdNameRef}
+                          type="text"
+                          list="po-return-suggestions"
+                          value={retLineProdName}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRetLineProdName(val);
+
+                            // Check PO items match first
+                            const poMatch = poReturnItems.find(i => i.productName.toLowerCase() === val.toLowerCase());
+                            if (poMatch) {
+                              setRetLineQty(poMatch.qty);
+                              const totalVal = Math.round(poMatch.qty * poMatch.rate * (1 + (poMatch.gstPercent || 0) / 100));
+                              setRetLineAmount(totalVal);
+                              return;
+                            }
+
+                            // Check general inventory match
+                            const match = sparePartsInventory.find(
+                              p => p.partName.toLowerCase() === val.toLowerCase() || p.partNumber.toLowerCase() === val.toLowerCase()
+                            );
+                            if (match) {
+                              const cleanPrice = parseFloat(match.purchasePrice?.replace(/[^0-9.]/g, '') || '0');
+                              if (cleanPrice > 0) setRetLineAmount(cleanPrice);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              retQtyRef.current?.focus();
+                            }
+                          }}
+                          placeholder="Type or select purchased product..."
+                          className="p-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#184edb] bg-white"
+                        />
+                        <datalist id="po-return-suggestions">
+                          {poReturnItems.map((item, idx) => (
+                            <option key={`po-sug-${idx}`} value={item.productName}>
+                              [PO {newRetPoRef}] {item.productName} ({item.qty} Purchased @ ₹{item.rate})
+                            </option>
+                          ))}
+                          {sparePartsInventory.map((part) => (
+                            <option key={`sp-sug-${part.partNumber}`} value={part.partName}>
+                              {part.partNumber} - {part.partName} (Stock: {part.stock})
+                            </option>
+                          ))}
+                        </datalist>
+                      </div>
+
+                      {/* Qty */}
+                      <div className="sm:col-span-2 flex flex-col gap-1">
+                        <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Qty *</label>
+                        <input
+                          ref={retQtyRef}
+                          type="number"
+                          min="1"
+                          value={retLineQty}
+                          onChange={(e) => setRetLineQty(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              retAmtRef.current?.focus();
+                            }
+                          }}
+                          className="p-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 text-center focus:outline-none focus:border-[#184edb] bg-white"
+                        />
+                      </div>
+
+                      {/* Refund Amount */}
+                      <div className="sm:col-span-2 flex flex-col gap-1">
+                        <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Amount (₹) *</label>
+                        <input
+                          ref={retAmtRef}
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={retLineAmount}
+                          onChange={(e) => setRetLineAmount(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              retReasonRef.current?.focus();
+                            }
+                          }}
+                          placeholder="Refund ₹"
+                          className="p-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 text-right focus:outline-none focus:border-[#184edb] bg-white"
+                        />
+                      </div>
+
+                      {/* Reason for Return */}
+                      <div className="sm:col-span-3 flex flex-col gap-1">
+                        <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Reason *</label>
+                        <input
+                          ref={retReasonRef}
+                          type="text"
+                          value={retLineReason}
+                          onChange={(e) => setRetLineReason(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddReturnLineItem();
+                            }
+                          }}
+                          placeholder="e.g. Defective / Damaged"
+                          className="p-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-[#184edb] bg-white"
+                        />
+                      </div>
+
+                      {/* Add Button */}
+                      <div className="sm:col-span-1 flex flex-col">
+                        <button
+                          type="button"
+                          onClick={handleAddReturnLineItem}
+                          className="p-2 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-xs rounded-lg border-none cursor-pointer transition-colors shadow-2xs flex items-center justify-center h-[34px]"
+                          title="Add Item"
+                        >
+                          <Plus size={16} />
+                        </button>
+                      </div>
+                </div>
+              </div>
+            );
+          })()}
+
+              {/* Added Returned Products Table */}
+              <div className="flex flex-col gap-2 text-left">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                    Returned Products List ({newRetItems.length} Added)
+                  </span>
+                  <span className="text-xs font-extrabold text-[#184edb]">
+                    Total Refund: ₹{(newRetItems.reduce((acc, i) => acc + i.amount, 0) + (Number(retLineAmount) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs bg-white">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                        <th className="py-2.5 px-3.5 text-center w-8">#</th>
+                        <th className="py-2.5 px-4 font-bold">Product Name</th>
+                        <th className="py-2.5 px-3 text-center font-bold">Qty</th>
+                        <th className="py-2.5 px-4 font-bold">Reason for Return</th>
+                        <th className="py-2.5 px-4 text-right font-bold">Refund Amount</th>
+                        <th className="py-2.5 px-3 text-center w-10">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {newRetItems.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-6 text-center text-slate-400 font-medium italic bg-slate-50/40">
+                            No product return line items added yet. Fill above fields &amp; click "+" button.
+                          </td>
+                        </tr>
+                      ) : (
+                        newRetItems.map((item, idx) => (
+                          <tr key={item.id} className="hover:bg-slate-50/60">
+                            <td className="py-2.5 px-3.5 text-center font-bold text-slate-400">{idx + 1}</td>
+                            <td className="py-2.5 px-4 font-bold text-slate-800">{item.productName}</td>
+                            <td className="py-2.5 px-3 text-center font-semibold text-slate-700">{item.qty}</td>
+                            <td className="py-2.5 px-4 text-slate-600 font-medium">
+                              <span className="bg-rose-50 text-rose-700 px-2 py-0.5 rounded text-[11px] font-bold border border-rose-100">
+                                {item.reason}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-4 text-right font-extrabold text-[#184edb] font-mono">
+                              ₹{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveReturnLineItem(item.id)}
+                                className="text-slate-400 hover:text-rose-600 p-1 rounded-md border-none bg-transparent cursor-pointer transition-colors"
+                                title="Remove item"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                    {newRetItems.length > 0 && (
+                      <tfoot>
+                        <tr className="bg-slate-50 font-bold border-t border-slate-200 text-slate-800 text-xs">
+                          <td colSpan={2} className="py-2.5 px-4 text-right uppercase tracking-wider font-extrabold text-slate-500">
+                            Grand Total:
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-extrabold text-slate-800">
+                            {newRetItems.reduce((acc, i) => acc + i.qty, 0)} Items
+                          </td>
+                          <td></td>
+                          <td className="py-2.5 px-4 text-right font-mono font-black text-sm text-[#184edb]">
+                            ₹{newRetItems.reduce((acc, i) => acc + i.amount, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 mt-4">
+              {/* Modal Footer Buttons */}
+              <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4 mt-2">
                 <button
                   type="button"
                   onClick={() => setShowNewReturnModal(false)}
@@ -4316,9 +4716,10 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-[#184edb] hover:bg-[#133eb5] text-white font-semibold text-[13px] border-none rounded-lg cursor-pointer transition-colors shadow-md"
+                  className="px-6 py-2.5 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-[13px] border-none rounded-lg cursor-pointer transition-colors shadow-md flex items-center gap-2"
                 >
-                  Save Entry
+                  <CheckCircle size={16} />
+                  <span>Save Purchase Return Record</span>
                 </button>
               </div>
 
@@ -4978,18 +5379,18 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
                   const newPaid = Math.min(targetInv.amount, paidAmt + payVal);
                   const newBal = Math.max(0, targetInv.amount - newPaid);
-                  const newStatus = newBal === 0 ? 'PAID' : 'PARTIAL';
+                  const newStatus: 'PAID' | 'PARTIAL' = newBal === 0 ? 'PAID' : 'PARTIAL';
 
-                  const updatedInvoices = invoices.map(i => i.id === targetInv.id ? {
+                  const updatedInvoices: SupplierInvoice[] = invoices.map(i => i.id === targetInv.id ? {
                     ...i,
                     status: newStatus,
                     paidAmount: newPaid,
                     balanceDue: newBal
                   } : i);
 
-                  const updatedPurchases = purchases.map(p => (p.invoiceNo === targetInv.id || p.id === targetInv.poRef) ? {
+                  const updatedPurchases: PurchaseOrder[] = purchases.map(p => (p.invoiceNo === targetInv.id || p.id === targetInv.poRef) ? {
                     ...p,
-                    status: newStatus === 'PAID' ? 'PAID' : 'PARTIAL',
+                    status: (newStatus === 'PAID' ? 'PAID' : 'PARTIAL') as 'PENDING' | 'PAID' | 'PARTIAL',
                     debit: newPaid,
                     balance: newBal
                   } : p);
