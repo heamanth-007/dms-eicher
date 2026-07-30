@@ -74,11 +74,14 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
   const [formStatus, setFormStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
   const [formAddress, setFormAddress] = useState('');
 
-  // Edit Form Fields State (Prefilled with Bharat Motors details as per Figma)
+  // Edit Form Fields State
   const [editName, setEditName] = useState('Bharat Motors');
   const [editGst, setEditGst] = useState('29AAACN1234F1Z1');
   const [editCategory, setEditCategory] = useState('Authorized Spare Dealer');
+  const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState('procurement@bharatmotors.co.in');
+  const [editOutstanding, setEditOutstanding] = useState('');
+  const [editStatus, setEditStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
   const [editAddress, setEditAddress] = useState('42, Industrial Area Phase II, Electronic City');
   const [editCity, setEditCity] = useState('Bangalore');
   const [editState, setEditState] = useState('Karnataka');
@@ -550,8 +553,36 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
                   </div>
                 </div>
 
-                {/* Row 2: Category & Email */}
+                {/* Row 2: Phone & Email */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[12px] font-bold text-[#475569]">Phone Number</label>
+                    <div className="relative">
+                      <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none" size={16} />
+                      <input
+                        type="text"
+                        value={editPhone}
+                        onChange={(e) => setEditPhone(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 bg-[#f0f5ff] border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] font-medium focus:outline-none focus:border-[#184edb]"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[12px] font-bold text-[#475569]">Business Contact Email</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none" size={16} />
+                      <input
+                        type="email"
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 bg-[#f0f5ff] border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] font-medium focus:outline-none focus:border-[#184edb] focus:ring-1 focus:ring-[#184edb]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 3: Category, Outstanding, Status */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[12px] font-bold text-[#475569]">Supplier Category</label>
                     <div className="relative">
@@ -569,16 +600,24 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
                     </div>
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[12px] font-bold text-[#475569]">Business Contact Email</label>
-                    <div className="relative">
-                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none" size={16} />
-                      <input
-                        type="email"
-                        value={editEmail}
-                        onChange={(e) => setEditEmail(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-[#f0f5ff] border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] font-medium focus:outline-none focus:border-[#184edb] focus:ring-1 focus:ring-[#184edb]"
-                      />
-                    </div>
+                    <label className="text-[12px] font-bold text-[#475569]">Opening Outstanding (₹)</label>
+                    <input
+                      type="text"
+                      value={editOutstanding}
+                      onChange={(e) => setEditOutstanding(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-[#f0f5ff] border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] font-medium focus:outline-none focus:border-[#184edb]"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[12px] font-bold text-[#475569]">Status</label>
+                    <select
+                      value={editStatus}
+                      onChange={(e) => setEditStatus(e.target.value as 'ACTIVE' | 'INACTIVE')}
+                      className="w-full px-4 py-2.5 bg-[#f0f5ff] border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] font-medium focus:outline-none focus:border-[#184edb]"
+                    >
+                      <option value="ACTIVE">ACTIVE</option>
+                      <option value="INACTIVE">INACTIVE</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -769,11 +808,22 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
               type="button"
               onClick={() => {
                 if (!editingSupplierId) return;
+
+                const rawOutstanding = parseFloat((editOutstanding || '').replace(/[^0-9.]/g, '') || '0');
+                const formattedOutstanding = `₹${rawOutstanding.toLocaleString('en-IN', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2
+                })}`;
+
                 const updatedList = suppliersList.map(s => s.id === editingSupplierId ? {
                   ...s,
-                  name: editName,
-                  gstNumber: editGst,
-                  email: editEmail
+                  name: editName || s.name,
+                  gstNumber: editGst || s.gstNumber,
+                  phone: editPhone || s.phone,
+                  email: editEmail || s.email,
+                  outstanding: formattedOutstanding,
+                  isOutstandingPositive: rawOutstanding > 0,
+                  status: editStatus
                 } : s);
 
                 setSuppliersList(updatedList);
@@ -787,11 +837,14 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
                   body: JSON.stringify({
                     name: editName,
                     gstNumber: editGst,
-                    email: editEmail
+                    phone: editPhone,
+                    email: editEmail,
+                    outstanding: formattedOutstanding,
+                    status: editStatus
                   })
                 }).catch((err) => console.error('Error updating supplier:', err));
 
-                alert('Supplier updated successfully!');
+                alert(`Supplier "${editName}" updated successfully!`);
                 setView('list');
               }}
               className="flex items-center gap-2 bg-[#184edb] hover:bg-[#1544c2] text-white font-bold text-[13.5px] px-6 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer"
@@ -1159,7 +1212,10 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
                             setEditingSupplierId(supplier.id);
                             setEditName(supplier.name);
                             setEditGst(supplier.gstNumber);
-                            setEditEmail(supplier.email);
+                            setEditPhone(supplier.phone || '');
+                            setEditEmail(supplier.email || '');
+                            setEditOutstanding(supplier.outstanding ? supplier.outstanding.replace(/[^0-9.]/g, '') : '0');
+                            setEditStatus(supplier.status || 'ACTIVE');
                             setView('edit');
                           }}
                           title="Edit Supplier"

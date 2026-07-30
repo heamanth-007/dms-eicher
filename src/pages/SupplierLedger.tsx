@@ -151,19 +151,53 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
     s.id.toLowerCase().includes(supplierSearchText.toLowerCase())
   );
 
-  // Dynamically load purchases from localStorage for selected supplier
+  // Dynamically load purchases and invoices from localStorage for selected supplier
   const [savedPurchasesList, setSavedPurchasesList] = useState<any[]>([]);
 
-  useEffect(() => {
+  const loadSavedPurchases = () => {
     try {
-      const saved = localStorage.getItem('dms_purchases_list');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setSavedPurchasesList(parsed);
+      const savedP = localStorage.getItem('dms_purchases_list');
+      const savedI = localStorage.getItem('dms_supplier_invoices_list');
+      let combined: any[] = [];
+      if (savedP) {
+        const parsedP = JSON.parse(savedP);
+        if (Array.isArray(parsedP)) combined = [...parsedP];
+      }
+      if (savedI) {
+        const parsedI = JSON.parse(savedI);
+        if (Array.isArray(parsedI)) {
+          parsedI.forEach((inv: any) => {
+            if (!combined.some(p => p.id === inv.poRef || p.invoiceNo === inv.id)) {
+              combined.push({
+                id: inv.poRef || inv.id,
+                invoiceNo: inv.id,
+                supplier: inv.supplier,
+                date: inv.issueDate,
+                itemsCount: inv.itemsCount || 1,
+                grandTotal: inv.amount,
+                status: inv.status,
+                paidAmount: inv.paidAmount,
+                balanceDue: inv.balanceDue,
+                items: inv.items || []
+              });
+            }
+          });
         }
       }
+      setSavedPurchasesList(combined);
     } catch (e) {}
+  };
+
+  useEffect(() => {
+    loadSavedPurchases();
+    window.addEventListener('dms_purchases_updated', loadSavedPurchases);
+    window.addEventListener('dms_inventory_updated', loadSavedPurchases);
+    window.addEventListener('storage', loadSavedPurchases);
+    return () => {
+      window.removeEventListener('dms_purchases_updated', loadSavedPurchases);
+      window.removeEventListener('dms_inventory_updated', loadSavedPurchases);
+      window.removeEventListener('storage', loadSavedPurchases);
+    };
   }, []);
 
   const currentSupplierName = selectedSupplier?.name || ledgerSupplier;
@@ -173,29 +207,82 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
     p.supplier && p.supplier.toLowerCase().trim() === currentSupplierName.toLowerCase().trim()
   );
 
-  // Generate dynamic ledger transactions combining static defaults + saved purchase orders
-  const dynamicPurchaseTxList: LedgerTransaction[] = matchedPurchases.map((p, idx) => {
+  // Generate dynamic raw ledger entries for matched purchases & payments
+  const dynamicLedgerEntries: LedgerTransaction[] = [];
+
+  matchedPurchases.forEach((p, idx) => {
     const itemDesc = p.items && p.items.length > 0
-      ? p.items.map((i: any) => `${i.productName} (x${i.qty} @ ₹${i.rate})`).join(', ')
+      ? p.items.map((i: any) => `${i.productName || 'Spare Part'} (x${i.qty || 1} @ ₹${i.rate || i.price || 0})`).join(', ')
       : `${p.itemsCount || 1} item(s) purchased`;
-    return {
-      id: `po-tx-${p.id}-${idx}`,
+
+    // 1. Purchase Debit Entry (Adds to Supplier Balance)
+    dynamicLedgerEntries.push({
+      id: `po-purchase-${p.id}-${idx}`,
       date: p.date,
       referenceNo: p.id || p.invoiceNo,
-      type: 'PURCHASE' as const,
+      type: 'PURCHASE',
       description: itemDesc,
-      debit: p.grandTotal,
+      debit: p.grandTotal || p.amount || 0,
       credit: 0,
-      balance: p.grandTotal,
+      balance: 0,
       paymentMode: p.status === 'PAID' ? 'Paid' : 'Credit Account',
       remarks: `Invoice #: ${p.invoiceNo || p.id}`
+    });
+
+    // 2. Payment Credit Entry (Reduces Supplier Balance if paid/partially paid)
+    const paidVal = p.paidAmount !== undefined 
+      ? p.paidAmount 
+      : (p.status === 'PAID' ? (p.grandTotal || p.amount || 0) : (p.status === 'PARTIAL' ? Math.round((p.grandTotal || p.amount || 0) / 2) : 0));
+
+    if (paidVal > 0) {
+      dynamicLedgerEntries.push({
+        id: `po-pay-${p.id}-${idx}`,
+        date: p.date,
+        referenceNo: `PAY-${p.invoiceNo || p.id}`,
+        type: 'PAYMENT',
+        description: `Payment Settlement against ${p.invoiceNo || p.id}`,
+        debit: 0,
+        credit: paidVal,
+        balance: 0,
+        paymentMode: p.paymentMode || 'Bank Transfer',
+        remarks: `Payment against Invoice ${p.invoiceNo || p.id}`
+      });
+    }
+  });
+
+  // Base opening balance transaction for supplier
+  const baseOpeningTx: LedgerTransaction = {
+    id: 'tx-1',
+    date: '01/10/2023',
+    referenceNo: '-',
+    type: 'BALANCE',
+    description: 'Opening Balance Forwarded',
+    debit: 0,
+    credit: 0,
+    balance: 0,
+    paymentMode: '-',
+    remarks: 'Forwarded Balance'
+  };
+
+  const rawTxList = [baseOpeningTx, ...dynamicLedgerEntries, ...transactions.filter(t => t.id !== 'tx-1')];
+
+  // Progressive running balance computation: Balance = Balance + Debit - Credit
+  let runningBal = 0;
+  const processedTransactions = rawTxList.map(tx => {
+    runningBal = runningBal + tx.debit - tx.credit;
+    return {
+      ...tx,
+      balance: runningBal
     };
   });
 
-  const combinedTransactions = [...dynamicPurchaseTxList, ...transactions];
+  // Totals for top summary KPI cards
+  const totalPurchaseAmt = processedTransactions.reduce((acc, t) => acc + t.debit, 0);
+  const totalPaidAmt = processedTransactions.reduce((acc, t) => acc + t.credit, 0);
+  const currentNetOutstanding = runningBal;
 
   // Filter transactions
-  const filteredTransactions = combinedTransactions.filter(tx => {
+  const filteredTransactions = processedTransactions.filter(tx => {
     let matchType = true;
     if (appliedTxType === 'Purchases') {
       matchType = tx.type === 'PURCHASE';
@@ -602,9 +689,9 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
           </div>
           <div className="mt-3.5">
             <span className="text-[26px] font-extrabold text-[#0f172a] leading-none">
-              ₹{(totalPurchase || 124580).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              ₹{totalPurchaseAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </span>
-            <span className="block text-[10.5px] font-bold text-[#64748b] tracking-wider uppercase mt-1.5">TOTAL PURCHASE</span>
+            <span className="block text-[10.5px] font-bold text-[#64748b] tracking-wider uppercase mt-1.5">TOTAL PURCHASE (DEBIT)</span>
           </div>
         </div>
 
@@ -614,32 +701,31 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
             <div className="bg-[#eff6ff] p-2.5 rounded-lg flex items-center justify-center text-[#184edb]">
               <CreditCard size={20} />
             </div>
-            <span className="text-[11.5px] font-semibold text-[#64748b]">Last 30 Days</span>
+            <span className="text-[11.5px] font-semibold text-[#64748b]">Total Paid</span>
           </div>
           <div className="mt-3.5">
-            <span className="text-[26px] font-extrabold text-[#0f172a] leading-none">
-              ₹{(totalPaid || 98240).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            <span className="text-[26px] font-extrabold font-bold text-emerald-600 leading-none">
+              ₹{totalPaidAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </span>
-            <span className="block text-[10.5px] font-bold text-[#64748b] tracking-wider uppercase mt-1.5">TOTAL PAID</span>
+            <span className="block text-[10.5px] font-bold text-[#64748b] tracking-wider uppercase mt-1.5">TOTAL PAID (CREDIT)</span>
           </div>
         </div>
 
         {/* Card 3: Outstanding Balance */}
         <div className="bg-white border border-[#e2e8f0] p-5.5 rounded-xl flex flex-col justify-between shadow-[0_1px_3px_rgba(0,0,0,0.02)] min-h-[125px] relative">
           <div className="flex items-start justify-between">
-            <div className="bg-[#fef2f2] p-2.5 rounded-lg flex items-center justify-center text-[#dc2626]">
+            <div className={`p-2.5 rounded-lg flex items-center justify-center ${currentNetOutstanding > 0 ? 'bg-[#fef2f2] text-[#dc2626]' : 'bg-emerald-50 text-emerald-600'}`}>
               <AlertTriangle size={20} />
             </div>
-            <div className="flex items-center gap-1 text-[#dc2626] text-[11.5px] font-bold">
-              <span>Attention</span>
-              <AlertTriangle size={12} className="stroke-[2.5px]" />
+            <div className={`flex items-center gap-1 text-[11.5px] font-bold ${currentNetOutstanding > 0 ? 'text-[#dc2626]' : 'text-emerald-600'}`}>
+              <span>{currentNetOutstanding > 0 ? 'Due Pending' : 'Balanced'}</span>
             </div>
           </div>
           <div className="mt-3.5">
-            <span className="text-[26px] font-extrabold text-[#dc2626] leading-none">
-              {selectedSupplier?.outstanding || '₹12,400.00'}
+            <span className={`text-[26px] font-extrabold leading-none ${currentNetOutstanding > 0 ? 'text-[#dc2626]' : 'text-slate-800'}`}>
+              ₹{currentNetOutstanding.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </span>
-            <span className="block text-[10.5px] font-bold text-[#64748b] tracking-wider uppercase mt-1.5">OUTSTANDING BALANCE</span>
+            <span className="block text-[10.5px] font-bold text-[#64748b] tracking-wider uppercase mt-1.5">NET OUTSTANDING BALANCE</span>
           </div>
         </div>
 

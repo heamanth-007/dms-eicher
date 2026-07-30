@@ -18,6 +18,8 @@ import {
   ArrowUpRight
 } from 'lucide-react';
 
+import { getStoredInventory } from '../utils/inventory';
+
 interface CustomerType {
   id: string;
   name: string;
@@ -74,8 +76,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
   const [suppliers, setSuppliers] = useState<SupplierType[]>([]);
   const [jobcards, setJobcards] = useState<JobCardType[]>([]);
   const [sales, setSales] = useState<any[]>([]);
+  const [localDataTick, setLocalDataTick] = useState(0);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+  useEffect(() => {
+    const handleSync = () => setLocalDataTick(prev => prev + 1);
+    window.addEventListener('dms_inventory_updated', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('dms_inventory_updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, []);
 
   useEffect(() => {
     // Fetch customers
@@ -139,8 +152,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
       .catch(err => console.error('Error fetching sales:', err));
   }, []);
 
-
-
   // Helper calculations
   const openJobsCount = jobcards.filter(jc => jc.status !== 'COMPLETED').length;
   const closedJobsCount = jobcards.filter(jc => jc.status === 'COMPLETED').length;
@@ -169,7 +180,64 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
     ? `₹${(totalCollection / 100000).toFixed(2)}L`
     : `₹${totalCollection.toLocaleString('en-IN')}`;
 
-  const lowStockCount = parts.filter(p => p.stockStatus === 'low' || p.stockStatus === 'out').length;
+  // Spare parts low stock logic directly synced from inventory
+  const storedInventory = getStoredInventory();
+  const effectivePartsList = storedInventory.length > 0 ? storedInventory : parts;
+
+  const lowStockCount = effectivePartsList.filter(p => {
+    const numStock = parseInt((p.stock || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    return p.stockStatus === 'low' || p.stockStatus === 'out' || numStock < 12;
+  }).length;
+
+  const outStockCount = effectivePartsList.filter(p => {
+    const numStock = parseInt((p.stock || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    return p.stockStatus === 'out' || numStock === 0;
+  }).length;
+
+  // Real-time calculation for Suppliers count
+  let suppliersCount = suppliers.length;
+  try {
+    const savedSuppliers = localStorage.getItem('dms_suppliers_list');
+    if (savedSuppliers) {
+      const parsed = JSON.parse(savedSuppliers);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        suppliersCount = parsed.length;
+      }
+    }
+  } catch (e) {}
+
+  // Real-time calculation for Service Bills
+  let serviceBillsCount = 24;
+  let recentServiceBillsList: any[] = [];
+  try {
+    const savedServiceBills = localStorage.getItem('dms_service_bills');
+    if (savedServiceBills) {
+      const parsed = JSON.parse(savedServiceBills);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        serviceBillsCount = parsed.length;
+        recentServiceBillsList = parsed;
+      }
+    }
+  } catch (e) {}
+
+  // Real-time calculation for Counter Sales
+  let counterSalesTotalStr = '₹42.5k';
+  try {
+    const savedCounterSales = localStorage.getItem('dms_counter_sales_bills');
+    if (savedCounterSales) {
+      const parsed = JSON.parse(savedCounterSales);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const sumTotal = parsed.reduce((acc: number, bill: any) => acc + (Number(bill.grandTotal) || 0), 0);
+        if (sumTotal >= 100000) {
+          counterSalesTotalStr = `₹${(sumTotal / 100000).toFixed(2)}L`;
+        } else if (sumTotal >= 1000) {
+          counterSalesTotalStr = `₹${(sumTotal / 1000).toFixed(1)}k`;
+        } else {
+          counterSalesTotalStr = `₹${sumTotal.toLocaleString('en-IN')}`;
+        }
+      }
+    }
+  } catch (e) {}
 
   const filteredTransactions = transactions.filter(t =>
     t.payeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -223,7 +291,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[10.5px] font-bold text-slate-400 tracking-wider">COUNTER SALES</span>
-            <h3 className="text-2xl font-extrabold text-slate-800 m-0">₹42.5k</h3>
+            <h3 className="text-2xl font-extrabold text-slate-800 m-0">{counterSalesTotalStr}</h3>
           </div>
         </div>
 
@@ -242,7 +310,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[10.5px] font-bold text-slate-400 tracking-wider">SERVICE BILLS</span>
-            <h3 className="text-2xl font-extrabold text-slate-800 m-0">24</h3>
+            <h3 className="text-2xl font-extrabold text-slate-800 m-0">{serviceBillsCount}</h3>
           </div>
         </div>
 
@@ -385,7 +453,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[10.5px] font-bold text-slate-400 tracking-wider">TOTAL SUPPLIERS</span>
-            <h3 className="text-2xl font-extrabold text-slate-800 m-0">{suppliers.length || 84}</h3>
+            <h3 className="text-2xl font-extrabold text-slate-800 m-0">{suppliersCount}</h3>
           </div>
         </div>
       </div>
@@ -732,7 +800,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
           </div>
           <div className="flex justify-between items-center h-full py-2">
             <div className="flex-1 text-center">
-              <h4 className="text-2xl font-bold m-0 mb-1 text-slate-700">{parts.length || 0}</h4>
+              <h4 className="text-2xl font-bold m-0 mb-1 text-slate-700">{effectivePartsList.length || 0}</h4>
               <span className="text-[9px] font-bold text-slate-400 tracking-wider">TOTAL ITEMS</span>
             </div>
             <div className="flex-1 text-center border-l border-r border-slate-200">
@@ -740,7 +808,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
               <span className="text-[9px] font-bold text-slate-400 tracking-wider">LOW STOCK</span>
             </div>
             <div className="flex-1 text-center">
-              <h4 className="text-2xl font-bold m-0 mb-1 text-red-600">{parts.filter(p => p.stockStatus === 'out').length || 0}</h4>
+              <h4 className="text-2xl font-bold m-0 mb-1 text-red-600">{outStockCount}</h4>
               <span className="text-[9px] font-bold text-slate-400 tracking-wider">OUT STOCK</span>
             </div>
           </div>
