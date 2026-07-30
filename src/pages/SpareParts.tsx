@@ -19,7 +19,6 @@ import {
   Save,
   PlusCircle,
   Trash2,
-  Eye,
   Car,
   Download,
   X,
@@ -28,8 +27,6 @@ import {
   Clock,
   ShoppingBag
 } from 'lucide-react';
-import brakePadsPhoto from '../assets/brake_pads_photo.png';
-import brakePadsBlueprint from '../assets/brake_pads_blueprint.png';
 import { getStoredInventory, saveStoredInventory, type PartType } from '../utils/inventory';
 
 interface SearchableDropdownInputProps {
@@ -70,7 +67,7 @@ const SearchableDropdownInput: React.FC<SearchableDropdownInputProps> = ({
   );
 
   return (
-    <div className="flex flex-col gap-2 relative" ref={containerRef}>
+    <div className="flex flex-col gap-2 relative z-30" ref={containerRef}>
       <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider font-sans">
         {label}
       </label>
@@ -85,46 +82,53 @@ const SearchableDropdownInput: React.FC<SearchableDropdownInputProps> = ({
           }}
           onFocus={() => setIsOpen(true)}
           placeholder={placeholder}
-          className="w-full px-4 py-2.5 pr-10 text-[14px] bg-white border border-slate-300 rounded-lg text-slate-850 font-semibold focus:outline-none focus:border-[#184edb] transition-colors"
+          className="w-full px-4 py-2.5 pr-10 text-[14px] bg-white border-2 border-slate-300 rounded-lg text-slate-900 font-bold focus:outline-none focus:border-[#184edb] focus:ring-2 focus:ring-blue-500/20 transition-all shadow-xs"
           autoComplete="off"
         />
         <button
           type="button"
           onClick={() => setIsOpen(prev => !prev)}
-          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 bg-transparent border-none cursor-pointer"
+          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-[#184edb] bg-transparent border-none cursor-pointer"
         >
           <ChevronDown size={16} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
         </button>
       </div>
 
-      {/* Floating Filtered Dropdown List */}
+      {/* Floating Filtered Dropdown List - Ultra High Visibility & Contrast */}
       {isOpen && (
-        <div className="absolute top-[100%] left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-52 overflow-y-auto divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-100 box-border">
+        <div className="absolute top-[100%] left-0 right-0 mt-1.5 bg-white border-2 border-blue-500/40 rounded-xl shadow-2xl z-[100] max-h-60 overflow-y-auto divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-100 box-border ring-1 ring-black/5">
           {filteredOptions.length > 0 ? (
-            filteredOptions.map((opt) => (
-              <div
-                key={opt}
-                onClick={() => {
-                  setValue(opt);
-                  setIsOpen(false);
-                }}
-                className={`px-4 py-2.5 text-[13.5px] font-semibold cursor-pointer transition-colors flex items-center justify-between hover:bg-blue-50 hover:text-[#184edb] ${
-                  value.toLowerCase() === opt.toLowerCase() ? 'bg-blue-50/80 text-[#184edb] font-bold' : 'text-slate-700'
-                }`}
-              >
-                <span>{opt}</span>
-                {value.toLowerCase() === opt.toLowerCase() && (
-                  <span className="text-[10px] font-extrabold text-[#184edb] bg-blue-100 px-1.5 py-0.5 rounded">Selected</span>
-                )}
-              </div>
-            ))
+            filteredOptions.map((opt) => {
+              const isSelected = value.toLowerCase() === opt.toLowerCase();
+              return (
+                <div
+                  key={opt}
+                  onClick={() => {
+                    setValue(opt);
+                    setIsOpen(false);
+                  }}
+                  className={`px-4 py-3 text-[14px] font-bold cursor-pointer transition-colors flex items-center justify-between ${
+                    isSelected 
+                      ? 'bg-[#184edb] text-white' 
+                      : 'bg-white text-slate-900 hover:bg-blue-50 hover:text-[#184edb]'
+                  }`}
+                >
+                  <span className="truncate">{opt}</span>
+                  {isSelected && (
+                    <span className="text-[10.5px] font-extrabold text-[#184edb] bg-white px-2.5 py-0.5 rounded-full shadow-xs">
+                      ✓ Selected
+                    </span>
+                  )}
+                </div>
+              );
+            })
           ) : (
             <div
               onClick={() => setIsOpen(false)}
-              className="px-4 py-3 text-[13px] text-slate-500 font-semibold bg-slate-50 flex items-center gap-2 cursor-pointer hover:bg-slate-100"
+              className="px-4 py-3 text-[13.5px] text-slate-800 font-bold bg-slate-50 flex items-center gap-2 cursor-pointer hover:bg-blue-50 hover:text-[#184edb]"
             >
-              <Plus size={14} className="text-[#184edb]" />
-              <span>Use new entry: <strong>"{value}"</strong></span>
+              <Plus size={15} className="text-[#184edb]" />
+              <span>Use custom entry: <strong className="text-[#184edb]">"{value}"</strong></span>
             </div>
           )}
         </div>
@@ -179,13 +183,30 @@ export const SpareParts: React.FC = () => {
   const [showValuationModal, setShowValuationModal] = useState(false);
   const [showTxnsModal, setShowTxnsModal] = useState(false);
   const [activeKpiFilter, setActiveKpiFilter] = useState<'total' | 'low' | 'out' | null>(null);
+  // Default Initial Stock History Seed Data
+  const defaultMockTransactions = [
+    { id: 'txn-101', date: 'Jul 30, 2026', time: '09:15 AM', partName: 'Ceramic Brake Pads', partNumber: 'SP-10921', category: 'Brake System', type: 'SALE', qtyIn: '-', qtyOut: 2, balance: 48, reference: '#INV-88291', updatedBy: 'J. Carter', department: 'STOREFRONT' },
+    { id: 'txn-102', date: 'Jul 30, 2026', time: '08:00 AM', partName: 'Synthetic Oil 5W-30 (1L)', partNumber: 'SP-22019', category: 'Lubricants & Fluids', type: 'PURCHASE', qtyIn: 120, qtyOut: '-', balance: 340, reference: '#PO-22105', updatedBy: 'A. Chen', department: 'WAREHOUSE' },
+    { id: 'txn-103', date: 'Jul 29, 2026', time: '04:45 PM', partName: 'NGK Platinum Spark Plug', partNumber: 'SP-44910', category: 'Electrical', type: 'ADJUSTMENT', qtyIn: '-', qtyOut: 4, balance: 86, reference: '#ADJ-901', updatedBy: 'M. Rodriguez', department: 'QC AUDIT' },
+    { id: 'txn-104', date: 'Jul 29, 2026', time: '11:20 AM', partName: 'Heavy Duty Oil Filter', partNumber: 'SP-33821', category: 'Consumables', type: 'JOB CARD', qtyIn: '-', qtyOut: 3, balance: 8, reference: '#JC-4401', updatedBy: 'R. Kumar', department: 'SERVICE BAY' },
+    { id: 'txn-105', date: 'Jul 28, 2026', time: '02:15 PM', partName: 'Commercial Truck Air Filter', partNumber: 'SP-55012', category: 'Consumables', type: 'RETURN', qtyIn: 1, qtyOut: '-', balance: 4, reference: '#RET-102', updatedBy: 'S. Sharma', department: 'RETURNS DEPT' },
+    { id: 'txn-106', date: 'Jul 28, 2026', time: '10:30 AM', partName: 'Heavy Duty Clutch Plate 380mm', partNumber: 'SP-77235', category: 'Transmission & Clutch', type: 'SALE', qtyIn: '-', qtyOut: 1, balance: 11, reference: '#INV-88285', updatedBy: 'J. Carter', department: 'STOREFRONT' },
+    { id: 'txn-107', date: 'Jul 27, 2026', time: '03:50 PM', partName: 'Front Wheel Hub Bearing', partNumber: 'SP-88346', category: 'Suspension & Steering', type: 'JOB CARD', qtyIn: '-', qtyOut: 2, balance: 0, reference: '#JC-4395', updatedBy: 'K. Singh', department: 'SERVICE BAY' },
+    { id: 'txn-108', date: 'Jul 27, 2026', time: '09:10 AM', partName: 'Halogen Headlight Bulb H4 12V', partNumber: 'SP-99457', category: 'Electrical', type: 'PURCHASE', qtyIn: 50, qtyOut: '-', balance: 150, reference: '#PO-22098', updatedBy: 'A. Chen', department: 'WAREHOUSE' }
+  ];
+
   const [transactionsList, setTransactionsList] = useState<any[]>(() => {
     try {
       const saved = localStorage.getItem('dms_spare_parts_transactions');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    try {
+      localStorage.setItem('dms_spare_parts_transactions', JSON.stringify(defaultMockTransactions));
+    } catch {}
+    return defaultMockTransactions;
   });
 
   useEffect(() => {
@@ -198,6 +219,16 @@ export const SpareParts: React.FC = () => {
     window.addEventListener('dms_inventory_updated', handleTxnsUpdate);
     return () => window.removeEventListener('dms_inventory_updated', handleTxnsUpdate);
   }, []);
+
+  // History Tab Filter & Detail States
+  const [histFromDate, setHistFromDate] = useState('');
+  const [histToDate, setHistToDate] = useState('');
+  const [histType, setHistType] = useState('All Types');
+  const [histCategory, setHistCategory] = useState('All Categories');
+  const [histSearch, setHistSearch] = useState('');
+  const [viewingTxn, setViewingTxn] = useState<any | null>(null);
+  const [histPage, setHistPage] = useState(1);
+  const histItemsPerPage = 10;
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
@@ -473,8 +504,8 @@ export const SpareParts: React.FC = () => {
           {/* Left Columns (General Info) */}
           <div className="lg:col-span-2 flex flex-col gap-6 w-full">
             {/* General Information Card */}
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden w-full flex flex-col box-border shadow-sm">
-              <div className="bg-white border-b border-slate-150 px-6 py-4.5 flex items-center gap-2.5">
+            <div className="bg-white rounded-xl border border-slate-200 overflow-visible w-full flex flex-col box-border shadow-sm relative z-20">
+              <div className="bg-white border-b border-slate-150 px-6 py-4.5 flex items-center gap-2.5 rounded-t-xl">
                 <Info size={18} className="text-[#184edb]" />
                 <span className="font-bold text-slate-800 text-[14.5px]">General Information</span>
               </div>
@@ -517,7 +548,6 @@ export const SpareParts: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-
                   {/* Manufacturer / Brand */}
                   <SearchableDropdownInput
                     id="edit-part-brand"
@@ -614,43 +644,6 @@ export const SpareParts: React.FC = () => {
           </div>
         </div>
 
-        {/* Part Media & Specifications Card (Full Width) */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col gap-4 box-border shadow-sm w-full">
-          <div className="flex items-center gap-2.5">
-            <Image size={18} className="text-[#184edb]" />
-            <span className="font-bold text-slate-800 text-[14.5px]">Part Media & Specifications</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {/* Card 1: Brake Pads Photo */}
-            <div className="border border-slate-200 rounded-xl overflow-hidden flex items-center justify-center bg-white min-h-[160px] max-h-[180px] p-2 box-border relative shadow-sm">
-              <img
-                src={brakePadsPhoto}
-                alt="Brake Pad Photo"
-                className="max-w-full max-h-full object-contain rounded-lg"
-              />
-            </div>
-
-            {/* Card 2: Brake Pads Blueprint */}
-            <div className="border border-slate-200 rounded-xl overflow-hidden flex items-center justify-center bg-white min-h-[160px] max-h-[180px] p-2 box-border relative shadow-sm">
-              <img
-                src={brakePadsBlueprint}
-                alt="Brake Pad Blueprint"
-                className="max-w-full max-h-full object-contain rounded-lg"
-              />
-            </div>
-
-            {/* Card 3: Add Media block */}
-            <div className="border border-dashed border-slate-250 rounded-xl p-5 flex flex-col items-center justify-center gap-2 bg-slate-50/50 hover:bg-slate-50 transition-colors cursor-pointer min-h-[160px] max-h-[180px] box-border">
-              <div className="text-slate-450">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-              </div>
-              <span className="text-[12.5px] text-slate-500 font-extrabold tracking-wide uppercase">
-                ADD MEDIA
-              </span>
-            </div>
-          </div>
-        </div>
       </div>
     );
   }
@@ -690,8 +683,8 @@ export const SpareParts: React.FC = () => {
           {/* Left Column (Forms) */}
           <div className="lg:col-span-2 flex flex-col gap-6 w-full">
             {/* Basic Information Card */}
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden w-full flex flex-col box-border shadow-sm">
-              <div className="bg-white border-b border-slate-150 px-6 py-4.5 flex items-center gap-2.5">
+            <div className="bg-white rounded-xl border border-slate-200 overflow-visible w-full flex flex-col box-border shadow-sm relative z-20">
+              <div className="bg-white border-b border-slate-150 px-6 py-4.5 flex items-center gap-2.5 rounded-t-xl">
                 <Info size={18} className="text-[#184edb]" />
                 <span className="font-bold text-[#184edb] text-[14.5px]">Basic Information</span>
               </div>
@@ -950,7 +943,7 @@ export const SpareParts: React.FC = () => {
       </div>
 
       {activeSubTab === 'history' ? (
-        <div className="flex-1 p-6 md:p-8 flex flex-col gap-6 bg-[#f6f8fc] overflow-y-auto box-border max-w-full font-sans">
+        <div className="flex-1 p-6 md:p-8 flex flex-col gap-6 bg-[#f6f8fc] overflow-y-auto box-border max-w-full font-sans text-left">
           {/* Header Block */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex flex-col gap-1">
@@ -958,16 +951,46 @@ export const SpareParts: React.FC = () => {
                 Inventory History & Timeline
               </h1>
               <span className="text-slate-500 text-[14px] font-medium">
-                Trace every part movement, purchase, and sale across your enterprise.
+                Trace every part movement, purchase, sale, and stock adjustment across your enterprise.
               </span>
             </div>
 
             <div className="flex items-center gap-3">
-              <button className="flex items-center gap-2 px-5 py-2.5 bg-[#184edb] hover:bg-[#143eb3] text-white font-bold rounded-lg text-[13.5px] border-none shadow-sm cursor-pointer transition-colors">
+              <button
+                onClick={() => {
+                  const headers = ['Date', 'Time', 'Part Name', 'Part Number', 'Type', 'Qty In', 'Qty Out', 'Balance', 'Reference', 'Updated By', 'Department'];
+                  const rows = transactionsList.map(t => [
+                    `"${t.date || ''}"`,
+                    `"${t.time || ''}"`,
+                    `"${(t.partName || t.name || '').replace(/"/g, '""')}"`,
+                    `"${(t.partNumber || t.code || '').replace(/"/g, '""')}"`,
+                    `"${t.type || ''}"`,
+                    `"${t.qtyIn || (t.quantity?.includes('+') ? t.quantity : '-')}"`,
+                    `"${t.qtyOut || (t.quantity?.includes('-') ? t.quantity : '-')}"`,
+                    `"${t.balance ?? '-'}"`,
+                    `"${t.reference || t.refNo || ''}"`,
+                    `"${t.updatedBy || t.user || ''}"`,
+                    `"${t.department || ''}"`
+                  ]);
+                  const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+                  const encodedUri = encodeURI(csvContent);
+                  const link = document.createElement('a');
+                  link.setAttribute('href', encodedUri);
+                  link.setAttribute('download', `inventory_history_report_${new Date().toISOString().slice(0, 10)}.csv`);
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+                className="flex items-center gap-2 px-5 py-2.5 bg-[#184edb] hover:bg-[#143eb3] text-white font-bold rounded-lg text-[13.5px] border-none shadow-sm cursor-pointer transition-colors"
+              >
                 <Download size={15} />
                 <span>Export Report</span>
               </button>
-              <button className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-lg text-[13.5px] cursor-pointer transition-colors shadow-sm">
+
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-lg text-[13.5px] cursor-pointer transition-colors shadow-sm"
+              >
                 <Printer size={15} className="text-slate-500" />
                 <span>Print Log</span>
               </button>
@@ -982,14 +1005,18 @@ export const SpareParts: React.FC = () => {
               <div className="flex items-center gap-2">
                 <input
                   type="text"
-                  placeholder="mm/dd/yyyy"
-                  className="w-full px-3 py-2.5 text-[13.5px] bg-[#f1f4fd] border border-slate-200 rounded-lg text-slate-650 font-semibold focus:outline-none"
+                  placeholder="e.g. Jul 01"
+                  value={histFromDate}
+                  onChange={(e) => { setHistFromDate(e.target.value); setHistPage(1); }}
+                  className="w-full px-3 py-2.5 text-[13.5px] bg-[#f1f4fd] border border-slate-200 rounded-lg text-slate-800 font-semibold focus:outline-none focus:border-[#184edb]"
                 />
                 <span className="text-slate-400 font-bold text-[13px]">to</span>
                 <input
                   type="text"
-                  placeholder="mm/dd/yyyy"
-                  className="w-full px-3 py-2.5 text-[13.5px] bg-[#f1f4fd] border border-slate-200 rounded-lg text-slate-655 font-semibold focus:outline-none"
+                  placeholder="e.g. Jul 30"
+                  value={histToDate}
+                  onChange={(e) => { setHistToDate(e.target.value); setHistPage(1); }}
+                  className="w-full px-3 py-2.5 text-[13.5px] bg-[#f1f4fd] border border-slate-200 rounded-lg text-slate-800 font-semibold focus:outline-none focus:border-[#184edb]"
                 />
               </div>
             </div>
@@ -999,9 +1026,16 @@ export const SpareParts: React.FC = () => {
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Transaction Type</label>
               <div className="relative">
                 <select
-                  className="w-full appearance-none bg-[#f1f4fd] border border-slate-200 rounded-lg py-2.5 pl-4 pr-10 text-[13.5px] text-slate-700 font-semibold cursor-pointer focus:outline-none"
+                  value={histType}
+                  onChange={(e) => { setHistType(e.target.value); setHistPage(1); }}
+                  className="w-full appearance-none bg-[#f1f4fd] border border-slate-200 rounded-lg py-2.5 pl-4 pr-10 text-[13.5px] text-slate-700 font-bold cursor-pointer focus:outline-none focus:border-[#184edb]"
                 >
-                  <option>All Types</option>
+                  <option value="All Types">All Types</option>
+                  <option value="SALE">SALE / Outward</option>
+                  <option value="PURCHASE">PURCHASE / Inward</option>
+                  <option value="ADJUSTMENT">ADJUSTMENT</option>
+                  <option value="RETURN">RETURN</option>
+                  <option value="JOB CARD">JOB CARD</option>
                 </select>
                 <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 pointer-events-none">
                   <ChevronDown size={16} />
@@ -1014,9 +1048,14 @@ export const SpareParts: React.FC = () => {
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Category</label>
               <div className="relative">
                 <select
-                  className="w-full appearance-none bg-[#f1f4fd] border border-slate-200 rounded-lg py-2.5 pl-4 pr-10 text-[13.5px] text-slate-700 font-semibold cursor-pointer focus:outline-none"
+                  value={histCategory}
+                  onChange={(e) => { setHistCategory(e.target.value); setHistPage(1); }}
+                  className="w-full appearance-none bg-[#f1f4fd] border border-slate-200 rounded-lg py-2.5 pl-4 pr-10 text-[13.5px] text-slate-700 font-bold cursor-pointer focus:outline-none focus:border-[#184edb]"
                 >
-                  <option>All Categories</option>
+                  <option value="All Categories">All Categories</option>
+                  {Array.from(new Set([...parts.map(p => p.category), ...transactionsList.map(t => t.category)].filter(Boolean))).map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
                 </select>
                 <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 pointer-events-none">
                   <ChevronDown size={16} />
@@ -1030,218 +1069,223 @@ export const SpareParts: React.FC = () => {
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Enter part name or SKU..."
-                  className="w-full pl-9 pr-4 py-2.5 text-[13.5px] bg-[#f1f4fd] border border-slate-200 rounded-lg text-slate-850 focus:outline-none font-semibold"
+                  value={histSearch}
+                  onChange={(e) => { setHistSearch(e.target.value); setHistPage(1); }}
+                  placeholder="Enter part name, SKU, or ref..."
+                  className="w-full pl-9 pr-4 py-2.5 text-[13.5px] bg-[#f1f4fd] border border-slate-200 rounded-lg text-slate-850 focus:outline-none font-semibold focus:border-[#184edb]"
                 />
                 <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                  <Search size={15} />
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Timeline History Table */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden w-full flex flex-col box-border shadow-sm">
-            <div className="overflow-x-auto w-full">
-              <table className="w-full border-collapse text-left text-slate-655">
-                <thead>
-                  <tr className="bg-[#f8fafc] border-b border-slate-200 text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">
-                    <th className="py-4.5 px-6 select-none font-bold">DATE & TIME</th>
-                    <th className="py-4.5 px-5 select-none font-bold">PART DETAIL</th>
-                    <th className="py-4.5 px-5 select-none font-bold">TYPE</th>
-                    <th className="py-4.5 px-5 select-none font-bold text-center">QTY IN</th>
-                    <th className="py-4.5 px-5 select-none font-bold text-center">QTY OUT</th>
-                    <th className="py-4.5 px-5 select-none font-bold text-center">BALANCE</th>
-                    <th className="py-4.5 px-5 select-none font-bold">REFERENCE</th>
-                    <th className="py-4.5 px-5 select-none font-bold">UPDATED BY</th>
-                    <th className="py-4.5 px-6 select-none font-bold text-center">ACTIONS</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-[14px]">
-                  {/* Row 1 */}
-                  <tr className="hover:bg-slate-50/50 transition-colors">
-                    <td className="py-4.5 px-6 whitespace-nowrap text-slate-700">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-bold text-slate-800">Oct 24, 2023</span>
-                        <span className="text-[12px] text-slate-400 font-bold">09:15 AM</span>
-                      </div>
-                    </td>
-                    <td className="py-4.5 px-5 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-blue-50 text-[#184edb] p-2.5 rounded-lg border border-blue-100">
-                          <Car size={16} />
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-bold text-slate-805">Ceramic Brake Pads</span>
-                          <span className="text-[11.5px] text-slate-400 font-bold">SKU: BP-9921-X</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-4.5 px-5 whitespace-nowrap">
-                      <span className="bg-red-50 text-red-600 px-2.5 py-1 rounded-md text-[11px] font-extrabold uppercase tracking-wide">
-                        SALE
-                      </span>
-                    </td>
-                    <td className="py-4.5 px-5 whitespace-nowrap text-center text-slate-400 font-medium">-</td>
-                    <td className="py-4.5 px-5 whitespace-nowrap text-center text-red-600 font-bold">2</td>
-                    <td className="py-4.5 px-5 whitespace-nowrap text-center text-slate-800 font-bold">48</td>
-                    <td className="py-4.5 px-5 whitespace-nowrap font-bold text-[#184edb]">#INV-88291</td>
-                    <td className="py-4.5 px-5 whitespace-nowrap">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-bold text-slate-800">J. Carter</span>
-                        <span className="text-[11.5px] text-slate-400 font-bold uppercase tracking-wider">STOREFRONT</span>
-                      </div>
-                    </td>
-                    <td className="py-4.5 px-6 whitespace-nowrap text-center text-slate-450 hover:text-[#184edb] cursor-pointer transition-colors">
-                      <Eye size={16} />
-                    </td>
-                  </tr>
+          {/* Dynamic Timeline History Table */}
+          {(() => {
+            const filtered = transactionsList.filter(t => {
+              // Type filter
+              if (histType !== 'All Types') {
+                const tType = (t.type || '').toUpperCase();
+                if (!tType.includes(histType.toUpperCase())) return false;
+              }
+              // Category filter
+              if (histCategory !== 'All Categories') {
+                if ((t.category || '').toLowerCase() !== histCategory.toLowerCase()) return false;
+              }
+              // Date Filter
+              if (histFromDate.trim()) {
+                if (!(t.date || '').toLowerCase().includes(histFromDate.toLowerCase().trim())) return false;
+              }
+              if (histToDate.trim()) {
+                if (!(t.date || '').toLowerCase().includes(histToDate.toLowerCase().trim())) return false;
+              }
+              // Search filter
+              if (histSearch.trim()) {
+                const q = histSearch.toLowerCase().trim();
+                const matchName = (t.partName || t.name || '').toLowerCase().includes(q);
+                const matchNo = (t.partNumber || t.code || '').toLowerCase().includes(q);
+                const matchRef = (t.reference || t.refNo || '').toLowerCase().includes(q);
+                const matchUser = (t.updatedBy || t.user || '').toLowerCase().includes(q);
+                const matchDept = (t.department || '').toLowerCase().includes(q);
+                if (!matchName && !matchNo && !matchRef && !matchUser && !matchDept) return false;
+              }
+              return true;
+            });
 
-                  {/* Row 2 */}
-                  <tr className="hover:bg-slate-50/50 transition-colors">
-                    <td className="py-4.5 px-6 whitespace-nowrap text-slate-700">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-bold text-slate-800">Oct 24, 2023</span>
-                        <span className="text-[12px] text-slate-400 font-bold">08:00 AM</span>
-                      </div>
-                    </td>
-                    <td className="py-4.5 px-5 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-blue-50 text-[#184edb] p-2.5 rounded-lg border border-blue-100">
-                          <Package size={16} />
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-bold text-slate-805">Synthetic Oil 5W-30</span>
-                          <span className="text-[11.5px] text-slate-400 font-bold">SKU: OIL-SY-05</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-4.5 px-5 whitespace-nowrap">
-                      <span className="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-md text-[11px] font-extrabold uppercase tracking-wide">
-                        PURCHASE
-                      </span>
-                    </td>
-                    <td className="py-4.5 px-5 whitespace-nowrap text-center text-blue-650 font-bold">120</td>
-                    <td className="py-4.5 px-5 whitespace-nowrap text-center text-slate-400 font-medium">-</td>
-                    <td className="py-4.5 px-5 whitespace-nowrap text-center text-slate-800 font-bold">340</td>
-                    <td className="py-4.5 px-5 whitespace-nowrap font-bold text-[#184edb]">#PO-22105</td>
-                    <td className="py-4.5 px-5 whitespace-nowrap">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-bold text-slate-800">A. Chen</span>
-                        <span className="text-[11.5px] text-slate-400 font-bold uppercase tracking-wider">WAREHOUSE</span>
-                      </div>
-                    </td>
-                    <td className="py-4.5 px-6 whitespace-nowrap text-center text-slate-450 hover:text-[#184edb] cursor-pointer transition-colors">
-                      <Eye size={16} />
-                    </td>
-                  </tr>
+            const totalHistPages = Math.max(1, Math.ceil(filtered.length / histItemsPerPage));
+            const safeHistPage = Math.min(histPage, totalHistPages);
+            const startIndex = (safeHistPage - 1) * histItemsPerPage;
+            const paginatedHistory = filtered.slice(startIndex, startIndex + histItemsPerPage);
 
-                  {/* Row 3 */}
-                  <tr className="hover:bg-slate-50/50 transition-colors">
-                    <td className="py-4.5 px-6 whitespace-nowrap text-slate-700">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-bold text-slate-805">Oct 23, 2023</span>
-                        <span className="text-[12px] text-slate-400 font-bold">04:45 PM</span>
-                      </div>
-                    </td>
-                    <td className="py-4.5 px-5 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-blue-50 text-[#184edb] p-2.5 rounded-lg border border-blue-100">
-                          <Layers size={16} />
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-bold text-slate-805">NGK Spark Plug</span>
-                          <span className="text-[11.5px] text-slate-400 font-bold">SKU: NGK-77-P</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-4.5 px-5 whitespace-nowrap">
-                      <span className="bg-purple-50 text-purple-650 px-2.5 py-1 rounded-md text-[11px] font-extrabold uppercase tracking-wide">
-                        ADJUSTMENT
-                      </span>
-                    </td>
-                    <td className="py-4.5 px-5 whitespace-nowrap text-center text-slate-400 font-medium">-</td>
-                    <td className="py-4.5 px-5 whitespace-nowrap text-center text-purple-650 font-bold">4</td>
-                    <td className="py-4.5 px-5 whitespace-nowrap text-center text-slate-800 font-bold">86</td>
-                    <td className="py-4.5 px-5 whitespace-nowrap font-bold text-[#184edb]">#ADJ-901</td>
-                    <td className="py-4.5 px-5 whitespace-nowrap">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-bold text-slate-800">M. Rodriguez</span>
-                        <span className="text-[11.5px] text-slate-400 font-bold uppercase tracking-wider">QC AUDIT</span>
-                      </div>
-                    </td>
-                    <td className="py-4.5 px-6 whitespace-nowrap text-center text-slate-450 hover:text-[#184edb] cursor-pointer transition-colors">
-                      <Eye size={16} />
-                    </td>
-                  </tr>
+            return (
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden w-full flex flex-col box-border shadow-sm">
+                <div className="overflow-x-auto w-full">
+                  <table className="w-full border-collapse text-left text-slate-655">
+                    <thead>
+                      <tr className="bg-[#f8fafc] border-b border-slate-200 text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">
+                        <th className="py-4.5 px-6 select-none font-bold">DATE & TIME</th>
+                        <th className="py-4.5 px-5 select-none font-bold">PART DETAIL</th>
+                        <th className="py-4.5 px-5 select-none font-bold">TYPE</th>
+                        <th className="py-4.5 px-5 select-none font-bold text-center">QTY IN</th>
+                        <th className="py-4.5 px-5 select-none font-bold text-center">QTY OUT</th>
+                        <th className="py-4.5 px-5 select-none font-bold text-center">BALANCE</th>
+                        <th className="py-4.5 px-5 select-none font-bold">REFERENCE</th>
+                        <th className="py-4.5 px-6 select-none font-bold">UPDATED BY</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-[14px]">
+                      {filtered.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="py-12 text-center text-slate-400 font-semibold bg-white">
+                            No inventory history records found matching your filters.
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedHistory.map((t, idx) => {
+                          const isOutward = (t.type || '').toUpperCase().includes('SALE') || 
+                                            (t.type || '').toUpperCase().includes('OUT') || 
+                                            (t.type || '').toUpperCase().includes('JOB');
+                          const isInward = (t.type || '').toUpperCase().includes('PURCHASE') || 
+                                           (t.type || '').toUpperCase().includes('IN');
+                          const isReturn = (t.type || '').toUpperCase().includes('RETURN');
+                          const isAdj = (t.type || '').toUpperCase().includes('ADJUST');
 
-                  {/* Row 4 */}
-                  <tr className="hover:bg-slate-50/50 transition-colors">
-                    <td className="py-4.5 px-6 whitespace-nowrap text-slate-700">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-bold text-slate-805">Oct 23, 2023</span>
-                        <span className="text-[12px] text-slate-400 font-bold">11:20 AM</span>
-                      </div>
-                    </td>
-                    <td className="py-4.5 px-5 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-blue-50 text-[#184edb] p-2.5 rounded-lg border border-blue-100">
-                          <Package size={16} />
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-bold text-slate-805">Car Battery 12V</span>
-                          <span className="text-[11.5px] text-slate-400 font-bold">SKU: BAT-XP-12</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-4.5 px-5 whitespace-nowrap">
-                      <span className="bg-slate-100 text-slate-650 px-2.5 py-1 rounded-md text-[11px] font-extrabold uppercase tracking-wide">
-                        RETURN
-                      </span>
-                    </td>
-                    <td className="py-4.5 px-5 whitespace-nowrap text-center text-slate-800 font-bold">1</td>
-                    <td className="py-4.5 px-5 whitespace-nowrap text-center text-slate-400 font-medium">-</td>
-                    <td className="py-4.5 px-5 whitespace-nowrap text-center text-slate-800 font-bold">14</td>
-                    <td className="py-4.5 px-5 whitespace-nowrap font-bold text-[#184edb]">#RET-452</td>
-                    <td className="py-4.5 px-5 whitespace-nowrap">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-bold text-slate-805">S. Williams</span>
-                        <span className="text-[11.5px] text-slate-400 font-bold uppercase tracking-wider">RETURNS DEPT</span>
-                      </div>
-                    </td>
-                    <td className="py-4.5 px-6 whitespace-nowrap text-center text-slate-455 hover:text-[#184edb] cursor-pointer transition-colors">
-                      <Eye size={16} />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                          const badgeClass = isOutward
+                            ? 'bg-red-50 text-red-600 border border-red-100'
+                            : isInward
+                            ? 'bg-blue-50 text-blue-600 border border-blue-100'
+                            : isReturn
+                            ? 'bg-amber-50 text-amber-600 border border-amber-100'
+                            : isAdj
+                            ? 'bg-purple-50 text-purple-600 border border-purple-100'
+                            : 'bg-emerald-50 text-emerald-600 border border-emerald-100';
 
-            {/* Table Footer */}
-            <div className="bg-[#f8fafc] border-t border-slate-150 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 w-full box-border">
-              <span className="text-[13px] text-slate-500 font-semibold">
-                Showing 1-10 of 2,481 entries
-              </span>
+                          const qtyInVal = t.qtyIn !== undefined && t.qtyIn !== '-' ? t.qtyIn : (isInward || isReturn ? (t.quantity || 1) : '-');
+                          const qtyOutVal = t.qtyOut !== undefined && t.qtyOut !== '-' ? t.qtyOut : (isOutward ? (t.quantity || 1) : '-');
 
-              <div className="flex items-center gap-1.5">
-                <button className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 bg-white hover:bg-slate-55 text-slate-400 cursor-pointer">
-                  <ChevronLeft size={16} />
-                </button>
-                <button className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#184edb] text-white font-bold text-[13.5px] border-none shadow-sm cursor-pointer">
-                  1
-                </button>
-                <button className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 bg-white hover:bg-slate-55 text-slate-650 text-[13.5px] font-medium cursor-pointer">
-                  2
-                </button>
-                <button className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 bg-white hover:bg-slate-55 text-slate-650 text-[13.5px] font-medium cursor-pointer">
-                  3
-                </button>
-                <button className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 bg-white hover:bg-slate-55 text-slate-400 cursor-pointer">
-                  <ChevronRight size={16} />
-                </button>
+                          return (
+                            <tr key={t.id || idx} className="hover:bg-slate-50/60 transition-colors">
+                              {/* Date & Time */}
+                              <td className="py-4.5 px-6 whitespace-nowrap text-slate-700">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="font-bold text-slate-800">{t.date || 'Today'}</span>
+                                  <span className="text-[12px] text-slate-400 font-bold">{t.time || '09:00 AM'}</span>
+                                </div>
+                              </td>
+
+                              {/* Part Detail */}
+                              <td className="py-4.5 px-5 whitespace-nowrap">
+                                <div className="flex items-center gap-3">
+                                  <div className="bg-blue-50 text-[#184edb] p-2.5 rounded-lg border border-blue-100">
+                                    {isOutward ? <Car size={16} /> : <Package size={16} />}
+                                  </div>
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="font-bold text-slate-805">{t.partName || t.name}</span>
+                                    <span className="text-[11.5px] text-slate-400 font-bold">SKU: {t.partNumber || t.code || 'SP-PART'}</span>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Type */}
+                              <td className="py-4.5 px-5 whitespace-nowrap">
+                                <span className={`px-2.5 py-1 rounded-md text-[11px] font-extrabold uppercase tracking-wide ${badgeClass}`}>
+                                  {t.type || 'MOVEMENT'}
+                                </span>
+                              </td>
+
+                              {/* Qty In */}
+                              <td className="py-4.5 px-5 whitespace-nowrap text-center">
+                                {qtyInVal !== '-' ? (
+                                  <span className="text-blue-650 font-bold">{qtyInVal}</span>
+                                ) : (
+                                  <span className="text-slate-400 font-medium">-</span>
+                                )}
+                              </td>
+
+                              {/* Qty Out */}
+                              <td className="py-4.5 px-5 whitespace-nowrap text-center">
+                                {qtyOutVal !== '-' ? (
+                                  <span className="text-red-600 font-bold">{qtyOutVal}</span>
+                                ) : (
+                                  <span className="text-slate-400 font-medium">-</span>
+                                )}
+                              </td>
+
+                              {/* Balance */}
+                              <td className="py-4.5 px-5 whitespace-nowrap text-center text-slate-800 font-bold">
+                                {t.balance !== undefined ? t.balance : 'In Stock'}
+                              </td>
+
+                              {/* Reference */}
+                              <td className="py-4.5 px-5 whitespace-nowrap font-bold text-[#184edb]">
+                                {t.reference || t.refNo || t.ref || '#REF-101'}
+                              </td>
+
+                              {/* Updated By */}
+                              <td className="py-4.5 px-6 whitespace-nowrap">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="font-bold text-slate-800">{t.updatedBy || t.user || 'Store Manager'}</span>
+                                  <span className="text-[11.5px] text-slate-400 font-bold uppercase tracking-wider">
+                                    {t.department || 'STOREFRONT'}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Table Footer Pagination */}
+                <div className="bg-[#f8fafc] border-t border-slate-150 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 w-full box-border">
+                  <span className="text-[13px] text-slate-500 font-semibold">
+                    Showing {filtered.length === 0 ? 0 : startIndex + 1}-{Math.min(startIndex + histItemsPerPage, filtered.length)} of {filtered.length} entries
+                  </span>
+
+                  {totalHistPages > 1 && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        disabled={safeHistPage === 1}
+                        onClick={() => setHistPage(p => Math.max(1, p - 1))}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 bg-white ${
+                          safeHistPage === 1 ? 'opacity-50 cursor-not-allowed text-slate-300' : 'hover:bg-slate-50 text-slate-600 cursor-pointer'
+                        }`}
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+
+                      {Array.from({ length: totalHistPages }, (_, i) => i + 1).map(pg => (
+                        <button
+                          key={pg}
+                          onClick={() => setHistPage(pg)}
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-[13.5px] border cursor-pointer transition-colors ${
+                            pg === safeHistPage
+                              ? 'bg-[#184edb] text-white border-[#184edb] shadow-sm'
+                              : 'bg-white text-slate-650 border-slate-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          {pg}
+                        </button>
+                      ))}
+
+                      <button
+                        disabled={safeHistPage === totalHistPages}
+                        onClick={() => setHistPage(p => Math.min(totalHistPages, p + 1))}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 bg-white ${
+                          safeHistPage === totalHistPages ? 'opacity-50 cursor-not-allowed text-slate-300' : 'hover:bg-slate-50 text-slate-600 cursor-pointer'
+                        }`}
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Bottom Row Blocks */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full items-stretch">
@@ -1964,6 +2008,71 @@ export const SpareParts: React.FC = () => {
               >
                 Close Transaction Log
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* VIEWING TRANSACTION DETAILS MODAL */}
+      {viewingTxn && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="px-6 py-4 bg-[#184edb] text-white flex items-center justify-between">
+              <div className="flex flex-col text-left">
+                <span className="font-extrabold text-base">Transaction Details</span>
+                <span className="text-xs text-blue-100 font-medium">Ref: {viewingTxn.reference || viewingTxn.refNo || viewingTxn.id}</span>
+              </div>
+              <button onClick={() => setViewingTxn(null)} className="text-white/80 hover:text-white bg-transparent border-none cursor-pointer p-1">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-left text-xs">
+              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Date & Time</span>
+                  <span className="font-extrabold text-slate-800 text-sm">{viewingTxn.date} {viewingTxn.time}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Transaction Type</span>
+                  <span className="font-extrabold text-blue-600 text-sm uppercase">{viewingTxn.type}</span>
+                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                <div className="flex justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 font-semibold">Part Name:</span>
+                  <span className="font-bold text-slate-900">{viewingTxn.partName || viewingTxn.name}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 font-semibold">Part Number / SKU:</span>
+                  <span className="font-bold text-[#184edb]">{viewingTxn.partNumber || viewingTxn.code || 'SP-PART'}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 font-semibold">Qty In (Restocked):</span>
+                  <span className="font-bold text-blue-600">{viewingTxn.qtyIn ?? '-'}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 font-semibold">Qty Out (Deducted):</span>
+                  <span className="font-bold text-red-600">{viewingTxn.qtyOut ?? '-'}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 font-semibold">Stock Balance After:</span>
+                  <span className="font-extrabold text-slate-900 text-sm">{viewingTxn.balance} Units</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-500 font-semibold">Updated By:</span>
+                  <span className="font-bold text-slate-800">{viewingTxn.updatedBy || viewingTxn.user || 'Store Manager'} ({viewingTxn.department || 'STOREFRONT'})</span>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  onClick={() => setViewingTxn(null)}
+                  className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-lg cursor-pointer transition-colors"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -1232,7 +1232,7 @@ export const VehicleInventory: React.FC = () => {
                           setViewingDetails(false);
                         }}
                         title="Edit Vehicle Details"
-                        className="p-1.5 bg-green-50 border border-green-100 rounded-md text-green-600 hover:bg-green-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
+                        className="p-1.5 bg-amber-50 border border-amber-100 rounded-md text-amber-600 hover:bg-amber-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
                       >
                         <Edit size={13} />
                       </button>
