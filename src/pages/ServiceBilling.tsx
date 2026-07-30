@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { deductInventoryStock, getStoredInventory, type PartType } from '../utils/inventory';
+import { getStoredInventory, saveStoredInventory, type PartType } from '../utils/inventory';
 import {
   Plus,
   Trash2,
@@ -256,8 +256,8 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
   // Discount & Payment State
   const getDefaultDiscountFromSettings = () => {
     try {
-      if (companySettings?.defaultDiscountPercent) {
-        return companySettings.defaultDiscountPercent.toString().replace(/[^0-9.]/g, '') || '5';
+      if ((companySettings as any)?.defaultDiscountPercent) {
+        return (companySettings as any).defaultDiscountPercent.toString().replace(/[^0-9.]/g, '') || '5';
       }
       const saved = localStorage.getItem('dms_company_settings');
       if (saved) {

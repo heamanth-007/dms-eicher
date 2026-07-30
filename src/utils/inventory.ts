@@ -158,3 +158,101 @@ export function deductInventoryStock(
     console.error('Error deducting inventory stock:', err);
   }
 }
+
+export function addInventoryStockFromPurchase(
+  items: Array<{ productName: string; qty: number; rate: number; gstPercent: number; partNumber?: string }>,
+  poReferenceNo: string
+) {
+  try {
+    let inventory = getStoredInventory();
+    let updatedTxns: InventoryTxn[] = [];
+
+    try {
+      const existingTxns = localStorage.getItem('dms_spare_parts_transactions');
+      if (existingTxns) updatedTxns = JSON.parse(existingTxns);
+    } catch (e) {}
+
+    let modified = false;
+
+    items.forEach(item => {
+      if (!item.productName || !item.productName.trim()) return;
+      const itemNameClean = item.productName.trim().toLowerCase();
+      const addedQty = Math.max(1, Number(item.qty) || 1);
+      const purchaseRate = Number(item.rate) || 0;
+      const gstVal = Number(item.gstPercent) || 18;
+
+      let targetPart = inventory.find(p =>
+        (item.partNumber && p.partNumber.toLowerCase() === item.partNumber.toLowerCase()) ||
+        p.partName.toLowerCase() === itemNameClean ||
+        itemNameClean.includes(p.partName.toLowerCase()) ||
+        p.partName.toLowerCase().includes(itemNameClean)
+      );
+
+      if (targetPart) {
+        const currStock = parseInt(targetPart.stock.replace(/[^0-9]/g, ''), 10) || 0;
+        const newStock = currStock + addedQty;
+        targetPart.stock = newStock.toString();
+        targetPart.stockStatus = newStock === 0 ? 'out' : newStock < 12 ? 'low' : 'normal';
+
+        if (purchaseRate > 0) {
+          targetPart.purchasePrice = `₹${purchaseRate.toFixed(2)}`;
+          const currentSale = parseFloat(targetPart.salePrice?.replace(/[^0-9.]/g, '') || '0');
+          if (currentSale < purchaseRate) {
+            targetPart.salePrice = `₹${(purchaseRate * 1.3).toFixed(2)}`;
+          }
+        }
+        modified = true;
+
+        updatedTxns.unshift({
+          id: `txn-in-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          partNumber: targetPart.partNumber,
+          partName: targetPart.partName,
+          type: 'Inward (Purchase)',
+          quantity: `+${addedQty} Units`,
+          reference: `Purchase Order #${poReferenceNo}`,
+          date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          amount: `₹${(addedQty * purchaseRate * (1 + gstVal / 100)).toFixed(2)}`
+        });
+      } else {
+        const generatedNum = item.partNumber || `SP-${Math.floor(10000 + Math.random() * 90000)}`;
+        const cleanName = item.productName.trim();
+        const salePriceVal = purchaseRate > 0 ? purchaseRate * 1.3 : 500;
+
+        const newCreatedPart: PartType = {
+          partNumber: generatedNum,
+          partName: cleanName,
+          category: 'Consumables',
+          brand: 'Eicher Genuine',
+          hsnCode: '842123',
+          gstPercent: `${gstVal}%`,
+          purchasePrice: `₹${purchaseRate.toFixed(2)}`,
+          salePrice: `₹${salePriceVal.toFixed(2)}`,
+          stock: addedQty.toString(),
+          stockStatus: addedQty < 12 ? 'low' : 'normal'
+        };
+
+        inventory.unshift(newCreatedPart);
+        modified = true;
+
+        updatedTxns.unshift({
+          id: `txn-in-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          partNumber: generatedNum,
+          partName: cleanName,
+          type: 'Inward (Purchase)',
+          quantity: `+${addedQty} Units`,
+          reference: `Purchase Order #${poReferenceNo}`,
+          date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          amount: `₹${(addedQty * purchaseRate * (1 + gstVal / 100)).toFixed(2)}`
+        });
+      }
+    });
+
+    if (modified) {
+      localStorage.setItem('dms_spare_parts_inventory', JSON.stringify(inventory));
+      localStorage.setItem('dms_spare_parts_transactions', JSON.stringify(updatedTxns));
+      window.dispatchEvent(new Event('dms_inventory_updated'));
+    }
+  } catch (err) {
+    console.error('Error adding purchase stock to inventory:', err);
+  }
+}
