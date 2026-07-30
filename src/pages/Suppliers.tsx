@@ -1203,9 +1203,9 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
                         <button 
                           onClick={() => { setSelectedLedgerSupplier(supplier); setView('ledger'); }}
                           title="View Ledger"
-                          className="text-[#64748b] hover:text-[#184edb] transition-colors cursor-pointer bg-transparent border-none p-1"
+                          className="p-1.5 text-blue-600 hover:text-blue-700 bg-blue-50/80 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200/60 cursor-pointer shadow-2xs"
                         >
-                          <Eye size={18} />
+                          <Eye size={16} />
                         </button>
                         <button 
                           onClick={() => {
@@ -1219,9 +1219,9 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
                             setView('edit');
                           }}
                           title="Edit Supplier"
-                          className="text-[#64748b] hover:text-[#0f172a] transition-colors cursor-pointer bg-transparent border-none p-1"
+                          className="p-1.5 text-amber-600 hover:text-amber-700 bg-amber-50/80 hover:bg-amber-100 rounded-lg transition-colors border border-amber-200/60 cursor-pointer shadow-2xs"
                         >
-                          <Edit size={18} />
+                          <Edit size={16} />
                         </button>
                       </div>
                     </td>

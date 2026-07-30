@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { deductInventoryStock, getStoredInventory, type PartType } from '../utils/inventory';
+import { deductInventoryStock, getStoredInventory, saveStoredInventory, type PartType } from '../utils/inventory';
 import { 
   Plus, 
   Search, 
@@ -64,6 +64,7 @@ export interface CounterSalesProps {
     emailAddress: string;
     websiteUrl: string;
     logoUrl: string;
+    defaultDiscountPercent?: string;
   };
 }
 
@@ -350,7 +351,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
         code: code,
         qty: 1,
         unitPrice: price,
-        discountPercent: getDefaultDiscountFromSettings(),
+        discountPercent: discount || getDefaultDiscountFromSettings(),
         gstPercent: gst
       };
       setBillItems([...billItems, newItem]);
@@ -1019,11 +1020,11 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
       {/* Header Row */}
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-[#111827] m-0 tracking-tight font-heading flex items-center gap-2">
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight m-0 font-heading flex items-center gap-2">
             Generate New Bill
           </h1>
           <div className="flex items-center gap-3 mt-1 flex-wrap">
-            <p className="text-xs text-slate-400 font-semibold m-0 uppercase tracking-wider">
+            <p className="text-slate-500 text-[14px] font-medium m-0 font-sans">
               Spare Parts Direct Sales Terminal
             </p>
             <span className="text-slate-300">•</span>
@@ -1151,16 +1152,16 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
           {/* DIVISION 1 CONTAINER: Customer Information */}
           <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-xs flex flex-col gap-4">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <span className="text-[#184edb] flex items-center"><Users size={16} /></span>
-              <h2 className="text-[13.5px] font-extrabold text-slate-800 uppercase tracking-wider m-0 font-heading">
+              <span className="text-[#184edb] flex items-center"><Users size={18} /></span>
+              <h3 className="text-base font-extrabold text-slate-800 m-0 flex items-center gap-2 font-heading">
                 Customer Information
-              </h2>
+              </h3>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* Customer Search Input */}
               <div className="flex flex-col gap-1.5 sm:col-span-2">
-                <label className="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider">
+                <label className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wide font-sans">
                   Customer Name / Search
                 </label>
                 <div className="relative flex items-center">
@@ -1169,20 +1170,20 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
                     type="text"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3.5 pr-10 text-xs font-semibold text-slate-700 outline-none focus:border-[#184edb] focus:bg-white transition-all"
+                    className="w-full p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold text-slate-700 focus:outline-none focus:border-[#184edb] bg-slate-50 focus:bg-white transition-all font-sans"
                   />
                 </div>
               </div>
 
               {/* Customer Type Select */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider">
+                <label className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wide font-sans">
                   Customer Type
                 </label>
                 <select
                   value={customerType}
                   onChange={(e) => setCustomerType(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 px-3.5 text-xs font-semibold text-slate-700 cursor-pointer outline-none focus:border-[#184edb] focus:bg-white transition-all"
+                  className="w-full p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold text-slate-700 cursor-pointer outline-none focus:border-[#184edb] bg-slate-50 focus:bg-white transition-all font-sans"
                 >
                   <option>Retail</option>
                   <option>Wholesale</option>
@@ -1193,7 +1194,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
 
               {/* Mobile Number Input */}
               <div className="flex flex-col gap-1.5 sm:col-span-3">
-                <label className="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider">
+                <label className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wide font-sans">
                   Mobile Number
                 </label>
                 <input 
@@ -1201,7 +1202,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
                   placeholder="e.g. 9876543210"
                   value={mobileNumber}
                   onChange={(e) => setMobileNumber(e.target.value.replace(/[^0-9]/g, ''))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3.5 text-xs font-semibold text-slate-700 outline-none focus:border-[#184edb] focus:bg-white transition-all"
+                  className="w-full p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold text-slate-700 outline-none focus:border-[#184edb] bg-slate-50 focus:bg-white transition-all font-sans"
                 />
               </div>
             </div>
@@ -1210,17 +1211,17 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
           {/* DIVISION 2 CONTAINER: Product Entry */}
           <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-xs flex flex-col gap-4">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <span className="text-[#184edb] flex items-center"><ShoppingBag size={16} /></span>
-              <h2 className="text-[13.5px] font-extrabold text-slate-800 uppercase tracking-wider m-0 font-heading">
+              <span className="text-[#184edb] flex items-center"><ShoppingBag size={18} /></span>
+              <h3 className="text-base font-extrabold text-slate-800 m-0 flex items-center gap-2 font-heading">
                 Product Entry
-              </h2>
+              </h3>
             </div>
 
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
                 {/* Search Product (Name or Code) */}
                 <div className="flex flex-col gap-1.5 sm:col-span-2 relative">
-                  <label className="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider">
+                  <label className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wide font-sans">
                     Search Product (Name or Code)
                   </label>
                   <div className="relative flex items-center">
@@ -1293,7 +1294,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
 
                 {/* Quantity */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">
+                  <label className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wide font-sans">
                     Quantity
                   </label>
                   <input 
@@ -1317,7 +1318,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
                         handleAddProduct();
                       }
                     }}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-xs font-semibold text-slate-700 text-center outline-none focus:border-[#184edb] focus:bg-white transition-all"
+                    className="w-full p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold text-slate-700 text-center outline-none focus:border-[#184edb] bg-slate-50 focus:bg-white transition-all font-sans"
                   />
                 </div>
 
@@ -1362,17 +1363,17 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
           {/* DIVISION 3 CONTAINER: Product List Table */}
           <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-xs flex flex-col gap-4">
             <div className="overflow-x-auto w-full">
-              <table className="w-full border-collapse text-left text-slate-650 text-[12px]">
+              <table className="w-full border-collapse text-left text-slate-650 text-[13.5px]">
                 <thead>
-                  <tr className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    <th className="py-3 px-4">Product Name</th>
-                    <th className="py-3 px-3">Code</th>
-                    <th className="py-3 px-3 text-center">Qty</th>
-                    <th className="py-3 px-3">Unit Price</th>
-                    <th className="py-3 px-3">Discount</th>
-                    <th className="py-3 px-3">Tax (GST)</th>
-                    <th className="py-3 px-3">Total</th>
-                    <th className="py-3 px-4 text-center">Actions</th>
+                  <tr className="bg-[#f8fafc] border-b border-slate-200 text-[11.5px] font-bold text-slate-800 uppercase tracking-wider font-heading">
+                    <th className="py-3.5 px-4 font-bold">Product Name</th>
+                    <th className="py-3.5 px-3 font-bold">Code</th>
+                    <th className="py-3.5 px-3 font-bold text-center">Qty</th>
+                    <th className="py-3.5 px-3 font-bold">Unit Price</th>
+                    <th className="py-3.5 px-3 font-bold">Discount</th>
+                    <th className="py-3.5 px-3 font-bold">Tax (GST)</th>
+                    <th className="py-3.5 px-3 font-bold">Total</th>
+                    <th className="py-3.5 px-4 font-bold text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
@@ -1507,7 +1508,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
 
           {/* DIVISION 4 CONTAINER: Bill Remarks */}
           <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-xs flex flex-col gap-3">
-            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+            <label className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wide font-sans">
               Bill Remarks
             </label>
             <textarea 
@@ -1515,7 +1516,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
               onChange={(e) => setRemarks(e.target.value)}
               placeholder="Add any special instructions or customer notes here..."
               rows={3}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs font-semibold text-slate-700 outline-none focus:border-[#184edb] focus:bg-white transition-all font-sans resize-none"
+              className="w-full p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold text-slate-700 outline-none focus:border-[#184edb] bg-slate-50 focus:bg-white transition-all font-sans resize-none"
             />
           </div>
         </div>
@@ -1526,10 +1527,10 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
           {/* DIVISION 5 CONTAINER: Bill Summary */}
           <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-xs flex flex-col gap-4">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <span className="text-[#184edb] flex items-center"><FileText size={16} /></span>
-              <h2 className="text-[13.5px] font-extrabold text-slate-800 uppercase tracking-wider m-0 font-heading">
+              <span className="text-[#184edb] flex items-center"><FileText size={18} /></span>
+              <h3 className="text-base font-extrabold text-slate-800 m-0 flex items-center gap-2 font-heading">
                 Bill Summary
-              </h2>
+              </h3>
             </div>
 
             {/* Calculations Breakdown */}
@@ -1612,10 +1613,10 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
           {/* DIVISION 6 CONTAINER: Frequent Parts */}
           <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-xs flex flex-col gap-4">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <span className="text-[#184edb] flex items-center"><ShoppingBag size={16} /></span>
-              <h2 className="text-[13.5px] font-extrabold text-slate-800 uppercase tracking-wider m-0 font-heading">
+              <span className="text-[#184edb] flex items-center"><ShoppingBag size={18} /></span>
+              <h3 className="text-base font-extrabold text-slate-800 m-0 flex items-center gap-2 font-heading">
                 Frequent Parts
-              </h2>
+              </h3>
             </div>
 
             <div className="flex flex-col gap-2">

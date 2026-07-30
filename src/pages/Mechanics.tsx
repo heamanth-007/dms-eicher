@@ -1756,24 +1756,26 @@ export const Mechanics: React.FC = () => {
 
                   {/* Actions */}
                   <td className="py-4 px-6 whitespace-nowrap">
-                    <div className="flex items-center justify-end gap-3.5">
-                      <button className="text-slate-400 hover:text-slate-650 p-0 border-none bg-transparent cursor-pointer">
-                        <Eye size={16} />
+                    <div className="flex items-center justify-end gap-2.5">
+                      <button title="View Technician Details" className="p-1.5 text-blue-600 hover:text-blue-700 bg-blue-50/80 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200/60 cursor-pointer shadow-2xs">
+                        <Eye size={15} />
                       </button>
-                      <button className="text-slate-400 hover:text-slate-650 p-0 border-none bg-transparent cursor-pointer">
-                        <Pencil size={16} />
+                      <button title="Edit Technician" className="p-1.5 text-amber-600 hover:text-amber-700 bg-amber-50/80 hover:bg-amber-100 rounded-lg transition-colors border border-amber-200/60 cursor-pointer shadow-2xs">
+                        <Pencil size={15} />
                       </button>
                       <button
                         onClick={() => setCurrentView('assign')}
-                        className="text-[#184edb] hover:text-[#143eb3] p-0 border-none bg-transparent cursor-pointer"
+                        title="Assign Job"
+                        className="p-1.5 text-emerald-600 hover:text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200/60 cursor-pointer shadow-2xs"
                       >
-                        <ClipboardList size={16} />
+                        <ClipboardList size={15} />
                       </button>
                       <button 
                         onClick={() => handleDeleteMechanic(m.id)}
-                        className="text-slate-400 hover:text-rose-600 p-0 border-none bg-transparent cursor-pointer"
+                        title="Delete Technician"
+                        className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50/80 hover:bg-rose-100 rounded-lg transition-colors border border-rose-200/60 cursor-pointer shadow-2xs"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   </td>
