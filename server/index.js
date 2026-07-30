@@ -432,7 +432,8 @@ const seedDatabase = async () => {
           status: 'WORKING',
           expectedDelivery: 'Today, 04:30 PM',
           isDelayed: false,
-          readyForPickup: false
+          readyForPickup: false,
+          amount: 8500
         },
         {
           jcNumber: 'JC-2023-8845',
@@ -446,7 +447,8 @@ const seedDatabase = async () => {
           status: 'WAITING PARTS',
           expectedDelivery: 'Delayed: Oct 25',
           isDelayed: true,
-          readyForPickup: false
+          readyForPickup: false,
+          amount: 12400
         },
         {
           jcNumber: 'JC-2023-8848',
@@ -460,7 +462,8 @@ const seedDatabase = async () => {
           status: 'ASSIGNED',
           expectedDelivery: 'Oct 26, 11:00 AM',
           isDelayed: false,
-          readyForPickup: false
+          readyForPickup: false,
+          amount: 5200
         },
         {
           jcNumber: 'JC-2023-8839',
@@ -474,7 +477,8 @@ const seedDatabase = async () => {
           status: 'COMPLETED',
           expectedDelivery: 'Today, 02:00 PM',
           isDelayed: false,
-          readyForPickup: true
+          readyForPickup: true,
+          amount: 15800
         }
       ]);
       console.log('Job cards seeded successfully!');
@@ -874,6 +878,15 @@ app.put('/api/jobcards/:jcNumber', async (req, res) => {
   try {
     const updated = await JobCard.findOneAndUpdate({ jcNumber: req.params.jcNumber }, req.body, { new: true });
     if (!updated) return res.status(404).json({ message: 'JobCard not found' });
+    
+    // Auto-release the mechanic if job is completed
+    if (updated.status === 'COMPLETED' && updated.mechanicName) {
+      await Mechanic.findOneAndUpdate(
+        { name: updated.mechanicName },
+        { status: 'Available' }
+      );
+    }
+    
     res.json(updated);
   } catch (error) {
     res.status(500).json({ message: 'Server Error updating jobcard', error: error.message });

@@ -22,7 +22,10 @@ import {
   Car,
   Download,
   X,
-  Search
+  Search,
+  CheckCircle2,
+  Clock,
+  ShoppingBag
 } from 'lucide-react';
 import { getStoredInventory, saveStoredInventory, type PartType } from '../utils/inventory';
 
@@ -449,6 +452,7 @@ export const SpareParts: React.FC = () => {
   };
 
   // partsData removed and connected to DB state
+  const currentEditingPartObj = parts.find(p => p.partNumber === editingPart);
 
   if (editingPart) {
     return (

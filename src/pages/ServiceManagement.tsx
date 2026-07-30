@@ -4,8 +4,6 @@ import {
   ChevronDown,
   Info,
   Calendar,
-  Car,
-  User,
   Clock,
   ThumbsUp,
   X,
@@ -17,49 +15,39 @@ import {
   TrendingUp,
   CheckCircle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Eye,
+  FileText
 } from 'lucide-react';
 
 interface ServiceManagementProps {
   onBack?: () => void;
   jobCards?: any[];
+  onNavigateToMechanics?: () => void;
+  onNavigateToService?: (subTab: string) => void;
 }
 
-export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jobCards }) => {
+export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jobCards, onNavigateToMechanics, onNavigateToService }) => {
   const [view, setView] = useState<'queue' | 'assign'>('queue');
   const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Low');
-  const [showToast, setShowToast] = useState(true);
+  const [showToast, setShowToast] = useState(false);
+  const [mechanics, setMechanics] = useState<any[]>([]);
+  const [selectedMechanic, setSelectedMechanic] = useState('');
+  const [selectedJob, setSelectedJob] = useState('');
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+  React.useEffect(() => {
+    fetch(`${API_URL}/api/mechanics`)
+      .then(res => res.json())
+      .then(data => setMechanics(data))
+      .catch(err => console.error(err));
+  }, [API_URL]);
 
   // Static tech data for Live Availability in Assign Job form
-  const technicians = [
-    {
-      name: 'David Chen',
-      role: 'Master Technician',
-      status: 'READY',
-      statusColor: 'text-emerald-600',
-      dotColor: 'bg-emerald-500',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100'
-    },
-    {
-      name: 'Sarah Johnson',
-      role: 'EV Specialist',
-      status: '15 MIN',
-      statusColor: 'text-orange-500',
-      dotColor: 'bg-orange-400',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=100'
-    },
-    {
-      name: 'Marco Rossi',
-      role: 'Chassis Tech',
-      status: 'BUSY',
-      statusColor: 'text-rose-500',
-      dotColor: 'bg-rose-500',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=100'
-    }
-  ];
-
   // Map API jobCards to queue format, falling back to static data if empty
   const activeJobs = jobCards?.filter(jc => jc.status !== 'COMPLETED') || [];
+  const unassignedJobs = activeJobs.filter(jc => jc.status === 'PENDING' || !jc.mechanicName || jc.mechanicName === 'Unassigned');
   
   const mappedQueueJobs = activeJobs.map(jc => ({
     id: jc.jcNumber,
@@ -80,27 +68,12 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
     doneTime: jc.doneTime as string | undefined
   }));
 
-  const queueJobs = mappedQueueJobs.length > 0 ? mappedQueueJobs : [
-    {
-      id: '#JO-8821',
-      mechanic: 'Mark Stevens',
-      mechanicInitials: 'MS',
-      mechanicBg: 'bg-blue-100 text-blue-650',
-      customer: 'Jonathan Wick',
-      vehicle: '2023 Ford F-150 Raptor',
-      serviceType: 'Engine Diagnostics',
-      assigned: 'Oct 24',
-      expected: 'Oct 25, 14:00',
-      expectedBold: true,
-      expectedRed: true,
-      status: 'In Progress',
-      priority: 'High',
-      priorityBg: 'bg-rose-50 text-rose-600 border border-rose-100',
-      faded: false,
-      doneTime: undefined as string | undefined
-    }
-  ];
+  const queueJobs = mappedQueueJobs;
 
+  const todayJobsCount = activeJobs.length;
+  const inProgressCount = activeJobs.filter(jc => jc.status === 'WORKING').length;
+  const pendingCount = activeJobs.filter(jc => jc.status === 'WAITING PARTS' || jc.status === 'ASSIGNED' || jc.status === 'PENDING').length;
+  const completedTodayCount = (jobCards || []).filter(jc => jc.status === 'COMPLETED').length;
 
   if (view === 'assign') {
     return (
@@ -115,7 +88,7 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
               </div>
               <div className="flex flex-col gap-0.5 pr-2.5">
                 <span className="text-[13.5px] font-bold text-slate-800">Success!</span>
-                <span className="text-[12px] text-slate-400 font-medium">Job assigned to David Chen.</span>
+                <span className="text-[12px] text-slate-400 font-medium">Job successfully assigned.</span>
               </div>
               <button
                 onClick={() => setShowToast(false)}
@@ -162,15 +135,28 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5.5">
                 {/* Select Mechanic */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">SELECT MECHANIC (AVAILABLE ONLY)</label>
+                  <div className="flex justify-between items-center">
+                    <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">SELECT MECHANIC</label>
+                    <span 
+                      onClick={onNavigateToMechanics} 
+                      className="text-[#184edb] text-[11.5px] font-bold uppercase tracking-wider cursor-pointer hover:underline"
+                    >
+                      Manage Mechanics &gt;
+                    </span>
+                  </div>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="m21 21-4.3-4.3" /><circle cx="15" cy="11" r="4" /></svg>
                     </span>
                     <select
-                      className="w-full appearance-none bg-white border border-slate-250 rounded-lg py-2.5 pl-10.5 pr-10 text-[14px] text-slate-500 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
+                      value={selectedMechanic}
+                      onChange={(e) => setSelectedMechanic(e.target.value)}
+                      className="w-full appearance-none bg-white border border-slate-250 rounded-lg py-2.5 pl-10.5 pr-10 text-[14px] text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
                     >
-                      <option>Search available mechanics...</option>
+                      <option value="">Select an available mechanic...</option>
+                      {mechanics.map(m => (
+                        <option key={m.id || m._id} value={m.name}>{m.name} ({m.status})</option>
+                      ))}
                     </select>
                     <span className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 pointer-events-none">
                       <ChevronDown size={18} />
@@ -178,51 +164,44 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
                   </div>
                 </div>
 
-                {/* Select Customer */}
+                {/* Select Job Card */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">SELECT CUSTOMER</label>
+                  <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">SELECT JOB CARD</label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
-                      <User size={18} />
+                      <FileText size={18} />
                     </span>
                     <select
-                      className="w-full appearance-none bg-white border border-slate-250 rounded-lg py-2.5 pl-10.5 pr-10 text-[14px] text-slate-500 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
+                      value={selectedJob}
+                      onChange={(e) => setSelectedJob(e.target.value)}
+                      className="w-full appearance-none bg-white border border-slate-250 rounded-lg py-2.5 pl-10.5 pr-10 text-[14px] text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
                     >
-                      <option>Search customer records...</option>
+                      <option value="">Select unassigned Job Card...</option>
+                      {unassignedJobs.map(jc => (
+                        <option key={jc.jcNumber} value={jc.jcNumber}>{jc.jcNumber} - {jc.vehicleReg}</option>
+                      ))}
+                      {unassignedJobs.length === 0 && <option disabled>No unassigned jobs</option>}
                     </select>
                     <span className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 pointer-events-none">
                       <ChevronDown size={18} />
                     </span>
                   </div>
                 </div>
+              </div>
 
-                {/* Select Vehicle */}
-                <div className="flex flex-col gap-2">
-                  <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">SELECT VEHICLE</label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
-                      <Car size={18} />
-                    </span>
-                    <select
-                      className="w-full appearance-none bg-white border border-slate-250 rounded-lg py-2.5 pl-10.5 pr-10 text-[14px] text-slate-500 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
-                    >
-                      <option>Identify vehicle VIN/Plate...</option>
-                    </select>
-                    <span className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 pointer-events-none">
-                      <ChevronDown size={18} />
-                    </span>
-                  </div>
-                </div>
-
-                {/* Service Type */}
-                <div className="flex flex-col gap-2">
-                  <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">SERVICE TYPE</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., Brake Pad Replacement"
-                    className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-250 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
-                  />
-                </div>
+              {/* Service Type / Selected Job Preview */}
+              <div className="bg-slate-50/50 p-4 rounded-lg border border-slate-100 flex flex-col gap-2 text-[13px] text-slate-600">
+                {selectedJob ? (() => {
+                  const job = activeJobs.find(j => j.jcNumber === selectedJob);
+                  if (!job) return <span>Job not found</span>;
+                  return (
+                    <>
+                      <div className="flex justify-between items-center"><span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Customer</span><span className="font-semibold text-slate-800">{job.customerName}</span></div>
+                      <div className="flex justify-between items-center"><span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Vehicle</span><span className="font-semibold text-slate-800">{job.vehicleModel} • {job.vehicleReg}</span></div>
+                      <div className="flex justify-between items-center"><span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Complaint</span><span className="font-semibold text-slate-800">{job.complaintSummary}</span></div>
+                    </>
+                  )
+                })() : <span>Select a Job Card to view details...</span>}
               </div>
 
               {/* Priority Level */}
@@ -284,7 +263,24 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
                   Cancel
                 </button>
                 <button
-                  onClick={() => setView('queue')}
+                  onClick={() => {
+                    if(!selectedMechanic || !selectedJob) return alert('Please select a mechanic and a job card.');
+                    
+                    fetch(`${API_URL}/api/jobcards/${selectedJob}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        mechanicName: selectedMechanic,
+                        mechanicInitials: selectedMechanic.split(' ').map(n=>n[0]).join('').toUpperCase(),
+                        status: 'ASSIGNED'
+                      })
+                    })
+                    .then(() => {
+                      setShowToast(true);
+                      setTimeout(() => setView('queue'), 1500);
+                    })
+                    .catch(err => console.error(err));
+                  }}
                   className="px-7 py-2.5 bg-[#184edb] hover:bg-[#143eb3] text-white font-bold rounded-lg text-[14.5px] cursor-pointer border-none shadow-sm transition-colors"
                 >
                   Assign Job
@@ -305,19 +301,21 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
               </div>
 
               <div className="flex flex-col gap-3.5">
-                {technicians.map((t, idx) => (
-                  <div key={idx} className="flex items-center justify-between bg-white p-2 rounded-lg hover:bg-slate-50/50 transition-colors">
+                {mechanics.map((m, idx) => (
+                  <div key={m.id || idx} className="flex items-center justify-between bg-white p-2 rounded-lg hover:bg-slate-50/50 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="relative">
-                        <img className="w-10 h-10 rounded-full object-cover" src={t.avatar} alt={t.name} />
-                        <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${t.dotColor}`} />
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg text-white ${m.avatarBg || 'bg-slate-300'}`}>
+                          {m.initials}
+                        </div>
+                        <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${m.status === 'Available' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                       </div>
                       <div className="flex flex-col">
-                        <span className="font-bold text-slate-850 text-[14px]">{t.name}</span>
-                        <span className="text-slate-400 text-[12px] font-semibold">{t.role}</span>
+                        <span className="font-bold text-slate-850 text-[14px]">{m.name}</span>
+                        <span className="text-slate-400 text-[12px] font-semibold">{m.experience || 'Technician'}</span>
                       </div>
                     </div>
-                    <span className={`text-[12.5px] font-bold ${t.statusColor}`}>{t.status}</span>
+                    <span className={`text-[12.5px] font-bold ${m.status === 'Available' ? 'text-emerald-600' : 'text-rose-500'}`}>{m.status}</span>
                   </div>
                 ))}
               </div>
@@ -338,67 +336,33 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <span className="font-bold text-[#184edb] text-[15px]">Alexander Pierce</span>
-                  <span className="text-slate-450 text-[12.5px] font-semibold">Platinum Member</span>
-                  <div className="flex gap-0.5 text-amber-500">
-                    <Star size={12} fill="currentColor" />
-                    <Star size={12} fill="currentColor" />
-                    <Star size={12} fill="currentColor" />
-                    <Star size={12} fill="currentColor" />
-                    <Star size={12} fill="currentColor" />
+                  <span className="font-bold text-[#184edb] text-[15px]">{selectedJob ? (activeJobs.find(j => j.jcNumber === selectedJob)?.customerName || 'N/A') : 'Select a Job'}</span>
+                  <span className="text-slate-450 text-[12.5px] font-semibold">Customer</span>
+                </div>
+              </div>
+              
+              {selectedJob && (() => {
+                const job = activeJobs.find(j => j.jcNumber === selectedJob);
+                return job ? (
+                  <div className="flex flex-col gap-2 text-[13px] border-t border-slate-100 pt-3 mt-1">
+                    <div className="flex justify-between items-center text-slate-500">
+                      <span>Vehicle Reg:</span>
+                      <span className="font-bold text-slate-850">{job.vehicleReg}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-500">
+                      <span>Service Amount:</span>
+                      <span className="font-bold text-emerald-600 bg-emerald-50 px-2 rounded">
+                        {job.amount ? `₹${Number(job.amount).toLocaleString('en-IN')}` : 'Est. pending'}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2 text-[13px] border-t border-slate-100 pt-3">
-                <div className="flex justify-between items-center text-slate-500">
-                  <span>Active Orders:</span>
-                  <span className="font-bold text-slate-850">1</span>
-                </div>
-                <div className="flex justify-between items-center text-slate-500">
-                  <span>Last Visit:</span>
-                  <span className="font-bold text-slate-850">Mar 12, 2024</span>
-                </div>
-              </div>
+                ) : null;
+              })()}
             </div>
           </div>
         </div>
 
-        {/* Bottom KPI Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mt-2">
-          {/* Avg Time */}
-          <div className="bg-white rounded-xl p-5 border border-slate-200 flex items-center gap-4">
-            <div className="bg-[#e8eeff] text-[#184edb] p-3 rounded-lg flex items-center justify-center">
-              <Clock size={22} />
-            </div>
-            <div className="flex flex-col gap-0.5">
-              <span className="text-slate-500 text-[12.5px] font-bold uppercase tracking-wider">AVG TIME</span>
-              <span className="text-[17px] font-bold text-slate-800">2.4 Hours</span>
-            </div>
-          </div>
 
-          {/* Parts Ready */}
-          <div className="bg-white rounded-xl p-5 border border-slate-200 flex items-center gap-4">
-            <div className="bg-[#e8eeff] text-[#184edb] p-3 rounded-lg flex items-center justify-center">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><path d="m3.3 7 8.7 5 8.7-5" /><path d="M12 22V12" /></svg>
-            </div>
-            <div className="flex flex-col gap-0.5">
-              <span className="text-slate-500 text-[12.5px] font-bold uppercase tracking-wider">PARTS READY</span>
-              <span className="text-[17px] font-bold text-slate-800">85% In Stock</span>
-            </div>
-          </div>
-
-          {/* Tech Rating */}
-          <div className="bg-white rounded-xl p-5 border border-slate-200 flex items-center gap-4">
-            <div className="bg-[#e8eeff] text-[#184edb] p-3 rounded-lg flex items-center justify-center">
-              <ThumbsUp size={22} />
-            </div>
-            <div className="flex flex-col gap-0.5">
-              <span className="text-slate-500 text-[12.5px] font-bold uppercase tracking-wider">TECH RATING</span>
-              <span className="text-[17px] font-bold text-slate-800">4.9 / 5.0</span>
-            </div>
-          </div>
-        </div>
       </div>
     );
   }
@@ -453,13 +417,10 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="text-slate-500 text-[12px] font-bold uppercase tracking-wider">TODAY'S JOBS</span>
-              <span className="text-2xl font-bold text-slate-800 tracking-tight">15</span>
+              <span className="text-2xl font-bold text-slate-800 tracking-tight">{todayJobsCount.toString().padStart(2, '0')}</span>
             </div>
           </div>
-          <span className="absolute top-4 right-4 text-[12px] font-bold text-emerald-600 flex items-center gap-0.5">
-            <TrendingUp size={12} />
-            +4%
-          </span>
+
         </div>
 
         {/* In Progress */}
@@ -470,12 +431,10 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="text-slate-500 text-[12px] font-bold uppercase tracking-wider">IN PROGRESS</span>
-              <span className="text-2xl font-bold text-slate-800 tracking-tight">09</span>
+              <span className="text-2xl font-bold text-slate-800 tracking-tight">{inProgressCount.toString().padStart(2, '0')}</span>
             </div>
           </div>
-          <span className="absolute top-4 right-4 text-[12.5px] font-bold text-slate-500">
-            60% Total
-          </span>
+
         </div>
 
         {/* Pending */}
@@ -486,13 +445,10 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="text-slate-500 text-[12px] font-bold uppercase tracking-wider">PENDING</span>
-              <span className="text-2xl font-bold text-slate-800 tracking-tight">03</span>
+              <span className="text-2xl font-bold text-slate-800 tracking-tight">{pendingCount.toString().padStart(2, '0')}</span>
             </div>
           </div>
-          <span className="absolute top-4 right-4 text-[12px] font-bold text-rose-500 flex items-center gap-0.5">
-            <AlertTriangle size={12} />
-            Priority
-          </span>
+
         </div>
 
         {/* Completed Today */}
@@ -503,12 +459,10 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="text-slate-500 text-[12px] font-bold uppercase tracking-wider">COMPLETED TODAY</span>
-              <span className="text-2xl font-bold text-slate-800 tracking-tight">03</span>
+              <span className="text-2xl font-bold text-slate-800 tracking-tight">{completedTodayCount.toString().padStart(2, '0')}</span>
             </div>
           </div>
-          <span className="absolute top-4 right-4 text-[12.5px] font-bold text-slate-500">
-            Target: 10
-          </span>
+
         </div>
       </div>
 
@@ -542,6 +496,7 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
                 <th className="py-4.5 px-5 select-none font-bold">TIMELINE</th>
                 <th className="py-4.5 px-5 select-none font-bold">STATUS</th>
                 <th className="py-4.5 px-6 select-none font-bold">PRIORITY</th>
+                <th className="py-4.5 px-6 select-none font-bold text-right">ACTIONS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-[14px]">
@@ -554,11 +509,18 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
 
                   {/* Mechanic */}
                   <td className="py-4.5 px-5 whitespace-nowrap">
-                    <div className="flex items-center gap-3">
+                    <div 
+                      className={`flex items-center gap-3 ${job.mechanic !== 'Unassigned' ? 'cursor-pointer hover:text-[#184edb] transition-colors' : ''}`}
+                      onClick={() => {
+                        if (job.mechanic !== 'Unassigned' && onNavigateToMechanics) {
+                          onNavigateToMechanics();
+                        }
+                      }}
+                    >
                       <div className={`w-8 h-8 rounded-full ${job.mechanicBg} font-bold text-[12px] flex items-center justify-center`}>
                         {job.mechanicInitials}
                       </div>
-                      <span className="font-bold text-slate-800">{job.mechanic}</span>
+                      <span className="font-bold text-slate-800 hover:inherit">{job.mechanic}</span>
                     </div>
                   </td>
 
@@ -625,6 +587,19 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
                       {job.priority}
                     </span>
                   </td>
+
+                  {/* Actions */}
+                  <td className="py-4.5 px-6 whitespace-nowrap text-right">
+                    <button 
+                      onClick={() => {
+                         if (onNavigateToService) onNavigateToService('open-job-cards');
+                      }}
+                      className="text-[#184edb] hover:text-[#143eb3] p-1.5 rounded-lg border border-transparent hover:border-slate-200 bg-transparent cursor-pointer transition-all inline-flex items-center"
+                      title="View Job Card Details"
+                    >
+                      <Eye size={16} />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -634,7 +609,7 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
         {/* Table Footer */}
         <div className="bg-[#f8fafc] border-t border-slate-150 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 w-full box-border">
           <span className="text-[13px] text-slate-500 font-semibold">
-            Showing 4 of 15 active jobs
+            Showing {queueJobs.length} active jobs
           </span>
 
           <div className="flex items-center gap-1.5">

@@ -35,18 +35,21 @@ interface JobCard {
   expectedDelivery: string;
   isDelayed?: boolean;
   readyForPickup?: boolean;
+  amount?: string | number;
 }
 
 interface ServiceDashboardProps {
   subTab: 'dashboard' | 'open-job-cards' | 'completed-jobs' | 'service-history' | 'job-queue';
   setSubTab: (tab: any) => void;
   searchTerm: string;
+  onNavigateToMechanics?: () => void;
 }
 
 export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
   subTab,
   setSubTab,
-  searchTerm
+  searchTerm,
+  onNavigateToMechanics
 }) => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [isCreatingJobCard, setIsCreatingJobCard] = useState(false);
@@ -54,6 +57,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const [jobCards, setJobCards] = useState<JobCard[]>([]);
+  const [mechanics, setMechanics] = useState<any[]>([]);
 
   const fetchJobCards = () => {
     fetch(`${API_URL}/api/jobcards`)
@@ -66,8 +70,20 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
       .catch(err => console.error('Error fetching job cards:', err));
   };
 
+  const fetchMechanics = () => {
+    fetch(`${API_URL}/api/mechanics`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setMechanics(data);
+        }
+      })
+      .catch(err => console.error('Error fetching mechanics:', err));
+  };
+
   useEffect(() => {
     fetchJobCards();
+    fetchMechanics();
   }, []);
 
   const filteredJobCards = jobCards.filter(jc => {
@@ -108,11 +124,18 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(newJc)
           })
-            .then(() => {
+            .then(async (res) => {
+              if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text);
+              }
               fetchJobCards();
               setIsCreatingJobCard(false);
             })
-            .catch(err => console.error('Error saving job card:', err));
+            .catch(err => {
+              console.error('Error saving job card:', err);
+              alert('Failed to save job card. Please try again.');
+            });
         }}
       />
     );
@@ -136,6 +159,10 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
           alert(`Editing Job Card ${jc.jcNumber}`);
         }}
         jobCards={jobCards}
+        onHandoffComplete={() => {
+          fetchJobCards();
+          alert('Job Card marked as COMPLETED and handed off to Service Billing as a Draft.');
+        }}
       />
     );
   }
@@ -170,6 +197,8 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
       <ServiceManagement
         onBack={() => setSubTab('dashboard')}
         jobCards={jobCards}
+        onNavigateToMechanics={onNavigateToMechanics}
+        onNavigateToService={(subTab: string) => setSubTab(subTab)}
       />
     );
   }
@@ -180,6 +209,29 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
   const waitingPartsCount = jobCards.filter(jc => jc.status === 'WAITING PARTS').length;
   const completedCount = jobCards.filter(jc => jc.status === 'COMPLETED').length;
   const pendingDeliveryCount = jobCards.filter(jc => jc.readyForPickup).length;
+  
+  const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const deliveredTodayCount = jobCards.filter(jc => jc.status === 'COMPLETED' && (jc.expectedDelivery || '').includes(todayStr)).length;
+  
+  const activeMechanicsCount = mechanics.filter(m => m.status === 'Available' || m.status === 'Busy').length;
+
+  const totalJobs = jobCards.length;
+  const completedPct = totalJobs ? (completedCount / totalJobs) * 100 : 0;
+  const workingPct = totalJobs ? (underServiceCount / totalJobs) * 100 : 0;
+  const assignedPct = totalJobs ? (assignedJobsCount / totalJobs) * 100 : 0;
+  const waitingPct = totalJobs ? (waitingPartsCount / totalJobs) * 100 : 0;
+
+  const serviceRevenue = jobCards
+    .filter(jc => jc.status === 'COMPLETED')
+    .reduce((sum, jc) => {
+      if (!jc.amount) return sum;
+      const val = typeof jc.amount === 'string' ? Number(jc.amount.replace(/[^0-9.-]+/g, '')) : jc.amount;
+      return sum + (isNaN(val) ? 0 : val);
+    }, 0);
+  
+  const formattedRevenue = serviceRevenue >= 100000 
+    ? `₹${(serviceRevenue / 100000).toFixed(2)}L` 
+    : `₹${serviceRevenue.toLocaleString('en-IN')}`;
 
   // Calculate Mechanic Efficiency
   const mechanicStats = jobCards.reduce((acc: any, jc) => {
@@ -250,7 +302,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Open Job Cards</span>
             <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">
-              {openJobsCount || 45}
+              {openJobsCount}
             </span>
           </div>
           <div className="flex flex-col items-end gap-2.5">
@@ -268,7 +320,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned Jobs</span>
             <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">
-              {assignedJobsCount || 28}
+              {assignedJobsCount}
             </span>
           </div>
           <div className="bg-blue-50 text-[#184edb] p-3 rounded-xl flex items-center justify-center">
@@ -281,7 +333,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Under Service</span>
             <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">
-              {underServiceCount || 15}
+              {underServiceCount}
             </span>
           </div>
           <div className="bg-amber-50 text-amber-600 p-3 rounded-xl flex items-center justify-center">
@@ -296,7 +348,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
         >
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold text-blue-100 uppercase tracking-wider">Service Revenue</span>
-            <span className="text-2xl font-extrabold tracking-tight mt-1">₹1,45,000</span>
+            <span className="text-2xl font-extrabold tracking-tight mt-1">{formattedRevenue}</span>
           </div>
           <div className="flex flex-col items-end gap-2.5">
             <div className="bg-white/15 text-white p-3 rounded-xl flex items-center justify-center">
@@ -319,7 +371,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
           </div>
           <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Waiting Parts</span>
-            <span className="text-lg font-bold text-slate-800 font-heading mt-0.5">{waitingPartsCount || 8}</span>
+            <span className="text-lg font-bold text-slate-800 font-heading mt-0.5">{waitingPartsCount}</span>
           </div>
         </div>
 
@@ -333,7 +385,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
           </div>
           <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Completed Today</span>
-            <span className="text-lg font-bold text-slate-800 font-heading mt-0.5">{completedCount || 12}</span>
+            <span className="text-lg font-bold text-slate-800 font-heading mt-0.5">{completedCount}</span>
           </div>
         </div>
 
@@ -344,7 +396,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
           </div>
           <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Delivered Today</span>
-            <span className="text-lg font-bold text-slate-800 font-heading mt-0.5">9</span>
+            <span className="text-lg font-bold text-slate-800 font-heading mt-0.5">{deliveredTodayCount}</span>
           </div>
         </div>
 
@@ -355,7 +407,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
           </div>
           <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Pending Delivery</span>
-            <span className="text-lg font-bold text-slate-800 font-heading mt-0.5">{pendingDeliveryCount || 15}</span>
+            <span className="text-lg font-bold text-slate-800 font-heading mt-0.5">{pendingDeliveryCount}</span>
           </div>
         </div>
 
@@ -366,7 +418,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
           </div>
           <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Active Mechanics</span>
-            <span className="text-lg font-bold text-slate-800 font-heading mt-0.5">18</span>
+            <span className="text-lg font-bold text-slate-800 font-heading mt-0.5">{activeMechanicsCount}</span>
           </div>
         </div>
       </div>
@@ -457,7 +509,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
             <div className="relative w-36 h-36 flex items-center justify-center">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 160 160">
                 <circle cx="80" cy="80" r="60" fill="transparent" stroke="#f1f5f9" strokeWidth="16" />
-                {/* Completed (35% - green) */}
+                {/* Completed (green) */}
                 <circle
                   cx="80"
                   cy="80"
@@ -465,10 +517,10 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
                   fill="transparent"
                   stroke="#10b981"
                   strokeWidth="16"
-                  strokeDasharray="132 377"
+                  strokeDasharray={`${(completedPct / 100) * 377} 377`}
                   strokeDashoffset="0"
                 />
-                {/* Working (30% - green/blue) */}
+                {/* Working (green/blue) */}
                 <circle
                   cx="80"
                   cy="80"
@@ -476,10 +528,10 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
                   fill="transparent"
                   stroke="#06b6d4"
                   strokeWidth="16"
-                  strokeDasharray="113 377"
-                  strokeDashoffset="-132"
+                  strokeDasharray={`${(workingPct / 100) * 377} 377`}
+                  strokeDashoffset={`-${(completedPct / 100) * 377}`}
                 />
-                {/* Assigned (20% - dark blue) */}
+                {/* Assigned (dark blue) */}
                 <circle
                   cx="80"
                   cy="80"
@@ -487,10 +539,10 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
                   fill="transparent"
                   stroke="#184edb"
                   strokeWidth="16"
-                  strokeDasharray="75 377"
-                  strokeDashoffset="-245"
+                  strokeDasharray={`${(assignedPct / 100) * 377} 377`}
+                  strokeDashoffset={`-${((completedPct + workingPct) / 100) * 377}`}
                 />
-                {/* Waiting Parts (15% - red) */}
+                {/* Waiting Parts (red) */}
                 <circle
                   cx="80"
                   cy="80"
@@ -498,12 +550,12 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
                   fill="transparent"
                   stroke="#ef4444"
                   strokeWidth="16"
-                  strokeDasharray="57 377"
-                  strokeDashoffset="-320"
+                  strokeDasharray={`${(waitingPct / 100) * 377} 377`}
+                  strokeDashoffset={`-${((completedPct + workingPct + assignedPct) / 100) * 377}`}
                 />
               </svg>
               <div className="absolute flex flex-col items-center justify-center text-center">
-                <span className="text-2xl font-extrabold text-slate-800 font-heading leading-none">119</span>
+                <span className="text-2xl font-extrabold text-slate-800 font-heading leading-none">{totalJobs}</span>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Total</span>
               </div>
             </div>
@@ -513,22 +565,22 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#06b6d4]" />
                 <span className="text-[11.5px] font-semibold text-slate-500 w-16">Working</span>
-                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">30%</span>
+                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">{Math.round(workingPct)}%</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#184edb]" />
                 <span className="text-[11.5px] font-semibold text-slate-500 w-16">Assigned</span>
-                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">20%</span>
+                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">{Math.round(assignedPct)}%</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]" />
                 <span className="text-[11.5px] font-semibold text-slate-500 w-16">Waiting Parts</span>
-                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">15%</span>
+                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">{Math.round(waitingPct)}%</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
                 <span className="text-[11.5px] font-semibold text-slate-500 w-16">Completed</span>
-                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">35%</span>
+                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">{Math.round(completedPct)}%</span>
               </div>
             </div>
           </div>
@@ -727,7 +779,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
         {/* Footer controls */}
         <div className="bg-[#f8fafc] border-t border-slate-100 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 w-full box-border">
           <span className="text-[12.5px] text-slate-500 font-medium">
-            Showing 1-4 of 45 Job Cards
+            Showing {filteredJobCards.length} Job Cards
           </span>
 
           <div className="flex items-center gap-1.5">

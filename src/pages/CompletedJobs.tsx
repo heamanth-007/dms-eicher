@@ -34,51 +34,28 @@ export const CompletedJobs: React.FC<CompletedJobsProps> = ({
         customerName: jc.customerName,
         vehicleModel: jc.vehicleModel,
         vehicleReg: jc.vehicleReg,
-        leadMechanic: jc.mechanicName || 'Suresh S.',
-        mechanicInitials: jc.mechanicInitials || 'SS',
+        leadMechanic: jc.mechanicName || 'Unassigned',
+        mechanicInitials: jc.mechanicInitials || 'UN',
         completionTime: new Date(jc.updatedAt || jc.createdAt || Date.now()).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-        amount: jc.amount || '₹12,450',
+        amount: jc.amount || '₹0',
         status: 'COMPLETED' as const
       }));
     }
-    return [
-      {
-        jcNumber: '#JC-2024-001',
-        customerName: 'Amit Sharma',
-        vehicleModel: 'Eicher Pro 2049',
-        vehicleReg: 'MH-12-PQ-9876',
-        leadMechanic: 'Mukesh K.',
-        mechanicInitials: 'MK',
-        completionTime: 'Oct 24, 2023 14:20 PM',
-        amount: '₹12,450',
-        status: 'COMPLETED'
-      },
-      {
-        jcNumber: '#JC-2024-005',
-        customerName: 'Logistics Corp',
-        vehicleModel: 'Eicher Pro 6028',
-        vehicleReg: 'KA-01-LM-4321',
-        leadMechanic: 'Suresh S.',
-        mechanicInitials: 'SS',
-        completionTime: 'Oct 24, 2023 11:05 AM',
-        amount: '₹45,800',
-        status: 'COMPLETED'
-      },
-      {
-        jcNumber: '#JC-2024-009',
-        customerName: 'Prakash V.',
-        vehicleModel: 'Eicher Skyline Pro',
-        vehicleReg: 'DL-02-XY-1234',
-        leadMechanic: 'Abdul J.',
-        mechanicInitials: 'AJ',
-        completionTime: 'Oct 23, 2023 17:45 PM',
-        amount: '₹8,900',
-        status: 'COMPLETED'
-      }
-    ];
+    return [];
   };
 
   const completedList = getCompletedJobs();
+  
+  const todayStr = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const todaysDoneCount = completedList.filter(job => job.completionTime.includes(todayStr)).length;
+  
+  const totalRevenue = completedList.reduce((sum, job) => {
+    const val = typeof job.amount === 'string' ? Number(job.amount.replace(/[^0-9.-]+/g, '')) : job.amount;
+    return sum + (isNaN(val) ? 0 : val);
+  }, 0);
+  const formattedRevenue = totalRevenue >= 100000 
+    ? `₹${(totalRevenue / 100000).toFixed(2)}L` 
+    : `₹${totalRevenue.toLocaleString('en-IN')}`;
 
   const filteredJobs = completedList.filter(job => {
     if (!searchTerm) return true;
@@ -113,7 +90,7 @@ export const CompletedJobs: React.FC<CompletedJobsProps> = ({
         <div className="bg-[#fcfdfd] rounded-xl p-5 shadow-xs border border-slate-100 flex items-center justify-between min-h-[90px] box-border relative">
           <div className="flex flex-col">
             <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Today's Done</span>
-            <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">14</span>
+            <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">{todaysDoneCount}</span>
           </div>
           <div className="bg-emerald-50 text-emerald-600 p-3 rounded-xl flex items-center justify-center">
             <CheckCircle size={22} />
@@ -124,7 +101,7 @@ export const CompletedJobs: React.FC<CompletedJobsProps> = ({
         <div className="bg-[#fcfdfd] rounded-xl p-5 shadow-xs border border-slate-100 flex items-center justify-between min-h-[90px] box-border relative">
           <div className="flex flex-col">
             <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Revenue</span>
-            <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">₹1.2L</span>
+            <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">{formattedRevenue}</span>
           </div>
           <div className="bg-blue-50 text-[#184edb] p-3 rounded-xl flex items-center justify-center">
             <TrendingUp size={22} />
@@ -135,7 +112,7 @@ export const CompletedJobs: React.FC<CompletedJobsProps> = ({
         <div className="bg-[#fcfdfd] rounded-xl p-5 shadow-xs border border-slate-100 flex items-center justify-between min-h-[90px] box-border relative">
           <div className="flex flex-col">
             <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Avg Repair Time</span>
-            <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">4.2h</span>
+            <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">N/A</span>
           </div>
           <div className="bg-amber-50 text-amber-600 p-3 rounded-xl flex items-center justify-center">
             <Clock size={22} />
@@ -258,7 +235,7 @@ export const CompletedJobs: React.FC<CompletedJobsProps> = ({
         {/* Footer info */}
         <div className="bg-[#f8fafc] border-t border-slate-100 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 w-full box-border">
           <span className="text-[12.5px] text-slate-500 font-medium">
-            Showing 1-3 of 42 results
+            Showing {filteredJobs.length} results
           </span>
 
           <div className="flex items-center gap-1.5">

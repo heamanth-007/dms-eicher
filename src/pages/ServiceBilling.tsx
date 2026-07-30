@@ -77,6 +77,7 @@ export interface ServiceBillingProps {
     emailAddress: string;
     websiteUrl: string;
     logoUrl: string;
+    defaultDiscountPercent?: number | string;
   };
 }
 
@@ -609,6 +610,16 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
       // Automatically deduct spare parts stock from inventory!
       deductInventoryStock(spareParts, billNo, 'Service Billing');
     }
+
+    // Update the backend JobCard with the final amount
+    if (jobCardNo) {
+      fetch(`${API_URL}/api/jobcards/${jobCardNo}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: grandTotal })
+      }).catch(err => console.error('Failed to update JobCard amount:', err));
+    }
+
     const existingIndex = editingBillId
       ? totalBillsList.findIndex(b => b.id === editingBillId)
       : totalBillsList.findIndex(b => b.billNo === billNo);
