@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { deductInventoryStock, getStoredInventory, type PartType } from '../utils/inventory';
+import { deductInventoryStock, getStoredInventory, saveStoredInventory, type PartType } from '../utils/inventory';
 import { 
   Plus, 
   Search, 
@@ -64,6 +64,7 @@ export interface CounterSalesProps {
     emailAddress: string;
     websiteUrl: string;
     logoUrl: string;
+    defaultDiscountPercent?: number | string;
   };
 }
 
@@ -350,7 +351,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
         code: code,
         qty: 1,
         unitPrice: price,
-        discountPercent: getDefaultDiscountFromSettings(),
+        discountPercent: discount ?? getDefaultDiscountFromSettings(),
         gstPercent: gst
       };
       setBillItems([...billItems, newItem]);

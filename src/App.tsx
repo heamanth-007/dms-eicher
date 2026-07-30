@@ -281,9 +281,10 @@ function App() {
               subTab={serviceSubTab}
               setSubTab={setServiceSubTab}
               searchTerm={serviceSearchTerm}
+              onNavigateToMechanics={() => handleSetActiveTab('mechanics')}
             />
           ) : activeTab === 'mechanics' ? (
-            <Mechanics />
+            <Mechanics onNavigateToService={handleNavigateToService} />
           ) : activeTab === 'counter-sales' ? (
             <CounterSales companySettings={companySettings} />
           ) : activeTab === 'parts' ? (

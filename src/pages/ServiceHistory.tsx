@@ -41,79 +41,6 @@ export const ServiceHistory: React.FC<ServiceHistoryProps> = ({ onBack, searchTe
   const [timeFilter, setTimeFilter] = useState('Last 30 Days');
   const [mechanicFilter, setMechanicFilter] = useState('All Mechanics');
 
-  const staticHistory: HistoryRecord[] = [
-    {
-      jcNumber: '#JC-EIC-9821',
-      customerName: 'Aditya Transports',
-      customerPhone: '+91 98765',
-      customerCode: '43210',
-      vehicleNo: 'KA-01-MJ-5672',
-      vehicleModel: 'Pro 2049',
-      vehicleType: 'Heavy Duty',
-      serviceDate: '12 Oct 2023',
-      deliveryDate: '14 Oct 2023',
-      mechanic: 'Suresh Raina',
-      amount: '₹12,450.00',
-      status: 'DELIVERED'
-    },
-    {
-      jcNumber: '#JC-EIC-9820',
-      customerName: 'Vikas Logistics',
-      customerPhone: '+91 88822',
-      customerCode: '11223',
-      vehicleNo: 'MH-12-PQ-9901',
-      vehicleModel: 'Pro 3015',
-      vehicleType: 'LMD',
-      serviceDate: '10 Oct 2023',
-      deliveryDate: '11 Oct 2023',
-      mechanic: 'Amit Mishra',
-      amount: '₹8,920.00',
-      status: 'CLOSED'
-    },
-    {
-      jcNumber: '#JC-EIC-9819',
-      customerName: 'Blue Dart Express',
-      customerPhone: '+91 91234',
-      customerCode: '56789',
-      vehicleNo: 'DL-01-AA-0005',
-      vehicleModel: 'Pro 8000',
-      vehicleType: 'Series',
-      serviceDate: '08 Oct 2023',
-      deliveryDate: '10 Oct 2023',
-      mechanic: 'Vikram Singh',
-      amount: '₹24,180.00',
-      status: 'DELIVERED'
-    },
-    {
-      jcNumber: '#JC-EIC-9818',
-      customerName: 'S.K. Enterprises',
-      customerPhone: '+91 77665',
-      customerCode: '44332',
-      vehicleNo: 'HR-55-XY-2110',
-      vehicleModel: 'Skyline',
-      vehicleType: 'Pro Bus',
-      serviceDate: '05 Oct 2023',
-      deliveryDate: '07 Oct 2023',
-      mechanic: 'Amit Mishra',
-      amount: '₹15,000.00',
-      status: 'DELIVERED'
-    },
-    {
-      jcNumber: '#JC-EIC-9817',
-      customerName: 'Global Freight Co.',
-      customerPhone: '+91 90012',
-      customerCode: '34567',
-      vehicleNo: 'UP-16-AS-3456',
-      vehicleModel: 'Pro 8000',
-      vehicleType: 'Series',
-      serviceDate: '03 Oct 2023',
-      deliveryDate: '04 Oct 2023',
-      mechanic: 'Suresh Raina',
-      amount: '₹5,400.00',
-      status: 'CLOSED'
-    }
-  ];
-
   const historyList: HistoryRecord[] = (propJobCards && propJobCards.length > 0)
     ? propJobCards.filter(jc => jc.status === 'COMPLETED').map(jc => ({
         jcNumber: jc.jcNumber,
@@ -126,10 +53,22 @@ export const ServiceHistory: React.FC<ServiceHistoryProps> = ({ onBack, searchTe
         serviceDate: new Date(jc.createdAt || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
         deliveryDate: new Date(jc.updatedAt || jc.expectedDelivery || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
         mechanic: jc.mechanicName || 'Unassigned',
-        amount: jc.amount || '₹0.00',
+        amount: jc.amount ? `₹${jc.amount}` : '₹0.00',
         status: 'DELIVERED' as const
       }))
-    : staticHistory;
+    : [];
+    
+  const totalClosedJobs = historyList.length;
+  
+  const revenueManaged = historyList.reduce((sum, rec) => {
+    const val = typeof rec.amount === 'string' ? Number(rec.amount.replace(/[^0-9.-]+/g, '')) : rec.amount;
+    return sum + (isNaN(val) ? 0 : val);
+  }, 0);
+  const formattedRevenueManaged = revenueManaged >= 100000 
+    ? `₹${(revenueManaged / 100000).toFixed(2)}L` 
+    : `₹${revenueManaged.toLocaleString('en-IN')}`;
+
+  const uniqueCustomersCount = new Set(historyList.map(rec => rec.customerName)).size;
 
   const handleDelete = (num: string) => {
     if (window.confirm(`Are you sure you want to delete history record ${num}?`)) {
@@ -202,7 +141,7 @@ export const ServiceHistory: React.FC<ServiceHistoryProps> = ({ onBack, searchTe
         <div className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/60 flex items-center justify-between min-h-[85px] box-border relative">
           <div className="flex flex-col">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Closed Jobs</span>
-            <span className="text-2xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">18</span>
+            <span className="text-2xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">{totalClosedJobs}</span>
           </div>
           <div className="bg-blue-50 text-[#184edb] p-2.5 rounded-xl flex items-center justify-center">
             <ClipboardList size={20} />
@@ -213,7 +152,7 @@ export const ServiceHistory: React.FC<ServiceHistoryProps> = ({ onBack, searchTe
         <div className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/60 flex items-center justify-between min-h-[85px] box-border relative">
           <div className="flex flex-col">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Revenue Managed</span>
-            <span className="text-2xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">₹42.5L</span>
+            <span className="text-2xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">{formattedRevenueManaged}</span>
           </div>
           <div className="bg-blue-50 text-[#184edb] p-2.5 rounded-xl flex items-center justify-center">
             <CreditCard size={20} />
@@ -224,7 +163,7 @@ export const ServiceHistory: React.FC<ServiceHistoryProps> = ({ onBack, searchTe
         <div className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/60 flex items-center justify-between min-h-[85px] box-border relative">
           <div className="flex flex-col">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Unique Customers</span>
-            <span className="text-2xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">856</span>
+            <span className="text-2xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">{uniqueCustomersCount}</span>
           </div>
           <div className="bg-blue-50 text-[#184edb] p-2.5 rounded-xl flex items-center justify-center">
             <Users size={20} />
@@ -235,7 +174,7 @@ export const ServiceHistory: React.FC<ServiceHistoryProps> = ({ onBack, searchTe
         <div className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/60 flex items-center justify-between min-h-[85px] box-border relative">
           <div className="flex flex-col">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Efficiency Rate</span>
-            <span className="text-2xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">94.2%</span>
+            <span className="text-2xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">N/A</span>
           </div>
           <div className="bg-emerald-50 text-emerald-600 p-2.5 rounded-xl flex items-center justify-center">
             <CheckCircle size={20} />
@@ -280,10 +219,9 @@ export const ServiceHistory: React.FC<ServiceHistoryProps> = ({ onBack, searchTe
           </div>
         </div>
 
-        {/* Right Info */}
         <div className="flex items-center gap-4">
           <span className="text-[12px] text-slate-400 font-semibold">
-            Showing {filteredHistory.length} of 1,248 records
+            Showing {filteredHistory.length} records
           </span>
         </div>
       </div>
@@ -406,7 +344,7 @@ export const ServiceHistory: React.FC<ServiceHistoryProps> = ({ onBack, searchTe
             <button className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 cursor-pointer transition-colors">
               <ChevronLeft size={14} />
             </button>
-            <span className="text-xs text-slate-500 font-bold px-2">1-50 of 1,248</span>
+            <span className="text-xs text-slate-500 font-bold px-2">1-{filteredHistory.length} of {historyList.length}</span>
             <button className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 cursor-pointer transition-colors">
               <ChevronRight size={14} />
             </button>

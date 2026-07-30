@@ -34,7 +34,6 @@ import {
   AlertTriangle,
   Download,
   Clock,
-  Car,
   Star,
   ThumbsUp,
   Printer,
@@ -55,7 +54,11 @@ interface MechanicType {
   jobs: number;
 }
 
-export const Mechanics: React.FC = () => {
+interface MechanicsProps {
+  onNavigateToService?: (subTab: string) => void;
+}
+
+export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const [mechanics, setMechanics] = useState<MechanicType[]>([]);
 
@@ -83,22 +86,14 @@ export const Mechanics: React.FC = () => {
 
   // Assign Job form state
   const [assignMechanicId, setAssignMechanicId] = useState('');
-  const [assignCustomer, setAssignCustomer] = useState('');
   const [assignVehicle, setAssignVehicle] = useState('');
-  const [assignServiceType, setAssignServiceType] = useState('');
   const [assignDeliveryDate, setAssignDeliveryDate] = useState('');
   const [assignNotes, setAssignNotes] = useState('');
 
-  // Customers and job cards from backend for dropdowns
-  const [customers, setCustomers] = useState<any[]>([]);
+  // job cards from backend for dropdowns
   const [jobCards, setJobCards] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch(`${API_URL}/api/customers`)
-      .then(res => res.json())
-      .then(data => { if (Array.isArray(data)) setCustomers(data); })
-      .catch(err => console.error('Error fetching customers:', err));
-
     fetch(`${API_URL}/api/jobcards`)
       .then(res => res.json())
       .then(data => { if (Array.isArray(data)) setJobCards(data); })
@@ -107,37 +102,27 @@ export const Mechanics: React.FC = () => {
 
   const handleAssignJob = () => {
     const mechanic = mechanics.find(m => m.id === assignMechanicId);
-    if (!mechanic || !assignCustomer || !assignVehicle) {
-      alert('Please select a Mechanic, Customer and Vehicle.');
+    if (!mechanic || !assignVehicle) {
+      alert('Please select a Mechanic and an Unassigned Job Card.');
       return;
     }
-    const jcNumber = `JC-${Date.now().toString().slice(-6)}`;
-    const newJc = {
-      jcNumber,
-      inTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      customerName: assignCustomer,
-      vehicleModel: assignVehicle,
-      vehicleReg: assignVehicle,
-      complaintSummary: assignServiceType || 'General Service',
-      mechanicName: mechanic.name,
-      mechanicInitials: mechanic.initials,
-      status: 'ASSIGNED',
-      expectedDelivery: assignDeliveryDate || 'TBD',
-      isDelayed: false,
-      readyForPickup: false
-    };
-    fetch(`${API_URL}/api/jobcards`, {
-      method: 'POST',
+    
+    fetch(`${API_URL}/api/jobcards/${assignVehicle}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newJc)
+      body: JSON.stringify({ 
+        status: 'ASSIGNED', 
+        mechanicName: mechanic.name, 
+        mechanicInitials: mechanic.initials,
+        expectedDelivery: assignDeliveryDate || 'TBD'
+      })
     })
       .then(() => fetch(`${API_URL}/api/mechanics/${assignMechanicId}/assign-job`, { method: 'PUT' }))
       .then(() => {
         fetchMechanics();
+        fetch(`${API_URL}/api/jobcards`).then(res => res.json()).then(data => { if (Array.isArray(data)) setJobCards(data); });
         setAssignMechanicId('');
-        setAssignCustomer('');
         setAssignVehicle('');
-        setAssignServiceType('');
         setAssignDeliveryDate('');
         setAssignNotes('');
         setShowToast(true);
@@ -180,15 +165,21 @@ export const Mechanics: React.FC = () => {
       serviceColor: 'text-blue-600',
       serviceBg: 'bg-blue-50 text-blue-600 border border-blue-100',
       inDate: jc.inTime,
-      outDate: jc.expectedDelivery || 'TBD',
+      outDate: jc.doneTime || jc.expectedDelivery || 'TBD',
       hours: 'N/A',
+      amount: jc.amount ? `₹${jc.amount.toLocaleString('en-IN')}` : 'N/A',
       rating: 5,
       customerName: jc.customerName
     };
   });
 
-  const historyJobs = formattedJobCards.filter(j => j.faded);
-  const queueJobs = formattedJobCards.filter(j => !j.faded);
+  const historyJobs = formattedJobCards.filter(j => j.faded && j.mechanicName !== 'Unassigned');
+  const queueJobs = formattedJobCards.filter(j => !j.faded && j.mechanicName !== 'Unassigned');
+
+  const todayJobsCount = queueJobs.length;
+  const inProgressCount = queueJobs.filter(jc => jc.status === 'In Progress').length;
+  const pendingCount = queueJobs.filter(jc => jc.status === 'Waiting for Parts' || jc.status === 'Pending').length;
+  const completedTodayCount = historyJobs.length;
 
   // Register form states
   const [fullName, setFullName] = useState('');
@@ -219,6 +210,10 @@ export const Mechanics: React.FC = () => {
       id: newId,
       name: fullName,
       phone: phoneNumber,
+      email: emailAddress,
+      specialization: specialization === 'Select Specialization' ? '' : specialization,
+      annualSalary: annualSalary,
+      joiningDate: joiningDate,
       initials,
       avatarBg,
       experience: experienceYears ? `${experienceYears} Years` : '1 Year',
@@ -629,7 +624,7 @@ export const Mechanics: React.FC = () => {
           <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 flex items-center justify-between min-h-[105px] box-border relative overflow-hidden">
             <div className="flex flex-col gap-1 z-10">
               <span className="text-slate-455 text-[11px] font-bold uppercase tracking-wider">COMPLETED TODAY</span>
-              <span className="text-3xl font-extrabold text-[#184edb] tracking-tight">12</span>
+              <span className="text-3xl font-extrabold text-[#184edb] tracking-tight">{completedTodayCount}</span>
               <span className="text-[11.5px] font-bold text-emerald-600 flex items-center gap-0.5 mt-1">
                 <TrendingUp size={13} />
                 +8% from yesterday
@@ -652,7 +647,7 @@ export const Mechanics: React.FC = () => {
           <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 flex items-center justify-between min-h-[105px] box-border relative overflow-hidden">
             <div className="flex flex-col gap-1 z-10">
               <span className="text-slate-455 text-[11px] font-bold uppercase tracking-wider">THIS WEEK</span>
-              <span className="text-3xl font-extrabold text-slate-800 tracking-tight">84</span>
+              <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{historyJobs.length}</span>
               <span className="text-[11.5px] font-bold text-emerald-600 flex items-center gap-0.5 mt-1">
                 <TrendingUp size={13} />
                 +12% from last week
@@ -675,7 +670,7 @@ export const Mechanics: React.FC = () => {
           <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 flex items-center justify-between min-h-[105px] box-border relative overflow-hidden">
             <div className="flex flex-col gap-1 z-10">
               <span className="text-slate-455 text-[11px] font-bold uppercase tracking-wider">THIS MONTH</span>
-              <span className="text-3xl font-extrabold text-slate-800 tracking-tight">342</span>
+              <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{historyJobs.length}</span>
               <span className="text-[12px] font-semibold text-[#184edb] flex items-center gap-1.5 mt-1">
                 <AlertCircle size={14} />
                 Target: 400 jobs
@@ -722,7 +717,7 @@ export const Mechanics: React.FC = () => {
                   <th className="py-4.5 px-5 select-none font-bold">SERVICE TYPE</th>
                   <th className="py-4.5 px-5 select-none font-bold">DATES</th>
                   <th className="py-4.5 px-5 select-none font-bold">TOTAL HOURS</th>
-                  <th className="py-4.5 px-5 select-none font-bold">RATING</th>
+                  <th className="py-4.5 px-5 select-none font-bold">AMOUNT</th>
                   <th className="py-4.5 px-6 select-none text-right font-bold">ACTIONS</th>
                 </tr>
               </thead>
@@ -774,24 +769,19 @@ export const Mechanics: React.FC = () => {
                       {job.hours}
                     </td>
 
-                    {/* Rating */}
-                    <td className="py-4.5 px-5 whitespace-nowrap">
-                      <div className="flex gap-0.5 text-amber-500">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            size={15}
-                            fill={i < job.rating ? 'currentColor' : 'none'}
-                            className={i < job.rating ? 'text-amber-550' : 'text-slate-300'}
-                          />
-                        ))}
-                      </div>
+                    {/* Amount */}
+                    <td className="py-4.5 px-5 text-slate-700 font-bold whitespace-nowrap">
+                      <span className="text-[#184edb] bg-blue-50 px-2 py-1 rounded-md">{job.amount}</span>
                     </td>
 
                     {/* Actions */}
                     <td className="py-4.5 px-6 whitespace-nowrap">
                       <div className="flex items-center justify-end gap-3.5">
-                        <button className="text-slate-400 hover:text-slate-655 p-0 border-none bg-transparent cursor-pointer">
+                        <button 
+                          onClick={() => onNavigateToService && onNavigateToService('completed-jobs')}
+                          className="text-[#184edb] hover:text-[#143eb3] p-1.5 rounded-lg border border-transparent hover:border-slate-200 bg-transparent cursor-pointer transition-all"
+                          title="View Completed Job Card"
+                        >
                           <Eye size={16} />
                         </button>
                         <button className="text-slate-400 hover:text-slate-655 p-0 border-none bg-transparent cursor-pointer">
@@ -811,7 +801,7 @@ export const Mechanics: React.FC = () => {
           {/* Table Footer */}
           <div className="bg-[#f8fafc] border-t border-slate-150 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 w-full box-border">
             <span className="text-[13px] text-slate-500 font-semibold">
-              Showing 1 to 10 of 342 jobs
+              Showing {historyJobs.length} completed jobs
             </span>
 
             <div className="flex items-center gap-1.5">
@@ -867,6 +857,8 @@ export const Mechanics: React.FC = () => {
   }
 
   if (currentView === 'assign') {
+    const selectedJobCard = jobCards.find(jc => jc.jcNumber === assignVehicle);
+
     return (
       <div className="flex-1 p-6 md:p-8 flex flex-col gap-6 bg-[#f6f8fc] overflow-y-auto box-border max-w-full font-sans relative">
         {/* Toast Notification (Success!) */}
@@ -977,45 +969,22 @@ export const Mechanics: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Select Customer */}
+                {/* Select Job Card */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">SELECT CUSTOMER</label>
+                  <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">SELECT UNASSIGNED JOB CARD *</label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
-                      <User size={18} />
-                    </span>
-                    <select
-                      value={assignCustomer}
-                      onChange={e => setAssignCustomer(e.target.value)}
-                      className="w-full appearance-none bg-white border border-slate-255 rounded-lg py-2.5 pl-10.5 pr-10 text-[14px] text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
-                    >
-                      <option value="">Search customer records...</option>
-                      {customers.map(c => (
-                        <option key={c.id} value={c.name}>{c.name}</option>
-                      ))}
-                    </select>
-                    <span className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 pointer-events-none">
-                      <ChevronDown size={18} />
-                    </span>
-                  </div>
-                </div>
-
-                {/* Select Vehicle */}
-                <div className="flex flex-col gap-2">
-                  <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">SELECT VEHICLE / JOB CARD</label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
-                      <Car size={18} />
+                      <ClipboardList size={18} />
                     </span>
                     <select
                       value={assignVehicle}
                       onChange={e => setAssignVehicle(e.target.value)}
                       className="w-full appearance-none bg-white border border-slate-255 rounded-lg py-2.5 pl-10.5 pr-10 text-[14px] text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
                     >
-                      <option value="">Identify vehicle VIN/Plate...</option>
-                      {jobCards.filter(jc => jc.status !== 'COMPLETED').map(jc => (
-                        <option key={jc.jcNumber} value={`${jc.vehicleModel} • ${jc.vehicleReg}`}>
-                          {jc.vehicleModel} • {jc.vehicleReg} ({jc.customerName})
+                      <option value="">Select a pending job card...</option>
+                      {jobCards.filter(jc => jc.status !== 'COMPLETED' && !jc.mechanicName).map(jc => (
+                        <option key={jc.jcNumber} value={jc.jcNumber}>
+                          {jc.jcNumber} - {jc.vehicleModel} ({jc.customerName})
                         </option>
                       ))}
                     </select>
@@ -1023,18 +992,6 @@ export const Mechanics: React.FC = () => {
                       <ChevronDown size={18} />
                     </span>
                   </div>
-                </div>
-
-                {/* Service Type */}
-                <div className="flex flex-col gap-2">
-                  <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">SERVICE TYPE</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., Brake Pad Replacement"
-                    value={assignServiceType}
-                    onChange={e => setAssignServiceType(e.target.value)}
-                    className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-255 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
-                  />
                 </div>
               </div>
 
@@ -1155,33 +1112,37 @@ export const Mechanics: React.FC = () => {
             <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col gap-4.5 box-border">
               <span className="text-[12.5px] font-bold text-slate-800 uppercase tracking-wider">CUSTOMER PROFILE</span>
               
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <span className="font-bold text-[#184edb] text-[15px]">Alexander Pierce</span>
-                  <span className="text-slate-450 text-[12.5px] font-semibold">Platinum Member</span>
-                  <div className="flex gap-0.5 text-amber-500">
-                    <Star size={12} fill="currentColor" />
-                    <Star size={12} fill="currentColor" />
-                    <Star size={12} fill="currentColor" />
-                    <Star size={12} fill="currentColor" />
-                    <Star size={12} fill="currentColor" />
+              {selectedJobCard ? (
+                <>
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#184edb]"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-bold text-[#184edb] text-[15px]">{selectedJobCard.customerName}</span>
+                      <span className="text-slate-450 text-[12.5px] font-semibold">{selectedJobCard.vehicleModel}</span>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="flex flex-col gap-2 text-[13px] border-t border-slate-100 pt-3">
-                <div className="flex justify-between items-center text-slate-500">
-                  <span>Active Orders:</span>
-                  <span className="font-bold text-slate-850">1</span>
+                  <div className="flex flex-col gap-2 text-[13px] border-t border-slate-100 pt-3">
+                    <div className="flex justify-between items-center text-slate-500">
+                      <span>Vehicle Reg:</span>
+                      <span className="font-bold text-slate-850">{selectedJobCard.vehicleReg}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-500">
+                      <span>Service Amount:</span>
+                      <span className="font-bold text-emerald-600 bg-emerald-50 px-2 rounded">
+                        {selectedJobCard.amount ? `₹${selectedJobCard.amount.toLocaleString('en-IN')}` : 'Est. pending'}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-6 text-center text-slate-400">
+                  <ClipboardList size={32} className="mb-2 opacity-50" />
+                  <span className="text-[13px] font-medium">Select a job card to view customer details</span>
                 </div>
-                <div className="flex justify-between items-center text-slate-500">
-                  <span>Last Visit:</span>
-                  <span className="font-bold text-slate-850">Mar 12, 2024</span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -1195,7 +1156,7 @@ export const Mechanics: React.FC = () => {
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="text-slate-500 text-[12.5px] font-bold uppercase tracking-wider">AVG TIME</span>
-              <span className="text-[17px] font-bold text-slate-800">2.4 Hours</span>
+              <span className="text-[17px] font-bold text-slate-800">N/A</span>
             </div>
           </div>
 
@@ -1206,7 +1167,7 @@ export const Mechanics: React.FC = () => {
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="text-slate-500 text-[12.5px] font-bold uppercase tracking-wider">PARTS READY</span>
-              <span className="text-[17px] font-bold text-slate-800">85% In Stock</span>
+              <span className="text-[17px] font-bold text-slate-800">N/A</span>
             </div>
           </div>
 
@@ -1217,7 +1178,7 @@ export const Mechanics: React.FC = () => {
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="text-slate-500 text-[12.5px] font-bold uppercase tracking-wider">TECH RATING</span>
-              <span className="text-[17px] font-bold text-slate-800">4.9 / 5.0</span>
+              <span className="text-[17px] font-bold text-slate-800">N/A</span>
             </div>
           </div>
         </div>
@@ -1302,7 +1263,7 @@ export const Mechanics: React.FC = () => {
               </div>
               <div className="flex flex-col gap-0.5">
                 <span className="text-slate-500 text-[12px] font-bold uppercase tracking-wider">TODAY'S JOBS</span>
-                <span className="text-2xl font-bold text-slate-800 tracking-tight">15</span>
+                <span className="text-2xl font-bold text-slate-800 tracking-tight">{todayJobsCount.toString().padStart(2, '0')}</span>
               </div>
             </div>
             <span className="absolute top-4 right-4 text-[12px] font-bold text-emerald-600 flex items-center gap-0.5">
@@ -1319,7 +1280,7 @@ export const Mechanics: React.FC = () => {
               </div>
               <div className="flex flex-col gap-0.5">
                 <span className="text-slate-500 text-[12px] font-bold uppercase tracking-wider">IN PROGRESS</span>
-                <span className="text-2xl font-bold text-slate-800 tracking-tight">09</span>
+                <span className="text-2xl font-bold text-slate-800 tracking-tight">{inProgressCount.toString().padStart(2, '0')}</span>
               </div>
             </div>
             <span className="absolute top-4 right-4 text-[12.5px] font-bold text-slate-500">
@@ -1335,7 +1296,7 @@ export const Mechanics: React.FC = () => {
               </div>
               <div className="flex flex-col gap-0.5">
                 <span className="text-slate-500 text-[12px] font-bold uppercase tracking-wider">PENDING</span>
-                <span className="text-2xl font-bold text-slate-800 tracking-tight">03</span>
+                <span className="text-2xl font-bold text-slate-800 tracking-tight">{pendingCount.toString().padStart(2, '0')}</span>
               </div>
             </div>
             <span className="absolute top-4 right-4 text-[12px] font-bold text-rose-500 flex items-center gap-0.5">
@@ -1352,7 +1313,7 @@ export const Mechanics: React.FC = () => {
               </div>
               <div className="flex flex-col gap-0.5">
                 <span className="text-slate-500 text-[12px] font-bold uppercase tracking-wider">COMPLETED TODAY</span>
-                <span className="text-2xl font-bold text-slate-800 tracking-tight">03</span>
+                <span className="text-2xl font-bold text-slate-800 tracking-tight">{completedTodayCount.toString().padStart(2, '0')}</span>
               </div>
             </div>
             <span className="absolute top-4 right-4 text-[12.5px] font-bold text-slate-500">
@@ -1391,6 +1352,7 @@ export const Mechanics: React.FC = () => {
                   <th className="py-4.5 px-5 select-none font-bold">TIMELINE</th>
                   <th className="py-4.5 px-5 select-none font-bold">STATUS</th>
                   <th className="py-4.5 px-6 select-none font-bold">PRIORITY</th>
+                  <th className="py-4.5 px-6 select-none font-bold text-right">ACTIONS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-[14px]">
@@ -1468,11 +1430,15 @@ export const Mechanics: React.FC = () => {
                       )}
                     </td>
 
-                    {/* Priority */}
-                    <td className="py-4.5 px-6 whitespace-nowrap">
-                      <span className={`inline-block px-3 py-1 rounded-full text-[12px] font-bold ${job.priorityBg}`}>
-                        {job.priority}
-                      </span>
+                    {/* Actions */}
+                    <td className="py-4.5 px-6 whitespace-nowrap text-right">
+                      <button 
+                        onClick={() => onNavigateToService && onNavigateToService('open-job-cards')}
+                        className="text-[#184edb] hover:text-[#143eb3] p-1.5 rounded-lg border border-transparent hover:border-slate-200 bg-transparent cursor-pointer transition-all inline-flex items-center"
+                        title="View Job Card Details"
+                      >
+                        <Eye size={16} />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -1483,7 +1449,7 @@ export const Mechanics: React.FC = () => {
           {/* Table Footer */}
           <div className="bg-[#f8fafc] border-t border-slate-150 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 w-full box-border">
             <span className="text-[13px] text-slate-500 font-semibold">
-              Showing 4 of 15 active jobs
+              Showing {queueJobs.length} active jobs
             </span>
 
             <div className="flex items-center gap-1.5">
@@ -1630,7 +1596,7 @@ export const Mechanics: React.FC = () => {
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="text-slate-500 text-[13.5px] font-medium">Total Mechanics</span>
-              <span className="text-2xl font-bold text-slate-800 tracking-tight">24</span>
+              <span className="text-2xl font-bold text-slate-800 tracking-tight">{mechanics.length}</span>
             </div>
           </div>
           <span className="absolute top-4 right-4 bg-emerald-50 text-emerald-600 text-[11px] font-bold px-2 py-0.5 rounded-full border border-emerald-100 uppercase tracking-wide">
@@ -1646,7 +1612,7 @@ export const Mechanics: React.FC = () => {
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="text-slate-500 text-[13.5px] font-medium">Available</span>
-              <span className="text-2xl font-bold text-slate-800 tracking-tight">12</span>
+              <span className="text-2xl font-bold text-slate-800 tracking-tight">{mechanics.filter(m => m.status === 'Available').length}</span>
             </div>
           </div>
           <span className="absolute top-4 right-4 text-[13px] text-slate-500 font-semibold">
@@ -1662,7 +1628,7 @@ export const Mechanics: React.FC = () => {
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="text-slate-500 text-[13.5px] font-medium">Busy</span>
-              <span className="text-2xl font-bold text-slate-800 tracking-tight">8</span>
+              <span className="text-2xl font-bold text-slate-800 tracking-tight">{mechanics.filter(m => m.status === 'Busy').length}</span>
             </div>
           </div>
           <span className="absolute top-4 right-4 text-[13px] text-slate-500 font-semibold">
@@ -1678,7 +1644,7 @@ export const Mechanics: React.FC = () => {
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="text-slate-500 text-[13.5px] font-medium">Inactive</span>
-              <span className="text-2xl font-bold text-slate-800 tracking-tight">4</span>
+              <span className="text-2xl font-bold text-slate-800 tracking-tight">{mechanics.filter(m => m.status === 'Inactive').length}</span>
             </div>
           </div>
           <span className="absolute top-4 right-4 text-[13px] text-slate-500 font-semibold">
@@ -1786,7 +1752,7 @@ export const Mechanics: React.FC = () => {
         {/* Table Footer */}
         <div className="bg-[#eef2ff]/70 border-t border-slate-100 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 w-full box-border">
           <span className="text-[13px] text-slate-500 font-semibold">
-            Showing 1 - 10 of 24 mechanics
+            Showing {mechanics.length} mechanics
           </span>
 
           <div className="flex items-center gap-1.5">

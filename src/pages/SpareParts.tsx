@@ -24,12 +24,9 @@ import {
   Download,
   X,
   Search,
-  Truck,
   CheckCircle2,
   Clock,
-  ShoppingBag,
-  AlertCircle,
-  Filter
+  ShoppingBag
 } from 'lucide-react';
 import brakePadsPhoto from '../assets/brake_pads_photo.png';
 import brakePadsBlueprint from '../assets/brake_pads_blueprint.png';
@@ -651,6 +648,7 @@ export const SpareParts: React.FC = () => {
   };
 
   // partsData removed and connected to DB state
+  const currentEditingPartObj = parts.find(p => p.partNumber === editingPart);
 
   if (editingPart) {
     return (

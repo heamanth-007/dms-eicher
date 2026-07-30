@@ -13,7 +13,9 @@ import {
   Wrench, 
   AlertTriangle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  XCircle,
+  CheckCircle
 } from 'lucide-react';
 
 interface OpenJobCardsProps {
@@ -23,6 +25,7 @@ interface OpenJobCardsProps {
   onEditJc: (jc: any) => void;
   searchTerm: string;
   jobCards?: any[];
+  onHandoffComplete?: () => void;
 }
 
 
@@ -32,9 +35,33 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
   onViewJcDetails,
   onEditJc,
   searchTerm,
-  jobCards: propJobCards
+  jobCards: propJobCards,
+  onHandoffComplete
 }) => {
   const [showTable, setShowTable] = useState(true);
+  const [addingPartsJc, setAddingPartsJc] = useState<any>(null);
+  const [parts, setParts] = useState<any[]>([]);
+  const [selectedPart, setSelectedPart] = useState('');
+  const [partQty, setPartQty] = useState(1);
+
+  // Quick Billing State
+  const [completingJc, setCompletingJc] = useState<any>(null);
+  const [labourAmount, setLabourAmount] = useState<number>(0);
+  const [partsAmount, setPartsAmount] = useState<number>(0);
+  const [discountPercent, setDiscountPercent] = useState<number>(0);
+
+  // Edit State
+  const [editingJc, setEditingJc] = useState<any>(null);
+  const [editStatus, setEditStatus] = useState<string>('');
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+  React.useEffect(() => {
+    fetch(`${API_URL}/api/parts`)
+      .then(res => res.json())
+      .then(data => setParts(data))
+      .catch(err => console.error(err));
+  }, [API_URL]);
 
   const getActiveJobCards = () => {
     if (propJobCards && propJobCards.length > 0) {
@@ -51,7 +78,8 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
         mechanicStatus: jc.mechanicName ? ('assigned' as const) : ('unassigned' as const),
         dateIn: new Date(jc.createdAt || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
         status: (jc.status === 'WAITING PARTS' ? 'Waiting Parts' : jc.status === 'ASSIGNED' ? 'Assigned' : 'Working') as any,
-        statusColor: jc.status === 'WAITING PARTS' ? 'bg-red-50 text-red-500 border-red-100' : jc.status === 'ASSIGNED' ? 'bg-blue-50 text-[#184edb] border-blue-100' : 'bg-green-50 text-green-600 border-green-100'
+        statusColor: jc.status === 'WAITING PARTS' ? 'bg-red-50 text-red-500 border-red-100' : jc.status === 'ASSIGNED' ? 'bg-blue-50 text-[#184edb] border-blue-100' : 'bg-green-50 text-green-600 border-green-100',
+        rawJc: jc
       }));
     }
     return [];
@@ -69,6 +97,11 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
       jc.complaint.toLowerCase().includes(q)
     );
   });
+
+  const openJobsCount = jobCards.length;
+  const assignedJobsCount = jobCards.filter(jc => jc.status === 'Assigned').length;
+  const workingJobsCount = jobCards.filter(jc => jc.status === 'Working').length;
+  const waitingPartsCount = jobCards.filter(jc => jc.status === 'Waiting Parts').length;
 
   return (
     <div className="flex-1 p-6 md:p-8 flex flex-col gap-6 bg-[#f6f8fc] overflow-y-auto box-border max-w-full text-slate-700 text-left font-sans relative min-h-[calc(100vh-70px)]">
@@ -92,10 +125,7 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
         <div className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/60 flex items-center justify-between min-h-[85px] box-border relative">
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Open</span>
-            <span className="text-2xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">45</span>
-            <span className="text-[9px] font-bold text-red-500 mt-1 flex items-center gap-0.5">
-              ↑ 4 <span className="text-slate-400 font-medium lowercase">since yesterday</span>
-            </span>
+            <span className="text-2xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">{openJobsCount}</span>
           </div>
           <div className="bg-blue-50 text-[#184edb] p-2.5 rounded-xl flex items-center justify-center">
             <ClipboardList size={20} />
@@ -106,7 +136,7 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
         <div className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/60 flex items-center justify-between min-h-[85px] box-border relative">
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned</span>
-            <span className="text-2xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">28</span>
+            <span className="text-2xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">{assignedJobsCount}</span>
             <span className="text-[9.5px] font-semibold text-slate-400 mt-1">Mechanics on floor</span>
           </div>
           <div className="bg-blue-50 text-[#184edb] p-2.5 rounded-xl flex items-center justify-center">
@@ -118,7 +148,7 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
         <div className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/60 flex items-center justify-between min-h-[85px] box-border relative">
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Working</span>
-            <span className="text-2xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">10</span>
+            <span className="text-2xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">{workingJobsCount}</span>
             <span className="text-[9.5px] font-semibold text-slate-400 mt-1">Active progress</span>
           </div>
           <div className="bg-emerald-50 text-emerald-600 p-2.5 rounded-xl flex items-center justify-center">
@@ -130,7 +160,7 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
         <div className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/60 flex items-center justify-between min-h-[85px] box-border relative">
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Waiting Parts</span>
-            <span className="text-2xl font-extrabold text-red-500 tracking-tight mt-1 font-heading">04</span>
+            <span className="text-2xl font-extrabold text-red-500 tracking-tight mt-1 font-heading">{waitingPartsCount}</span>
             <span className="text-[9.5px] font-semibold text-red-500 mt-1">Critical hold</span>
           </div>
           <div className="bg-red-50 text-red-600 p-2.5 rounded-xl flex items-center justify-center">
@@ -279,8 +309,11 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
                         <Eye size={13} />
                       </button>
                       <button 
-                        onClick={() => onEditJc(jc)}
-                        title="Edit Job Card"
+                        onClick={() => {
+                          setEditingJc(jc);
+                          setEditStatus(jc.status);
+                        }}
+                        title="Edit Job Card Status"
                         className="p-1.5 bg-green-50 border border-green-100 rounded-md text-green-600 hover:bg-green-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
                       >
                         <Edit size={13} />
@@ -291,6 +324,25 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
                         className="p-1.5 bg-cyan-50 border border-cyan-100 rounded-md text-cyan-600 hover:bg-cyan-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
                       >
                         <UserPlus size={13} />
+                      </button>
+                      <button 
+                        onClick={() => setAddingPartsJc(jc)}
+                        title="Add Spare Parts"
+                        className="p-1.5 bg-purple-50 border border-purple-100 rounded-md text-purple-600 hover:bg-purple-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
+                      >
+                        <Wrench size={13} />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setCompletingJc(jc);
+                          setLabourAmount(0);
+                          setPartsAmount(0);
+                          setDiscountPercent(0);
+                        }}
+                        title="Mark as Completed & Bill"
+                        className="p-1.5 bg-emerald-50 border border-emerald-100 rounded-md text-emerald-600 hover:bg-emerald-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
+                      >
+                        <CheckCircle size={13} />
                       </button>
                       <button 
                         title="More Actions"
@@ -309,7 +361,7 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
         {/* Footer controls */}
         <div className="bg-[#f8fafc] border-t border-slate-100 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 w-full box-border">
           <span className="text-[12.5px] text-slate-500 font-medium">
-            Showing 1-4 of 45 job cards
+            Showing {filteredCards.length} job cards
           </span>
 
           <div className="flex items-center gap-1.5">
@@ -339,6 +391,342 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
       >
         <Plus size={24} />
       </button>
+
+      {/* ADD PARTS MODAL */}
+      {addingPartsJc && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg border border-slate-100 w-full max-w-lg overflow-hidden flex flex-col">
+            <div className="p-4 px-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h3 className="text-sm font-extrabold text-slate-800 m-0 font-heading">Add Parts to {addingPartsJc.jcNumber}</h3>
+              <button
+                onClick={() => setAddingPartsJc(null)}
+                className="bg-transparent border-none text-slate-400 hover:text-slate-650 cursor-pointer"
+              >
+                <XCircle size={16} />
+              </button>
+            </div>
+            <div className="p-6 flex flex-col gap-4 text-xs font-semibold text-slate-500">
+              
+              {(addingPartsJc.status === 'Waiting Parts' || addingPartsJc.status === 'WAITING PARTS') && (
+                <div className="bg-amber-50 text-amber-700 p-3 rounded-lg border border-amber-200 flex items-start gap-2">
+                  <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+                  <span className="leading-snug">
+                    This vehicle is currently halted waiting for parts. Adding the required part will automatically resume work and update its status to <strong>WORKING</strong>.
+                  </span>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Select Part</label>
+                <select
+                  value={selectedPart}
+                  onChange={(e) => setSelectedPart(e.target.value)}
+                  className="border border-slate-200 rounded-md py-2 px-3 outline-none focus:border-blue-400 bg-slate-50 font-medium text-slate-700"
+                >
+                  <option value="">Select a part from inventory...</option>
+                  {parts.map(p => (
+                    <option key={p.id || p._id} value={p.partName}>{p.partName} - ₹{p.sellingPrice || p.price}</option>
+                  ))}
+                  {parts.length === 0 && <option disabled>No parts found in inventory</option>}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quantity</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={partQty}
+                  onChange={(e) => setPartQty(Number(e.target.value))}
+                  className="border border-slate-200 rounded-md py-2 px-3 outline-none focus:border-blue-400 bg-slate-50 font-medium text-slate-700"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setAddingPartsJc(null)}
+                  className="bg-transparent border-none text-slate-400 hover:text-slate-700 font-bold text-xs py-2 px-4 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if(!selectedPart) return alert('Select a part');
+                    
+                    if (addingPartsJc.status === 'Waiting Parts' || addingPartsJc.status === 'WAITING PARTS') {
+                      fetch(`${API_URL}/api/jobcards/${addingPartsJc.jcNumber}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'WORKING' })
+                      })
+                      .then(() => {
+                        alert(`Added ${partQty}x ${selectedPart} to ${addingPartsJc.jcNumber}. Work has resumed!`);
+                        if (typeof window !== 'undefined') {
+                           // Trigger a reload to fetch the updated status (since we don't have a fetchJobCards prop)
+                           window.location.reload();
+                        }
+                        setAddingPartsJc(null);
+                      })
+                      .catch(err => {
+                        console.error(err);
+                        alert('Failed to add part.');
+                      });
+                    } else {
+                      alert(`Added ${partQty}x ${selectedPart} to ${addingPartsJc.jcNumber}.`);
+                      setAddingPartsJc(null);
+                    }
+                  }}
+                  className="bg-[#184edb] hover:bg-blue-800 text-white font-bold text-xs py-2.5 px-6 border-none rounded-md cursor-pointer transition-colors shadow-md"
+                >
+                  Add Part { (addingPartsJc.status === 'Waiting Parts' || addingPartsJc.status === 'WAITING PARTS') ? '& Resume' : '' }
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QUICK BILLING MODAL */}
+      {completingJc && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg border border-slate-100 w-full max-w-md overflow-hidden flex flex-col">
+            <div className="p-4 px-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h3 className="text-sm font-extrabold text-slate-800 m-0 font-heading">Complete Job & Quick Bill</h3>
+              <button
+                onClick={() => setCompletingJc(null)}
+                className="bg-transparent border-none text-slate-400 hover:text-slate-650 cursor-pointer"
+              >
+                <XCircle size={16} />
+              </button>
+            </div>
+            <div className="p-6 flex flex-col gap-4 text-xs font-semibold text-slate-500">
+              <div className="bg-emerald-50 text-emerald-700 p-3 rounded-lg border border-emerald-200 flex items-start gap-2 mb-2">
+                <CheckCircle size={16} className="mt-0.5 flex-shrink-0" />
+                <span className="leading-snug">
+                  You are about to mark <strong>{completingJc.jcNumber}</strong> as completed. Enter the final bill amounts below.
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Labour Charges (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={labourAmount || ''}
+                  onChange={(e) => setLabourAmount(Number(e.target.value))}
+                  className="border border-slate-200 rounded-md py-2.5 px-3 outline-none focus:border-blue-400 bg-slate-50 font-bold text-slate-700 text-[14px]"
+                  placeholder="0"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Spare Parts (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={partsAmount || ''}
+                  onChange={(e) => setPartsAmount(Number(e.target.value))}
+                  className="border border-slate-200 rounded-md py-2.5 px-3 outline-none focus:border-blue-400 bg-slate-50 font-bold text-slate-700 text-[14px]"
+                  placeholder="0"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Discount (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={discountPercent || ''}
+                  onChange={(e) => setDiscountPercent(Number(e.target.value))}
+                  className="border border-slate-200 rounded-md py-2.5 px-3 outline-none focus:border-blue-400 bg-slate-50 font-bold text-slate-700 text-[14px]"
+                  placeholder="0"
+                />
+              </div>
+
+              {/* Dynamic Calculation */}
+              {(() => {
+                const subTotal = (labourAmount || 0) + (partsAmount || 0);
+                const discountAmount = subTotal * ((discountPercent || 0) / 100);
+                const totalAfterDiscount = subTotal - discountAmount;
+                const gst = totalAfterDiscount * 0.18;
+                const grandTotal = totalAfterDiscount + gst;
+
+                return (
+                  <div className="mt-2 bg-slate-50 p-4 rounded-lg border border-slate-200 flex flex-col gap-2">
+                    <div className="flex justify-between text-[11px] font-bold text-slate-500">
+                      <span>Subtotal</span>
+                      <span>₹{subTotal.toFixed(2)}</span>
+                    </div>
+                    {discountPercent > 0 && (
+                      <div className="flex justify-between text-[11px] font-bold text-green-600">
+                        <span>Discount ({discountPercent}%)</span>
+                        <span>-₹{discountAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-[11px] font-bold text-slate-500 pb-2 border-b border-slate-200">
+                      <span>GST (18%)</span>
+                      <span>₹{gst.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-[15px] font-extrabold text-[#184edb] pt-1">
+                      <span>Grand Total</span>
+                      <span>₹{grandTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setCompletingJc(null)}
+                  className="bg-transparent border-none text-slate-400 hover:text-slate-700 font-bold text-xs py-2 px-4 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const subTotal = (labourAmount || 0) + (partsAmount || 0);
+                    const discountAmt = subTotal * ((discountPercent || 0) / 100);
+                    const totalAfter = subTotal - discountAmt;
+                    const gstAmt = totalAfter * 0.18;
+                    const finalTotal = totalAfter + gstAmt;
+
+                    // Update Status and Amount
+                    fetch(`${API_URL}/api/jobcards/${completingJc.jcNumber}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ 
+                        status: 'COMPLETED', 
+                        doneTime: new Date().toLocaleTimeString(),
+                        amount: finalTotal
+                      })
+                    })
+                    .then(() => {
+                      // Create Draft Bill (historical compat)
+                      const draftsStr = localStorage.getItem('dms_service_drafts');
+                      const drafts = draftsStr ? JSON.parse(draftsStr) : [];
+                      const newDraft = {
+                        id: `draft-${Date.now()}`,
+                        billNo: `SB-${new Date().getFullYear()}-${Math.floor(Math.random()*10000)}`,
+                        jobCardNo: completingJc.jcNumber,
+                        customerName: completingJc.customerName,
+                        phoneNumber: completingJc.rawJc?.mobileNumber || '',
+                        vehicleNo: completingJc.vehicleReg,
+                        model: completingJc.vehicleModel,
+                        serviceDate: completingJc.dateIn,
+                        engineNo: completingJc.engineNo,
+                        chassisNo: completingJc.chassisNo,
+                        assignedMechanic: completingJc.mechanicName,
+                        serviceAdvisor: 'System',
+                        deliveryDate: new Date().toLocaleDateString(),
+                        deliveryTime: new Date().toLocaleTimeString(),
+                        labourCharges: [{ id: 'l1', description: 'Quick Labour', hours: 1, rate: labourAmount || 0, amount: labourAmount || 0 }],
+                        spareParts: [{ id: 'p1', partNo: 'VARIOUS', name: 'Quick Parts', qty: 1, price: partsAmount || 0, gstPercent: 18, total: partsAmount || 0, stockStatus: 'Available' }],
+                        remarks: 'Auto-generated from Quick Billing',
+                        discountPercent: discountPercent || 0,
+                        grandTotal: finalTotal,
+                        status: 'DRAFT',
+                        createdAt: new Date().toLocaleDateString()
+                      };
+                      drafts.push(newDraft);
+                      localStorage.setItem('dms_service_drafts', JSON.stringify(drafts));
+                      
+                      alert(`Successfully marked ${completingJc.jcNumber} as COMPLETED. Grand Total: ₹${finalTotal.toFixed(2)}`);
+                      setCompletingJc(null);
+                      
+                      if (typeof window !== 'undefined') {
+                        window.location.reload();
+                      }
+                    })
+                    .catch(err => {
+                      console.error(err);
+                      alert('Failed to complete job card.');
+                    });
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 px-6 border-none rounded-md cursor-pointer transition-colors shadow-md flex items-center gap-2"
+                >
+                  <CheckCircle size={14} />
+                  Finalize & Complete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT STATUS MODAL */}
+      {editingJc && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg border border-slate-100 w-full max-w-sm overflow-hidden flex flex-col">
+            <div className="p-4 px-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h3 className="text-sm font-extrabold text-slate-800 m-0 font-heading">Edit Status: {editingJc.jcNumber}</h3>
+              <button
+                onClick={() => setEditingJc(null)}
+                className="bg-transparent border-none text-slate-400 hover:text-slate-650 cursor-pointer"
+              >
+                <XCircle size={16} />
+              </button>
+            </div>
+            <div className="p-6 flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Update Status</label>
+                <select 
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg py-2.5 px-3 outline-none focus:border-blue-500 bg-white font-semibold text-slate-700 cursor-pointer"
+                >
+                  <option value="WORKING">Working (In-Progress)</option>
+                  <option value="WAITING PARTS">Waiting for Parts</option>
+                  <option value="ASSIGNED">Assigned</option>
+                  <option value="COMPLETED">Completed</option>
+                </select>
+                {editStatus === 'WAITING PARTS' && (
+                  <span className="text-[11px] font-semibold text-rose-500 mt-1 flex items-center gap-1">
+                    <AlertTriangle size={12} />
+                    Will notify inventory department for parts.
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingJc(null)}
+                  className="bg-transparent border-none text-slate-400 hover:text-slate-700 font-bold text-xs py-2 px-4 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    fetch(`${API_URL}/api/jobcards/${editingJc.jcNumber}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ status: editStatus })
+                    })
+                    .then(res => {
+                      if (!res.ok) throw new Error('Failed to update');
+                      alert(`Job Card ${editingJc.jcNumber} updated successfully!`);
+                      setEditingJc(null);
+                      if (typeof window !== 'undefined') window.location.reload();
+                    })
+                    .catch(err => {
+                      console.error(err);
+                      alert('Error updating job card.');
+                    });
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 px-5 border-none rounded-md cursor-pointer transition-colors shadow-sm"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

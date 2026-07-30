@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft,
   User, 
@@ -19,6 +19,29 @@ interface AddJobCardProps {
 }
 
 export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  
+  // Data lists from backend
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [mechanics, setMechanics] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/customers`)
+      .then(res => res.json())
+      .then(data => setCustomers(data))
+      .catch(err => console.error('Error fetching customers:', err));
+
+    fetch(`${API_URL}/api/vehicles`)
+      .then(res => res.json())
+      .then(data => setVehicles(data))
+      .catch(err => console.error('Error fetching vehicles:', err));
+
+    fetch(`${API_URL}/api/mechanics`)
+      .then(res => res.json())
+      .then(data => setMechanics(data))
+      .catch(err => console.error('Error fetching mechanics:', err));
+  }, [API_URL]);
   // Generated Job Card Number & Current Date
   const [jcNumber] = useState(`JC-2023-${Math.floor(1000 + Math.random() * 9000)}`);
   const [serviceDate] = useState(() => {
@@ -29,7 +52,7 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
     });
   });
   
-  const [intakeStatus, setIntakeStatus] = useState('IN-PROGRESS');
+  const [intakeStatus, setIntakeStatus] = useState('WORKING');
 
   // Customer State
   const [fullName, setFullName] = useState('');
@@ -51,7 +74,6 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
 
   // Workshop Ops State
   const [expectedDelivery, setExpectedDelivery] = useState('');
-  const [leadMechanic, setLeadMechanic] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,10 +82,6 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
       return;
     }
 
-    const mechanicInitials = leadMechanic 
-      ? leadMechanic.split(' ').map(n => n[0]).join('').toUpperCase() 
-      : 'AM';
-
     const newJc = {
       jcNumber,
       inTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -71,8 +89,8 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
       vehicleModel,
       vehicleReg: vehicleNumber,
       complaintSummary: primaryDescription || 'General Service',
-      mechanicName: leadMechanic || 'Amit S.',
-      mechanicInitials,
+      mechanicName: '',
+      mechanicInitials: '',
       status: intakeStatus,
       expectedDelivery: expectedDelivery ? new Date(expectedDelivery).toLocaleDateString() : 'Today, 05:00 PM'
     };
@@ -148,13 +166,25 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Full Name</label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. Ramesh Transport Corp"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none focus:border-[#184edb] text-slate-700 bg-slate-50/50 font-medium"
-                />
+                <div className="relative">
+                  <select 
+                    value={fullName}
+                    onChange={(e) => {
+                      setFullName(e.target.value);
+                      const selectedCust = customers.find(c => c.name === e.target.value);
+                      if (selectedCust) setMobileNumber(selectedCust.phone.replace(/[^0-9]/g, ''));
+                    }}
+                    className="w-full appearance-none border border-slate-200 rounded-md py-2 pl-3 pr-10 text-xs outline-none focus:border-[#184edb] text-slate-700 bg-slate-50/50 font-medium cursor-pointer"
+                  >
+                    <option value="">Select Customer...</option>
+                    {customers.map(c => (
+                      <option key={c.id || c._id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                  <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#184edb] pointer-events-none">
+                    <ChevronDown size={14} />
+                  </span>
+                </div>
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mobile Number</label>
@@ -192,15 +222,27 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
                 <div className="relative">
                   <select 
                     value={vehicleModel}
-                    onChange={(e) => setVehicleModel(e.target.value)}
-                    className="w-full appearance-none border border-slate-200 rounded-md py-2 pl-3 pr-10 text-xs outline-none focus:border-[#184edb] text-slate-700 bg-slate-50/50 font-medium"
+                    onChange={(e) => {
+                      setVehicleModel(e.target.value);
+                      const v = vehicles.find(veh => veh.modelName === e.target.value);
+                      if(v) {
+                        setEngineNumber(v.engineNo || '');
+                        setChassisNumber(v.chassisNo || '');
+                      }
+                    }}
+                    className="w-full appearance-none border border-slate-200 rounded-md py-2 pl-3 pr-10 text-xs outline-none focus:border-[#184edb] text-slate-700 bg-slate-50/50 font-medium cursor-pointer"
                   >
-                    <option>Eicher Pro 2049</option>
-                    <option>Eicher Pro 3015</option>
-                    <option>Eicher Skyline Pro</option>
-                    <option>Eicher Pro 6028</option>
+                    <option value="">Select Vehicle Model...</option>
+                    {vehicles.map(v => (
+                      <option key={v.id || v._id} value={v.modelName}>{v.modelName}</option>
+                    ))}
+                    {/* Fallbacks if DB is empty */}
+                    <option value="Eicher Pro 2049">Eicher Pro 2049</option>
+                    <option value="Eicher Pro 3015">Eicher Pro 3015</option>
+                    <option value="Eicher Skyline Pro">Eicher Skyline Pro</option>
+                    <option value="Eicher Pro 6028">Eicher Pro 6028</option>
                   </select>
-                  <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 pointer-events-none">
+                  <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#184edb] pointer-events-none">
                     <ChevronDown size={14} />
                   </span>
                 </div>
@@ -324,26 +366,6 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
                   onChange={(e) => setExpectedDelivery(e.target.value)}
                   className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none focus:border-[#184edb] text-slate-750 bg-slate-50/50 font-medium"
                 />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned Lead Mechanic</label>
-                <div className="relative">
-                  <select 
-                    value={leadMechanic}
-                    onChange={(e) => setLeadMechanic(e.target.value)}
-                    className="w-full appearance-none border border-slate-200 rounded-md py-2 pl-3 pr-10 text-xs outline-none focus:border-[#184edb] text-slate-700 bg-slate-50/50 font-medium"
-                  >
-                    <option value="">Select Mechanic</option>
-                    <option>Amit S.</option>
-                    <option>Suresh G.</option>
-                    <option>Abdul R.</option>
-                    <option>Vikram S.</option>
-                  </select>
-                  <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 pointer-events-none">
-                    <ChevronDown size={14} />
-                  </span>
-                </div>
               </div>
             </div>
           </div>
