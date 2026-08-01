@@ -25,7 +25,8 @@ import {
   Wallet,
   QrCode,
   Smartphone,
-  ExternalLink
+  ExternalLink,
+  History
 } from 'lucide-react';
 
 import {
@@ -47,6 +48,14 @@ import PrintIcon from '@mui/icons-material/Print';
 import BusinessIcon from '@mui/icons-material/Business';
 
 // Interfaces
+export interface PaymentHistoryItem {
+  id: string;
+  date: string;
+  amount: number;
+  mode?: string;
+  remarks?: string;
+}
+
 interface PurchaseOrder {
   id: string;
   invoiceNo: string;
@@ -66,6 +75,7 @@ interface PurchaseOrder {
   balance?: number;
   paymentMode?: string;
   remarks?: string;
+  payments?: PaymentHistoryItem[];
 }
 
 interface ReturnItem {
@@ -776,6 +786,16 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     const bgColors = ['bg-indigo-500', 'bg-[#184edb]', 'bg-emerald-500', 'bg-purple-500'];
     const randomBg = bgColors[Math.floor(Math.random() * bgColors.length)];
 
+    const initialPaymentsArr: PaymentHistoryItem[] = creditVal > 0 ? [
+      {
+        id: `pay-${Date.now()}`,
+        date: newPoDate || getTodayFormattedDate(),
+        amount: creditVal,
+        mode: newPoPaymentMode || 'Cash',
+        remarks: newPoRemarks || 'Initial Payment'
+      }
+    ] : [];
+
     const newPO: PurchaseOrder = {
       id: newPoId || `PO-2026-${Math.floor(1000 + Math.random() * 9000)}`,
       invoiceNo: newPoInvoice || `INV-${Math.floor(10000 + Math.random() * 90000)}`,
@@ -796,7 +816,8 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
       credit: creditVal,
       balance: balanceVal,
       paymentMode: newPoPaymentMode,
-      remarks: newPoRemarks
+      remarks: newPoRemarks,
+      payments: initialPaymentsArr
     };
 
     setPurchases(prev => {
@@ -829,7 +850,36 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
   // Edit Handlers
   const handleStartEditPurchase = (po: PurchaseOrder) => {
-    setEditingPurchase(po);
+    let paymentsArr = po.payments;
+    if (!paymentsArr || paymentsArr.length === 0) {
+      let initialPaidAmount = 0;
+      if (po.credit !== undefined && po.credit > 0) {
+        initialPaidAmount = po.credit;
+      } else if (po.debit !== undefined && po.debit > 0 && po.debit < po.grandTotal) {
+        initialPaidAmount = po.debit;
+      } else if (po.debit !== undefined && po.balance !== undefined) {
+        initialPaidAmount = Math.max(0, po.grandTotal - po.balance);
+      } else if (po.status === 'PAID') {
+        initialPaidAmount = po.grandTotal;
+      } else if (po.status === 'PARTIAL') {
+        initialPaidAmount = Math.round(po.grandTotal / 2);
+      }
+
+      if (initialPaidAmount > 0) {
+        paymentsArr = [{
+          id: `pay-init-${po.id}`,
+          date: po.date || getTodayFormattedDate(),
+          amount: initialPaidAmount,
+          mode: po.paymentMode || 'Cash',
+          remarks: 'Initial Payment'
+        }];
+      } else {
+        paymentsArr = [];
+      }
+    }
+
+    const updatedPoWithPayments = { ...po, payments: paymentsArr };
+    setEditingPurchase(updatedPoWithPayments);
     setEditPoId(po.id);
     setEditPoType(po.type || 'PURCHASE');
     setEditPoInvoice(po.invoiceNo || '');
@@ -837,21 +887,8 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     setEditPoDate(po.date || getTodayFormattedDate());
     setEditPoPaymentMode(po.paymentMode || (po.status === 'PAID' ? 'Paid' : 'Credit Account'));
 
-    // Extract exact paid amount stored on this Purchase Order
-    let initialPaidAmount = 0;
-    if (po.credit !== undefined && po.credit > 0) {
-      initialPaidAmount = po.credit;
-    } else if (po.debit !== undefined && po.debit > 0 && po.debit < po.grandTotal) {
-      initialPaidAmount = po.debit;
-    } else if (po.debit !== undefined && po.balance !== undefined) {
-      initialPaidAmount = Math.max(0, po.grandTotal - po.balance);
-    } else if (po.status === 'PAID') {
-      initialPaidAmount = po.grandTotal;
-    } else if (po.status === 'PARTIAL') {
-      initialPaidAmount = Math.round(po.grandTotal / 2);
-    }
-
-    setEditPoCredit(initialPaidAmount);
+    // Reset Amount Paid Now to empty string so user can type amount to pay now
+    setEditPoCredit('');
     setEditPoDescription(po.description || '');
     setEditPoRemarks(po.remarks || '');
 
@@ -916,13 +953,29 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
       : (Number(editPoAdditionalCharges) || editingPurchase.grandTotal);
     
     const debitVal = Math.max(0, calculatedTotal);
-    const creditVal = Number(editPoCredit) || 0;
-    const balanceVal = Math.max(0, debitVal - creditVal);
+    const amountPaidNow = Number(editPoCredit) || 0;
+
+    const existingPayments = editingPurchase.payments || [];
+    let updatedPayments = [...existingPayments];
+
+    if (amountPaidNow > 0) {
+      const newPaymentItem: PaymentHistoryItem = {
+        id: `pay-${Date.now()}`,
+        date: getTodayFormattedDate(),
+        amount: amountPaidNow,
+        mode: editPoPaymentMode || 'Paid',
+        remarks: editPoRemarks || 'Payment Installment'
+      };
+      updatedPayments.push(newPaymentItem);
+    }
+
+    const totalPaidVal = updatedPayments.reduce((acc, p) => acc + p.amount, 0);
+    const balanceVal = Math.max(0, debitVal - totalPaidVal);
 
     let statusVal: 'PAID' | 'PARTIAL' | 'PENDING' = 'PAID';
     if (balanceVal === 0) {
       statusVal = 'PAID';
-    } else if (creditVal > 0 && balanceVal > 0) {
+    } else if (totalPaidVal > 0 && balanceVal > 0) {
       statusVal = 'PARTIAL';
     } else {
       statusVal = 'PENDING';
@@ -949,11 +1002,12 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
       items: editPurchaseItems.length > 0 ? [...editPurchaseItems] : editingPurchase.items,
       type: editPoType,
       description: finalDescription,
-      debit: creditVal,
-      credit: creditVal,
+      debit: totalPaidVal,
+      credit: totalPaidVal,
       balance: balanceVal,
       paymentMode: editPoPaymentMode,
-      remarks: editPoRemarks
+      remarks: editPoRemarks,
+      payments: updatedPayments
     };
 
     setPurchases(prev => {
@@ -2170,6 +2224,59 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
             Status: {statusTag}
           </span>
         </div>
+
+        {/* PAYMENT HISTORY & INSTALLMENTS BREAKDOWN ON INVOICE */}
+        {(() => {
+          const payList: PaymentHistoryItem[] = (po.payments && po.payments.length > 0)
+            ? po.payments
+            : (paidVal > 0 ? [{ id: 'pay-legacy', date: po.date || 'N/A', amount: paidVal, mode: po.paymentMode || 'Cash', remarks: 'Initial Payment' }] : []);
+          
+          if (payList.length === 0) return null;
+
+          return (
+            <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/70 flex flex-col gap-2 my-1 text-left">
+              <div className="flex items-center justify-between">
+                <span className="text-[10.5px] font-black text-[#184edb] uppercase tracking-wider flex items-center gap-1.5">
+                  <History size={13} className="text-[#184edb]" />
+                  <span>Payment History & Installments Breakdown</span>
+                </span>
+                <span className="text-[10px] font-bold text-slate-500">
+                  Total Installments Paid: <strong className="text-emerald-700 font-extrabold">₹{paidVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                </span>
+              </div>
+              <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-500 text-[9.5px] font-bold uppercase tracking-wider border-b border-slate-200">
+                      <th className="py-2 px-3">#</th>
+                      <th className="py-2 px-3">Date</th>
+                      <th className="py-2 px-3">Payment Mode</th>
+                      <th className="py-2 px-3 text-right">Amount Paid</th>
+                      <th className="py-2 px-3">Remarks / Reference</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-[11px] font-semibold text-slate-700">
+                    {payList.map((item, idx) => (
+                      <tr key={item.id || idx} className="hover:bg-slate-50/40">
+                        <td className="py-1.5 px-3 font-bold text-slate-400">{String(idx + 1).padStart(2, '0')}</td>
+                        <td className="py-1.5 px-3 font-bold text-slate-800">{item.date}</td>
+                        <td className="py-1.5 px-3">
+                          <span className="px-2 py-0.5 rounded text-[9px] font-extrabold bg-blue-50 text-blue-700 border border-blue-100">
+                            {item.mode || po.paymentMode || 'Cash'}
+                          </span>
+                        </td>
+                        <td className="py-1.5 px-3 text-right font-extrabold text-emerald-700">
+                          ₹{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-1.5 px-3 text-slate-500 text-[10px]">{item.remarks || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Bottom Instructions and Totals */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start mt-1">
@@ -4276,92 +4383,89 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                 )}
               </div>
 
-              {/* Financials Ledger Box (Total Amount, Amount Paid / Debit, Balance Outstanding) */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-blue-50/40 p-4 rounded-xl border border-blue-100">
-                {/* 1. Total Amount (Grand Total) */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider flex items-center justify-between">
-                    <span>Total Amount (₹)</span>
-                    <span className="text-[10px] text-slate-400 font-normal">(Grand Total)</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={
-                      editPurchaseItems.length > 0 
-                        ? Math.round(editPurchaseItems.reduce((acc, i) => acc + (i.qty * i.rate * (1 + i.gstPercent/100)), 0) + Number(editPoAdditionalCharges) - Number(editPoDiscount))
-                        : (Number(editPoAdditionalCharges) || editingPurchase.grandTotal)
-                    }
-                    onChange={(e) => setEditPoAdditionalCharges(Number(e.target.value))}
-                    className="p-2.5 border border-slate-200 rounded-lg text-sm font-bold text-[#184edb] bg-white"
-                  />
-                </div>
+              {/* Financials Ledger Box & Payment History Breakdown */}
+              {(() => {
+                const totalVal = editPurchaseItems.length > 0 
+                  ? Math.round(editPurchaseItems.reduce((acc, i) => acc + (i.qty * i.rate * (1 + i.gstPercent/100)), 0) + Number(editPoAdditionalCharges) - Number(editPoDiscount))
+                  : (Number(editPoAdditionalCharges) || editingPurchase.grandTotal);
+                
+                const pastPayments = editingPurchase.payments || [];
+                const pastPaidTotal = pastPayments.reduce((acc, p) => acc + p.amount, 0);
+                const paidNowVal = Number(editPoCredit) || 0;
+                const cumPaidVal = pastPaidTotal + paidNowVal;
+                const balVal = Math.max(0, totalVal - cumPaidVal);
+                const statusTag = balVal === 0 ? 'PAID' : (cumPaidVal > 0 ? 'PARTIAL' : 'PENDING');
 
-                {/* 2. Amount Paid (Debit / Credit) */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-extrabold text-emerald-700 uppercase tracking-wider flex items-center justify-between">
-                    <span>Amount Paid (₹)</span>
-                    <span className="text-[10px] text-emerald-600 font-bold">(Paid Now)</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={editPoCredit}
-                    onChange={(e) => setEditPoCredit(e.target.value)}
-                    className="p-2.5 border border-emerald-300 rounded-lg text-sm font-bold text-emerald-800 bg-white focus:outline-none focus:border-emerald-500"
-                  />
-                  {/* Presets */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const tot = editPurchaseItems.length > 0 
-                          ? Math.round(editPurchaseItems.reduce((acc, i) => acc + (i.qty * i.rate * (1 + i.gstPercent/100)), 0) + Number(editPoAdditionalCharges) - Number(editPoDiscount))
-                          : (Number(editPoAdditionalCharges) || editingPurchase.grandTotal);
-                        setEditPoCredit(tot);
-                      }}
-                      className="text-[9.5px] font-bold bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded cursor-pointer"
-                    >
-                      Full Paid
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const tot = editPurchaseItems.length > 0 
-                          ? Math.round(editPurchaseItems.reduce((acc, i) => acc + (i.qty * i.rate * (1 + i.gstPercent/100)), 0) + Number(editPoAdditionalCharges) - Number(editPoDiscount))
-                          : (Number(editPoAdditionalCharges) || editingPurchase.grandTotal);
-                        setEditPoCredit(Math.round(tot / 2));
-                      }}
-                      className="text-[9.5px] font-bold bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded cursor-pointer"
-                    >
-                      50%
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditPoCredit(0)}
-                      className="text-[9.5px] font-bold bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 px-1.5 py-0.5 rounded cursor-pointer"
-                    >
-                      Credit (₹0)
-                    </button>
-                  </div>
-                </div>
+                return (
+                  <div className="flex flex-col gap-4">
+                    {/* Financials Summary Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-blue-50/40 p-4 rounded-xl border border-blue-100">
+                      {/* 1. Total Amount (Grand Total) */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider flex items-center justify-between">
+                          <span>Total Amount (₹)</span>
+                          <span className="text-[10px] text-slate-400 font-normal">(Grand Total)</span>
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          value={totalVal}
+                          onChange={(e) => setEditPoAdditionalCharges(Number(e.target.value))}
+                          className="p-2.5 border border-slate-200 rounded-lg text-sm font-bold text-[#184edb] bg-white"
+                        />
+                      </div>
 
-                {/* 3. Balance Outstanding (₹) */}
-                <div className="flex flex-col gap-1.5">
-                  {(() => {
-                    const totalVal = editPurchaseItems.length > 0 
-                      ? Math.round(editPurchaseItems.reduce((acc, i) => acc + (i.qty * i.rate * (1 + i.gstPercent/100)), 0) + Number(editPoAdditionalCharges) - Number(editPoDiscount))
-                      : Number(editPoAdditionalCharges) || editingPurchase.grandTotal;
-                    const paidVal = Number(editPoCredit) || 0;
-                    const balVal = Math.max(0, totalVal - paidVal);
-                    const statusTag = balVal === 0 ? 'PAID' : (paidVal > 0 ? 'PARTIAL' : 'PENDING');
+                      {/* 2. Amount Paid Now (Current Installment) */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-extrabold text-emerald-700 uppercase tracking-wider flex items-center justify-between">
+                          <span>Amount Paid Now (₹)</span>
+                          <span className="text-[10px] text-emerald-600 font-bold">(Current Installment)</span>
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="Enter amount to pay now..."
+                          value={editPoCredit}
+                          onChange={(e) => setEditPoCredit(e.target.value)}
+                          className="p-2.5 border border-emerald-300 rounded-lg text-sm font-bold text-emerald-800 bg-white focus:outline-none focus:border-emerald-500 shadow-sm"
+                        />
+                        {/* Presets */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const rem = Math.max(0, totalVal - pastPaidTotal);
+                              setEditPoCredit(rem);
+                            }}
+                            className="text-[9.5px] font-bold bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded cursor-pointer"
+                          >
+                            Full Remaining (₹{Math.max(0, totalVal - pastPaidTotal).toFixed(2)})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const rem = Math.max(0, totalVal - pastPaidTotal);
+                              setEditPoCredit(Math.round(rem / 2));
+                            }}
+                            className="text-[9.5px] font-bold bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded cursor-pointer"
+                          >
+                            50% Balance
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditPoCredit(0)}
+                            className="text-[9.5px] font-bold bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 px-1.5 py-0.5 rounded cursor-pointer"
+                          >
+                            Clear (₹0)
+                          </button>
+                        </div>
+                      </div>
 
-                    return (
-                      <>
+                      {/* 3. Balance Remaining (₹) */}
+                      <div className="flex flex-col gap-1.5">
                         <label className="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider flex items-center justify-between">
                           <span>Balance Amount (₹)</span>
                           <span className={`text-[9.5px] font-extrabold px-1.5 py-0.5 rounded uppercase ${
@@ -4382,11 +4486,59 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                             {balVal === 0 ? 'Fully Settled' : 'Unpaid Credit'}
                           </span>
                         </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
+                      </div>
+                    </div>
+
+                    {/* Payment History Breakdown inside Edit Purchase Modal */}
+                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60 flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[12px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                          <History size={16} className="text-[#184edb]" />
+                          <span>Payment History Breakdown ({pastPayments.length})</span>
+                        </span>
+                        <span className="text-[11px] font-semibold text-slate-500">
+                          Total Paid to Date: <strong className="text-emerald-700 font-extrabold">₹{pastPaidTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                        </span>
+                      </div>
+
+                      {pastPayments.length > 0 ? (
+                        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                          <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                              <tr className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
+                                <th className="p-2.5">Date</th>
+                                <th className="p-2.5">Payment Mode</th>
+                                <th className="p-2.5 text-right">Amount Paid (₹)</th>
+                                <th className="p-2.5">Remarks</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                              {pastPayments.map((pay, idx) => (
+                                <tr key={pay.id || idx} className="hover:bg-slate-50/50">
+                                  <td className="p-2.5 font-bold text-slate-800">{pay.date}</td>
+                                  <td className="p-2.5">
+                                    <span className="px-2.5 py-0.5 rounded text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-100">
+                                      {pay.mode || 'Cash'}
+                                    </span>
+                                  </td>
+                                  <td className="p-2.5 text-right font-extrabold text-emerald-700">
+                                    ₹{pay.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </td>
+                                  <td className="p-2.5 text-slate-500 text-[11px]">{pay.remarks || '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="p-3 text-center text-xs text-slate-400 font-medium bg-white rounded-lg border border-dashed border-slate-200">
+                          No past payment history recorded yet. Enter an amount in "Amount Paid Now" to record a payment installment.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Modal Actions */}
               <div className="flex items-center justify-end gap-3 mt-2 flex-shrink-0">
