@@ -350,14 +350,6 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
   };
 
   // KPI Calculations
-  const totalPurchase = filteredTransactions
-    .filter(t => t.type === 'PURCHASE')
-    .reduce((acc, t) => acc + t.debit, 0);
-
-  const totalPaid = filteredTransactions
-    .filter(t => t.type === 'PAYMENT')
-    .reduce((acc, t) => acc + t.credit, 0);
-
   const currentSupplierDetails = selectedSupplier || suppliersList.find(s => s.name === ledgerSupplier);
 
   const getPurchaseOrderFromLedgerRef = (tx: LedgerTransaction) => {

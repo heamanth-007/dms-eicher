@@ -24,7 +24,6 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
   // Data lists from backend
   const [customers, setCustomers] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
-  const [mechanics, setMechanics] = useState<any[]>([]);
 
   useEffect(() => {
     fetch(`${API_URL}/api/customers`)
@@ -37,10 +36,7 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
       .then(data => setVehicles(data))
       .catch(err => console.error('Error fetching vehicles:', err));
 
-    fetch(`${API_URL}/api/mechanics`)
-      .then(res => res.json())
-      .then(data => setMechanics(data))
-      .catch(err => console.error('Error fetching mechanics:', err));
+
   }, [API_URL]);
   // Generated Job Card Number & Current Date
   const [jcNumber] = useState(`JC-2023-${Math.floor(1000 + Math.random() * 9000)}`);

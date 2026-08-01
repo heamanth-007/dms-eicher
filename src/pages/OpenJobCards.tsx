@@ -33,10 +33,8 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
   onBack, 
   onNewJobCard,
   onViewJcDetails,
-  onEditJc,
   searchTerm,
-  jobCards: propJobCards,
-  onHandoffComplete
+  jobCards: propJobCards
 }) => {
   const [showTable, setShowTable] = useState(true);
   const [addingPartsJc, setAddingPartsJc] = useState<any>(null);

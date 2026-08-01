@@ -76,7 +76,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
   const [suppliers, setSuppliers] = useState<SupplierType[]>([]);
   const [jobcards, setJobcards] = useState<JobCardType[]>([]);
   const [sales, setSales] = useState<any[]>([]);
-  const [localDataTick, setLocalDataTick] = useState(0);
+  const [, setLocalDataTick] = useState(0);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -208,14 +208,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
 
   // Real-time calculation for Service Bills
   let serviceBillsCount = 24;
-  let recentServiceBillsList: any[] = [];
   try {
     const savedServiceBills = localStorage.getItem('dms_service_bills');
     if (savedServiceBills) {
       const parsed = JSON.parse(savedServiceBills);
       if (Array.isArray(parsed) && parsed.length > 0) {
         serviceBillsCount = parsed.length;
-        recentServiceBillsList = parsed;
       }
     }
   } catch (e) {}

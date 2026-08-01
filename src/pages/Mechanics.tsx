@@ -34,7 +34,6 @@ import {
   AlertTriangle,
   Download,
   Clock,
-  Star,
   ThumbsUp,
   Printer,
   Award,
