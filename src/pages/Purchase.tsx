@@ -25,7 +25,8 @@ import {
   Wallet,
   QrCode,
   Smartphone,
-  ExternalLink
+  ExternalLink,
+  History
 } from 'lucide-react';
 
 import {
@@ -47,6 +48,14 @@ import PrintIcon from '@mui/icons-material/Print';
 import BusinessIcon from '@mui/icons-material/Business';
 
 // Interfaces
+export interface PaymentHistoryItem {
+  id: string;
+  date: string;
+  amount: number;
+  mode?: string;
+  remarks?: string;
+}
+
 interface PurchaseOrder {
   id: string;
   invoiceNo: string;
@@ -66,6 +75,7 @@ interface PurchaseOrder {
   balance?: number;
   paymentMode?: string;
   remarks?: string;
+  payments?: PaymentHistoryItem[];
 }
 
 interface ReturnItem {
@@ -81,6 +91,7 @@ interface PurchaseReturn {
   poRef: string;
   supplier: string;
   date: string;
+  purchaseDate?: string;
   productName?: string;
   itemsCount: number;
   refundValue: number;
@@ -127,6 +138,16 @@ interface PurchaseProps {
 
 const getTodayFormattedDate = () => {
   return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const cleanReasonDisplay = (reasonStr?: string) => {
+  if (!reasonStr) return '-';
+  return reasonStr
+    .split(/\s*\|\s*/)
+    .map(segment => segment.replace(/^[^:]+:\s*/, '').trim())
+    .filter(Boolean)
+    .filter((value, index, self) => self.indexOf(value) === index)
+    .join(', ') || reasonStr;
 };
 
 export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliersList = [] }) => {
@@ -280,39 +301,69 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     return initialSyncedData.purchases;
   });
 
-  // Initial Returns
-  const [returns, setReturns] = useState<PurchaseReturn[]>([
-    {
-      id: 'RET-2023-010',
-      poRef: 'PO-2026-0942',
-      supplier: 'Elite Motors Wholesale',
-      date: 'Oct 25, 2023',
-      itemsCount: 5,
-      refundValue: 550.00,
-      reason: 'Defective alternators',
-      status: 'COMPLETED'
-    },
-    {
-      id: 'RET-2023-009',
-      poRef: 'PO-2026-0938',
-      supplier: 'Apex Hydraulics',
-      date: 'Oct 20, 2023',
-      itemsCount: 2,
-      refundValue: 300.00,
-      reason: 'Incorrect size fittings',
-      status: 'PENDING'
-    },
-    {
-      id: 'RET-2023-008',
-      poRef: 'PO-2026-0940',
-      supplier: 'Global Tyres Ltd.',
-      date: 'Oct 14, 2023',
-      itemsCount: 8,
-      refundValue: 960.00,
-      reason: 'Sidewall rubber cracking',
-      status: 'COMPLETED'
-    }
-  ]);
+  // Initial Returns with localStorage persistence
+  const [returns, setReturns] = useState<PurchaseReturn[]>(() => {
+    try {
+      const saved = localStorage.getItem('dms_purchase_returns_list');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return [
+      {
+        id: 'RET-2023-010',
+        poRef: 'PO-2026-0942',
+        supplier: 'Elite Motors Wholesale',
+        date: getTodayFormattedDate(),
+        purchaseDate: 'Oct 20, 2023',
+        itemsCount: 5,
+        refundValue: 550.00,
+        reason: 'Defective alternators',
+        status: 'COMPLETED',
+        productName: 'Heavy Duty Alternator 12V 100A',
+        items: [
+          { id: '1', productName: 'Heavy Duty Alternator 12V 100A', qty: 5, amount: 550.00, reason: 'Defective alternators' }
+        ]
+      },
+      {
+        id: 'RET-2023-009',
+        poRef: 'PO-2026-0938',
+        supplier: 'Apex Hydraulics',
+        date: getTodayFormattedDate(),
+        purchaseDate: 'Oct 15, 2023',
+        itemsCount: 2,
+        refundValue: 300.00,
+        reason: 'Incorrect size fittings',
+        status: 'PENDING',
+        productName: 'Hydraulic Fitting Set',
+        items: [
+          { id: '1', productName: 'Hydraulic Fitting Set', qty: 2, amount: 300.00, reason: 'Incorrect size fittings' }
+        ]
+      },
+      {
+        id: 'RET-2023-008',
+        poRef: 'PO-2026-0940',
+        supplier: 'Global Tyres Ltd.',
+        date: getTodayFormattedDate(),
+        purchaseDate: 'Oct 10, 2023',
+        itemsCount: 8,
+        refundValue: 960.00,
+        reason: 'Sidewall rubber cracking',
+        status: 'COMPLETED',
+        productName: 'Commercial Radial Tyre 10.00R20',
+        items: [
+          { id: '1', productName: 'Commercial Radial Tyre 10.00R20', qty: 8, amount: 960.00, reason: 'Sidewall rubber cracking' }
+        ]
+      }
+    ];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('dms_purchase_returns_list', JSON.stringify(returns));
+    } catch (e) {}
+  }, [returns]);
 
   // Helper for invoice financial status
   const getPaidAmount = (inv: SupplierInvoice) => {
@@ -536,6 +587,58 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     setPurchaseItems(purchaseItems.filter(item => item.id !== id));
   };
 
+  // View & Edit Return Modal state
+  const [viewingReturn, setViewingReturn] = useState<PurchaseReturn | null>(null);
+  const [editingReturn, setEditingReturn] = useState<PurchaseReturn | null>(null);
+
+  const handleViewReturn = (ret: PurchaseReturn) => {
+    setViewingReturn(ret);
+  };
+
+  const handleStartNewReturn = () => {
+    setEditingReturn(null);
+    setNewRetId(`RET-2026-${String(returns.length + 1).padStart(3, '0')}`);
+    setNewRetSupplier(activeSuppliersList[0]?.name || suppliersList.filter(s => s !== 'All')[0] || '');
+    setNewRetPoRef(purchases[0]?.id || 'PO-2026-0942');
+    setNewRetDate(getTodayFormattedDate());
+    setNewRetStatus('PENDING');
+    setNewRetItems([]);
+    setRetLineProdName('');
+    setRetLineQty(1);
+    setRetLineAmount('');
+    setRetLineReason('');
+    setShowNewReturnModal(true);
+  };
+
+  const handleStartEditReturn = (ret: PurchaseReturn) => {
+    setEditingReturn(ret);
+    setNewRetId(ret.id);
+    setNewRetSupplier(ret.supplier || activeSuppliersList[0]?.name || '');
+    setNewRetPoRef(ret.poRef || '');
+    setNewRetDate(ret.date || getTodayFormattedDate());
+    setNewRetStatus(ret.status || 'PENDING');
+
+    if (ret.items && ret.items.length > 0) {
+      setNewRetItems(JSON.parse(JSON.stringify(ret.items)));
+    } else {
+      setNewRetItems([
+        {
+          id: `ret-item-${Date.now()}-1`,
+          productName: ret.productName || 'Returned Component / Part',
+          qty: ret.itemsCount || 1,
+          amount: ret.refundValue || 0,
+          reason: ret.reason || 'Defective'
+        }
+      ]);
+    }
+
+    setRetLineProdName('');
+    setRetLineQty(1);
+    setRetLineAmount('');
+    setRetLineReason('');
+    setShowNewReturnModal(true);
+  };
+
   // Return form state
   const [newRetId, setNewRetId] = useState('RET-2023-011');
   const [newRetSupplier, setNewRetSupplier] = useState(activeSuppliersList[0]?.name || '');
@@ -683,6 +786,16 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     const bgColors = ['bg-indigo-500', 'bg-[#184edb]', 'bg-emerald-500', 'bg-purple-500'];
     const randomBg = bgColors[Math.floor(Math.random() * bgColors.length)];
 
+    const initialPaymentsArr: PaymentHistoryItem[] = creditVal > 0 ? [
+      {
+        id: `pay-${Date.now()}`,
+        date: newPoDate || getTodayFormattedDate(),
+        amount: creditVal,
+        mode: newPoPaymentMode || 'Cash',
+        remarks: newPoRemarks || 'Initial Payment'
+      }
+    ] : [];
+
     const newPO: PurchaseOrder = {
       id: newPoId || `PO-2026-${Math.floor(1000 + Math.random() * 9000)}`,
       invoiceNo: newPoInvoice || `INV-${Math.floor(10000 + Math.random() * 90000)}`,
@@ -703,7 +816,8 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
       credit: creditVal,
       balance: balanceVal,
       paymentMode: newPoPaymentMode,
-      remarks: newPoRemarks
+      remarks: newPoRemarks,
+      payments: initialPaymentsArr
     };
 
     setPurchases(prev => {
@@ -736,7 +850,36 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
   // Edit Handlers
   const handleStartEditPurchase = (po: PurchaseOrder) => {
-    setEditingPurchase(po);
+    let paymentsArr = po.payments;
+    if (!paymentsArr || paymentsArr.length === 0) {
+      let initialPaidAmount = 0;
+      if (po.credit !== undefined && po.credit > 0) {
+        initialPaidAmount = po.credit;
+      } else if (po.debit !== undefined && po.debit > 0 && po.debit < po.grandTotal) {
+        initialPaidAmount = po.debit;
+      } else if (po.debit !== undefined && po.balance !== undefined) {
+        initialPaidAmount = Math.max(0, po.grandTotal - po.balance);
+      } else if (po.status === 'PAID') {
+        initialPaidAmount = po.grandTotal;
+      } else if (po.status === 'PARTIAL') {
+        initialPaidAmount = Math.round(po.grandTotal / 2);
+      }
+
+      if (initialPaidAmount > 0) {
+        paymentsArr = [{
+          id: `pay-init-${po.id}`,
+          date: po.date || getTodayFormattedDate(),
+          amount: initialPaidAmount,
+          mode: po.paymentMode || 'Cash',
+          remarks: 'Initial Payment'
+        }];
+      } else {
+        paymentsArr = [];
+      }
+    }
+
+    const updatedPoWithPayments = { ...po, payments: paymentsArr };
+    setEditingPurchase(updatedPoWithPayments);
     setEditPoId(po.id);
     setEditPoType(po.type || 'PURCHASE');
     setEditPoInvoice(po.invoiceNo || '');
@@ -744,21 +887,8 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     setEditPoDate(po.date || getTodayFormattedDate());
     setEditPoPaymentMode(po.paymentMode || (po.status === 'PAID' ? 'Paid' : 'Credit Account'));
 
-    // Extract exact paid amount stored on this Purchase Order
-    let initialPaidAmount = 0;
-    if (po.credit !== undefined && po.credit > 0) {
-      initialPaidAmount = po.credit;
-    } else if (po.debit !== undefined && po.debit > 0 && po.debit < po.grandTotal) {
-      initialPaidAmount = po.debit;
-    } else if (po.debit !== undefined && po.balance !== undefined) {
-      initialPaidAmount = Math.max(0, po.grandTotal - po.balance);
-    } else if (po.status === 'PAID') {
-      initialPaidAmount = po.grandTotal;
-    } else if (po.status === 'PARTIAL') {
-      initialPaidAmount = Math.round(po.grandTotal / 2);
-    }
-
-    setEditPoCredit(initialPaidAmount);
+    // Reset Amount Paid Now to empty string so user can type amount to pay now
+    setEditPoCredit('');
     setEditPoDescription(po.description || '');
     setEditPoRemarks(po.remarks || '');
 
@@ -823,13 +953,29 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
       : (Number(editPoAdditionalCharges) || editingPurchase.grandTotal);
     
     const debitVal = Math.max(0, calculatedTotal);
-    const creditVal = Number(editPoCredit) || 0;
-    const balanceVal = Math.max(0, debitVal - creditVal);
+    const amountPaidNow = Number(editPoCredit) || 0;
+
+    const existingPayments = editingPurchase.payments || [];
+    let updatedPayments = [...existingPayments];
+
+    if (amountPaidNow > 0) {
+      const newPaymentItem: PaymentHistoryItem = {
+        id: `pay-${Date.now()}`,
+        date: getTodayFormattedDate(),
+        amount: amountPaidNow,
+        mode: editPoPaymentMode || 'Paid',
+        remarks: editPoRemarks || 'Payment Installment'
+      };
+      updatedPayments.push(newPaymentItem);
+    }
+
+    const totalPaidVal = updatedPayments.reduce((acc, p) => acc + p.amount, 0);
+    const balanceVal = Math.max(0, debitVal - totalPaidVal);
 
     let statusVal: 'PAID' | 'PARTIAL' | 'PENDING' = 'PAID';
     if (balanceVal === 0) {
       statusVal = 'PAID';
-    } else if (creditVal > 0 && balanceVal > 0) {
+    } else if (totalPaidVal > 0 && balanceVal > 0) {
       statusVal = 'PARTIAL';
     } else {
       statusVal = 'PENDING';
@@ -856,11 +1002,12 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
       items: editPurchaseItems.length > 0 ? [...editPurchaseItems] : editingPurchase.items,
       type: editPoType,
       description: finalDescription,
-      debit: creditVal,
-      credit: creditVal,
+      debit: totalPaidVal,
+      credit: totalPaidVal,
       balance: balanceVal,
       paymentMode: editPoPaymentMode,
-      remarks: editPoRemarks
+      remarks: editPoRemarks,
+      payments: updatedPayments
     };
 
     setPurchases(prev => {
@@ -875,7 +1022,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     alert(`Purchase Order ${updatedPO.id} updated successfully!`);
   };
 
-  // Handle New Return Submit
+  // Handle Create or Update Return Submit
   const handleCreateReturn = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -900,14 +1047,20 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
     const totalQty = itemsToSave.reduce((acc, i) => acc + i.qty, 0);
     const totalRefundVal = itemsToSave.reduce((acc, i) => acc + i.amount, 0);
-    const summaryReasons = itemsToSave.map(i => `${i.productName}: ${i.reason}`).join(' | ');
+    const summaryReasons = Array.from(
+      new Set(
+        itemsToSave
+          .map(i => i.reason ? i.reason.replace(/^[^:]+:\s*/, '').trim() : '')
+          .filter(Boolean)
+      )
+    ).join(', ') || 'Purchase Return';
     const mainProdName = itemsToSave.length === 1 ? itemsToSave[0].productName : `${itemsToSave[0].productName} (+${itemsToSave.length - 1} items)`;
 
-    const newReturn: PurchaseReturn = {
+    const returnRecordObj: PurchaseReturn = {
       id: newRetId,
       poRef: newRetPoRef,
       supplier: newRetSupplier,
-      date: newRetDate,
+      date: newRetDate || getTodayFormattedDate(),
       productName: mainProdName,
       itemsCount: totalQty,
       refundValue: totalRefundVal,
@@ -916,10 +1069,28 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
       items: itemsToSave
     };
 
-    setReturns([newReturn, ...returns]);
-    setShowNewReturnModal(false);
+    if (editingReturn) {
+      // UPDATE EXISTING RETURN RECORD
+      const updatedReturns = returns.map(r => r.id === editingReturn.id ? returnRecordObj : r);
+      setReturns(updatedReturns);
+      try {
+        localStorage.setItem('dms_purchase_returns_list', JSON.stringify(updatedReturns));
+      } catch (err) {}
+      setEditingReturn(null);
+      setShowNewReturnModal(false);
+      alert(`Purchase Return ${newRetId} updated successfully!`);
+    } else {
+      // CREATE NEW RETURN RECORD
+      const updatedReturns = [returnRecordObj, ...returns];
+      setReturns(updatedReturns);
+      try {
+        localStorage.setItem('dms_purchase_returns_list', JSON.stringify(updatedReturns));
+      } catch (err) {}
+      setShowNewReturnModal(false);
+      alert(`Purchase Return ${newRetId} created successfully!`);
+    }
 
-    // Reset Form
+    // Reset Form State
     setNewRetItems([]);
     setRetLineProdName('');
     setRetLineQty(1);
@@ -927,8 +1098,6 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     setRetLineReason('');
     setNewRetId(`RET-2026-${String(returns.length + 2).padStart(3, '0')}`);
     setNewRetDate(getTodayFormattedDate());
-    setRetLineAmount('');
-    setRetLineReason('');
   };
 
   const handleCreateInvoice = (e: React.FormEvent) => {
@@ -1170,7 +1339,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
   const totalPendingInvoicesCount = invoices.filter(i => i.status !== 'PAID').length;
   const unpaidInvoicesCount = totalPendingInvoicesCount;
   const totalOverdueInvoicesCount = invoices.filter(i => i.status === 'OVERDUE').length;
-  const uniqueSuppliersCount = new Set(invoices.map(i => i.supplier)).size;
+  const uniqueSuppliersCount = new Set(invoices.map(i => (i.supplier || '').trim()).filter(Boolean)).size;
 
   // Returns Metrics (overall returns)
   const totalReturnsCount = returns.length;
@@ -1178,9 +1347,9 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
   const totalRefundsValue = returns.filter(r => r.status === 'COMPLETED').reduce((acc, r) => acc + r.refundValue, 0);
 
   // Supplier Breakdown Data (Ethana supplier ku ethana bill)
-  const supplierBillSummary = Array.from(new Set(invoices.map(i => i.supplier))).map(sup => {
-    const supInvoices = invoices.filter(i => i.supplier === sup);
-    const totalAmt = supInvoices.reduce((a, b) => a + b.amount, 0);
+  const supplierBillSummary = Array.from(new Set(invoices.map(i => (i.supplier || '').trim()).filter(Boolean))).map(sup => {
+    const supInvoices = invoices.filter(i => (i.supplier || '').trim().toLowerCase() === sup.toLowerCase());
+    const totalAmt = supInvoices.reduce((a, b) => a + (b.amount || 0), 0);
     const paidAmt = supInvoices.reduce((a, b) => a + getPaidAmount(b), 0);
     const balDue = supInvoices.reduce((a, b) => a + getBalanceDue(b), 0);
     const paidCount = supInvoices.filter(i => i.status === 'PAID').length;
@@ -2056,6 +2225,59 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
           </span>
         </div>
 
+        {/* PAYMENT HISTORY & INSTALLMENTS BREAKDOWN ON INVOICE */}
+        {(() => {
+          const payList: PaymentHistoryItem[] = (po.payments && po.payments.length > 0)
+            ? po.payments
+            : (paidVal > 0 ? [{ id: 'pay-legacy', date: po.date || 'N/A', amount: paidVal, mode: po.paymentMode || 'Cash', remarks: 'Initial Payment' }] : []);
+          
+          if (payList.length === 0) return null;
+
+          return (
+            <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/70 flex flex-col gap-2 my-1 text-left">
+              <div className="flex items-center justify-between">
+                <span className="text-[10.5px] font-black text-[#184edb] uppercase tracking-wider flex items-center gap-1.5">
+                  <History size={13} className="text-[#184edb]" />
+                  <span>Payment History & Installments Breakdown</span>
+                </span>
+                <span className="text-[10px] font-bold text-slate-500">
+                  Total Installments Paid: <strong className="text-emerald-700 font-extrabold">₹{paidVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                </span>
+              </div>
+              <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-500 text-[9.5px] font-bold uppercase tracking-wider border-b border-slate-200">
+                      <th className="py-2 px-3">#</th>
+                      <th className="py-2 px-3">Date</th>
+                      <th className="py-2 px-3">Payment Mode</th>
+                      <th className="py-2 px-3 text-right">Amount Paid</th>
+                      <th className="py-2 px-3">Remarks / Reference</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-[11px] font-semibold text-slate-700">
+                    {payList.map((item, idx) => (
+                      <tr key={item.id || idx} className="hover:bg-slate-50/40">
+                        <td className="py-1.5 px-3 font-bold text-slate-400">{String(idx + 1).padStart(2, '0')}</td>
+                        <td className="py-1.5 px-3 font-bold text-slate-800">{item.date}</td>
+                        <td className="py-1.5 px-3">
+                          <span className="px-2 py-0.5 rounded text-[9px] font-extrabold bg-blue-50 text-blue-700 border border-blue-100">
+                            {item.mode || po.paymentMode || 'Cash'}
+                          </span>
+                        </td>
+                        <td className="py-1.5 px-3 text-right font-extrabold text-emerald-700">
+                          ₹{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-1.5 px-3 text-slate-500 text-[10px]">{item.remarks || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Bottom Instructions and Totals */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start mt-1">
           {/* Left Instructions */}
@@ -2385,86 +2607,6 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
           </div>
         </div>
 
-        {/* Bottom Grid: Payment History Card (Left) & Internal Notes Card (Right) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-          {/* Left Card: Payment History */}
-          <div className="lg:col-span-6 bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col justify-between">
-            <div className="flex items-center gap-2 text-slate-800 font-bold text-base mb-4 font-heading">
-              <RotateCcw size={18} className="text-[#184edb]" />
-              <span>Payment History</span>
-            </div>
-
-            <div className="flex flex-col gap-3 mb-4">
-              {paidAmt > 0 ? (
-                <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3.5 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                      <CheckCircle size={16} />
-                    </div>
-                    <div className="flex flex-col text-xs">
-                      <span className="font-extrabold text-slate-900">Partial Payment #PAY-{inv.id.replace(/[^0-9]/g, '') || '1022'}</span>
-                      <span className="text-slate-400 font-medium">via Bank Transfer • {inv.issueDate}</span>
-                    </div>
-                  </div>
-                  <span className="font-extrabold text-emerald-600 text-sm">+ ₹{paidAmt.toLocaleString()}</span>
-                </div>
-              ) : null}
-
-              {/* Dashed Add Payment Box */}
-              <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center gap-2 text-center bg-slate-50/30">
-                <span className="text-xs text-slate-400 font-semibold">
-                  {paidAmt > 0 ? 'No other transactions recorded' : 'No payment recorded yet'}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQrPaymentInvoice(inv);
-                    setCustomPaymentAmount(balDue);
-                    setShowQrPaymentModal(true);
-                  }}
-                  className="text-[#184edb] font-bold text-xs hover:underline cursor-pointer bg-transparent border-none p-0"
-                >
-                  Add New Payment
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Card: Internal Notes */}
-          <div className="lg:col-span-6 bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col justify-between">
-            <div className="flex items-center gap-2 text-slate-800 font-bold text-base mb-4 font-heading">
-              <FileText size={18} className="text-[#184edb]" />
-              <span>Internal Notes</span>
-            </div>
-
-            {/* Note Yellow Card */}
-            <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-4 mb-4 text-xs text-amber-900 flex flex-col gap-2">
-              <p className="m-0 italic leading-relaxed font-medium">
-                "Customer requested to pay the balance in two installments by the end of next month. Approval pending from Finance Department."
-              </p>
-              <span className="text-[10.5px] font-bold text-amber-700 self-end">— Added by Admin on {inv.issueDate}</span>
-            </div>
-
-            {/* Textarea & Save Button */}
-            <div className="flex flex-col gap-3">
-              <textarea
-                rows={2}
-                placeholder="Add a note..."
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-[#184edb] resize-none"
-              />
-              <button
-                type="button"
-                onClick={() => alert('Internal note saved successfully!')}
-                className="self-end bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shadow border-none"
-              >
-                Save Note
-              </button>
-            </div>
-          </div>
-
-        </div>
-
       </div>
     );
   }
@@ -2536,7 +2678,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
           )}
           {subTab === 'return' && (
             <button
-              onClick={() => setShowNewReturnModal(true)}
+              onClick={handleStartNewReturn}
               className="flex items-center gap-2 bg-[#184edb] hover:bg-[#133eb5] text-white font-semibold text-[13.5px] px-4.5 py-2.5 rounded-lg border-none shadow-md cursor-pointer transition-all duration-200"
             >
               <Plus size={16} />
@@ -3244,14 +3386,14 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                         <div className="flex items-center justify-end gap-3.5">
                           <button
                             onClick={() => setSelectedPurchase(p)}
-                            className="text-slate-400 hover:text-[#184edb] p-0 border-none bg-transparent cursor-pointer transition-colors"
+                            className="p-1.5 text-blue-600 hover:text-blue-700 bg-blue-50/80 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200/60 cursor-pointer shadow-2xs"
                             title="View Details"
                           >
                             <Eye size={16} />
                           </button>
                           <button
                             onClick={() => handleStartEditPurchase(p)}
-                            className="text-slate-400 hover:text-slate-700 p-0 border-none bg-transparent cursor-pointer transition-colors"
+                            className="p-1.5 text-amber-600 hover:text-amber-700 bg-amber-50/80 hover:bg-amber-100 rounded-lg transition-colors border border-amber-200/60 cursor-pointer shadow-2xs"
                             title="Edit Purchase Order"
                           >
                             <Pencil size={16} />
@@ -3261,14 +3403,14 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                               setSelectedPurchase(p);
                               setShouldTriggerPrint(true);
                             }}
-                            className="text-slate-400 hover:text-slate-700 p-0 border-none bg-transparent cursor-pointer transition-colors"
+                            className="p-1.5 text-emerald-600 hover:text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200/60 cursor-pointer shadow-2xs"
                             title="Print"
                           >
                             <Printer size={16} />
                           </button>
                           <button
                             onClick={() => handleDeletePurchase(p.id)}
-                            className="text-slate-400 hover:text-rose-600 p-0 border-none bg-transparent cursor-pointer transition-colors"
+                            className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50/80 hover:bg-rose-100 rounded-lg transition-colors border border-rose-200/60 cursor-pointer shadow-2xs"
                             title="Delete"
                           >
                             <Trash2 size={16} />
@@ -3352,16 +3494,9 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                       <td className="py-4 px-5 font-semibold text-slate-650 whitespace-nowrap">
                         <button
                           type="button"
-                          onClick={() => {
-                            const targetPo = purchases.find(p => p.id.toLowerCase() === r.poRef.toLowerCase());
-                            if (targetPo) {
-                              handleStartEditPurchase(targetPo);
-                            } else {
-                              alert(`Purchase Order details for ${r.poRef} not found in current records.`);
-                            }
-                          }}
+                          onClick={() => handleViewReturn(r)}
                           className="text-[#184edb] hover:text-[#133eb5] font-bold hover:underline cursor-pointer border-none bg-transparent p-0 text-left inline-flex items-center gap-1 group"
-                          title={`Click to view and edit Purchase Order ${r.poRef}`}
+                          title={`Click to view Return details for ${r.poRef}`}
                         >
                           <span>{r.poRef}</span>
                           <ExternalLink size={13} className="opacity-70 group-hover:opacity-100 transition-opacity" />
@@ -3375,7 +3510,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
                       {/* Return Date */}
                       <td className="py-4 px-5 text-slate-650 font-medium whitespace-nowrap">
-                        {r.date}
+                        {r.date || getTodayFormattedDate()}
                       </td>
 
                       {/* Qty & Product */}
@@ -3395,7 +3530,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
                       {/* Reason */}
                       <td className="py-4 px-5 text-slate-600 font-medium">
-                        {r.reason}
+                        {cleanReasonDisplay(r.reason)}
                       </td>
 
                       {/* Status */}
@@ -3419,17 +3554,35 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
                       {/* Actions */}
                       <td className="py-4 px-6 whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-3.5">
+                        <div className="flex items-center justify-end gap-2">
                           <button
+                            type="button"
+                            onClick={() => handleViewReturn(r)}
+                            className="p-2 text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-100 cursor-pointer"
+                            title="View Return Details"
+                          >
+                            <Eye size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditReturn(r)}
+                            className="p-2 text-amber-600 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors border border-amber-100 cursor-pointer"
+                            title="Edit Return"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => alert(`Refund slip for Return: ${r.id}`)}
-                            className="text-slate-400 hover:text-slate-700 p-0 border-none bg-transparent cursor-pointer transition-colors"
+                            className="p-2 text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200 cursor-pointer"
                             title="Print Return Slip"
                           >
                             <Printer size={16} />
                           </button>
                           <button
+                            type="button"
                             onClick={() => handleDeleteReturn(r.id)}
-                            className="text-slate-400 hover:text-rose-600 p-0 border-none bg-transparent cursor-pointer transition-colors"
+                            className="p-2 text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors border border-rose-100 cursor-pointer"
                             title="Delete"
                           >
                             <Trash2 size={16} />
@@ -3543,22 +3696,33 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                         <td className="py-4 px-6 whitespace-nowrap">
                           <div className="flex items-center justify-end gap-3.5">
                             <button
+                              onClick={() => {
+                                setQrPaymentInvoice(i);
+                                setCustomPaymentAmount(getBalanceDue(i));
+                                setShowQrPaymentModal(true);
+                              }}
+                              className="p-1.5 text-purple-600 hover:text-purple-700 bg-purple-50/80 hover:bg-purple-100 rounded-lg transition-colors border border-purple-200/60 cursor-pointer shadow-2xs"
+                              title="Pay via UPI QR Code"
+                            >
+                              <QrCode size={16} />
+                            </button>
+                            <button
                               onClick={() => setSelectedInvoice(i)}
-                              className="text-slate-400 hover:text-[#184edb] p-0 border-none bg-transparent cursor-pointer transition-colors"
+                              className="p-1.5 text-blue-600 hover:text-blue-700 bg-blue-50/80 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200/60 cursor-pointer shadow-2xs"
                               title="View & Edit Invoice Details"
                             >
                               <Eye size={16} />
                             </button>
                             <button
                               onClick={() => alert(`Downloading Invoice PDF: ${i.id}`)}
-                              className="text-slate-400 hover:text-[#184edb] p-0 border-none bg-transparent cursor-pointer transition-colors"
+                              className="p-1.5 text-emerald-600 hover:text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200/60 cursor-pointer shadow-2xs"
                               title="Download PDF"
                             >
                               <Download size={16} />
                             </button>
                             <button
                               onClick={() => handleDeleteInvoice(i.id)}
-                              className="text-slate-400 hover:text-rose-600 p-0 border-none bg-transparent cursor-pointer transition-colors"
+                              className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50/80 hover:bg-rose-100 rounded-lg transition-colors border border-rose-200/60 cursor-pointer shadow-2xs"
                               title="Delete Invoice"
                             >
                               <Trash2 size={16} />
@@ -4219,92 +4383,89 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                 )}
               </div>
 
-              {/* Financials Ledger Box (Total Amount, Amount Paid / Debit, Balance Outstanding) */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-blue-50/40 p-4 rounded-xl border border-blue-100">
-                {/* 1. Total Amount (Grand Total) */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider flex items-center justify-between">
-                    <span>Total Amount (₹)</span>
-                    <span className="text-[10px] text-slate-400 font-normal">(Grand Total)</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={
-                      editPurchaseItems.length > 0 
-                        ? Math.round(editPurchaseItems.reduce((acc, i) => acc + (i.qty * i.rate * (1 + i.gstPercent/100)), 0) + Number(editPoAdditionalCharges) - Number(editPoDiscount))
-                        : (Number(editPoAdditionalCharges) || editingPurchase.grandTotal)
-                    }
-                    onChange={(e) => setEditPoAdditionalCharges(Number(e.target.value))}
-                    className="p-2.5 border border-slate-200 rounded-lg text-sm font-bold text-[#184edb] bg-white"
-                  />
-                </div>
+              {/* Financials Ledger Box & Payment History Breakdown */}
+              {(() => {
+                const totalVal = editPurchaseItems.length > 0 
+                  ? Math.round(editPurchaseItems.reduce((acc, i) => acc + (i.qty * i.rate * (1 + i.gstPercent/100)), 0) + Number(editPoAdditionalCharges) - Number(editPoDiscount))
+                  : (Number(editPoAdditionalCharges) || editingPurchase.grandTotal);
+                
+                const pastPayments = editingPurchase.payments || [];
+                const pastPaidTotal = pastPayments.reduce((acc, p) => acc + p.amount, 0);
+                const paidNowVal = Number(editPoCredit) || 0;
+                const cumPaidVal = pastPaidTotal + paidNowVal;
+                const balVal = Math.max(0, totalVal - cumPaidVal);
+                const statusTag = balVal === 0 ? 'PAID' : (cumPaidVal > 0 ? 'PARTIAL' : 'PENDING');
 
-                {/* 2. Amount Paid (Debit / Credit) */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-extrabold text-emerald-700 uppercase tracking-wider flex items-center justify-between">
-                    <span>Amount Paid (₹)</span>
-                    <span className="text-[10px] text-emerald-600 font-bold">(Paid Now)</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={editPoCredit}
-                    onChange={(e) => setEditPoCredit(e.target.value)}
-                    className="p-2.5 border border-emerald-300 rounded-lg text-sm font-bold text-emerald-800 bg-white focus:outline-none focus:border-emerald-500"
-                  />
-                  {/* Presets */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const tot = editPurchaseItems.length > 0 
-                          ? Math.round(editPurchaseItems.reduce((acc, i) => acc + (i.qty * i.rate * (1 + i.gstPercent/100)), 0) + Number(editPoAdditionalCharges) - Number(editPoDiscount))
-                          : (Number(editPoAdditionalCharges) || editingPurchase.grandTotal);
-                        setEditPoCredit(tot);
-                      }}
-                      className="text-[9.5px] font-bold bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded cursor-pointer"
-                    >
-                      Full Paid
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const tot = editPurchaseItems.length > 0 
-                          ? Math.round(editPurchaseItems.reduce((acc, i) => acc + (i.qty * i.rate * (1 + i.gstPercent/100)), 0) + Number(editPoAdditionalCharges) - Number(editPoDiscount))
-                          : (Number(editPoAdditionalCharges) || editingPurchase.grandTotal);
-                        setEditPoCredit(Math.round(tot / 2));
-                      }}
-                      className="text-[9.5px] font-bold bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded cursor-pointer"
-                    >
-                      50%
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditPoCredit(0)}
-                      className="text-[9.5px] font-bold bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 px-1.5 py-0.5 rounded cursor-pointer"
-                    >
-                      Credit (₹0)
-                    </button>
-                  </div>
-                </div>
+                return (
+                  <div className="flex flex-col gap-4">
+                    {/* Financials Summary Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-blue-50/40 p-4 rounded-xl border border-blue-100">
+                      {/* 1. Total Amount (Grand Total) */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider flex items-center justify-between">
+                          <span>Total Amount (₹)</span>
+                          <span className="text-[10px] text-slate-400 font-normal">(Grand Total)</span>
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          value={totalVal}
+                          onChange={(e) => setEditPoAdditionalCharges(Number(e.target.value))}
+                          className="p-2.5 border border-slate-200 rounded-lg text-sm font-bold text-[#184edb] bg-white"
+                        />
+                      </div>
 
-                {/* 3. Balance Outstanding (₹) */}
-                <div className="flex flex-col gap-1.5">
-                  {(() => {
-                    const totalVal = editPurchaseItems.length > 0 
-                      ? Math.round(editPurchaseItems.reduce((acc, i) => acc + (i.qty * i.rate * (1 + i.gstPercent/100)), 0) + Number(editPoAdditionalCharges) - Number(editPoDiscount))
-                      : Number(editPoAdditionalCharges) || editingPurchase.grandTotal;
-                    const paidVal = Number(editPoCredit) || 0;
-                    const balVal = Math.max(0, totalVal - paidVal);
-                    const statusTag = balVal === 0 ? 'PAID' : (paidVal > 0 ? 'PARTIAL' : 'PENDING');
+                      {/* 2. Amount Paid Now (Current Installment) */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-extrabold text-emerald-700 uppercase tracking-wider flex items-center justify-between">
+                          <span>Amount Paid Now (₹)</span>
+                          <span className="text-[10px] text-emerald-600 font-bold">(Current Installment)</span>
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="Enter amount to pay now..."
+                          value={editPoCredit}
+                          onChange={(e) => setEditPoCredit(e.target.value)}
+                          className="p-2.5 border border-emerald-300 rounded-lg text-sm font-bold text-emerald-800 bg-white focus:outline-none focus:border-emerald-500 shadow-sm"
+                        />
+                        {/* Presets */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const rem = Math.max(0, totalVal - pastPaidTotal);
+                              setEditPoCredit(rem);
+                            }}
+                            className="text-[9.5px] font-bold bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded cursor-pointer"
+                          >
+                            Full Remaining (₹{Math.max(0, totalVal - pastPaidTotal).toFixed(2)})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const rem = Math.max(0, totalVal - pastPaidTotal);
+                              setEditPoCredit(Math.round(rem / 2));
+                            }}
+                            className="text-[9.5px] font-bold bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded cursor-pointer"
+                          >
+                            50% Balance
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditPoCredit(0)}
+                            className="text-[9.5px] font-bold bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 px-1.5 py-0.5 rounded cursor-pointer"
+                          >
+                            Clear (₹0)
+                          </button>
+                        </div>
+                      </div>
 
-                    return (
-                      <>
+                      {/* 3. Balance Remaining (₹) */}
+                      <div className="flex flex-col gap-1.5">
                         <label className="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider flex items-center justify-between">
                           <span>Balance Amount (₹)</span>
                           <span className={`text-[9.5px] font-extrabold px-1.5 py-0.5 rounded uppercase ${
@@ -4325,11 +4486,59 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                             {balVal === 0 ? 'Fully Settled' : 'Unpaid Credit'}
                           </span>
                         </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
+                      </div>
+                    </div>
+
+                    {/* Payment History Breakdown inside Edit Purchase Modal */}
+                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60 flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[12px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                          <History size={16} className="text-[#184edb]" />
+                          <span>Payment History Breakdown ({pastPayments.length})</span>
+                        </span>
+                        <span className="text-[11px] font-semibold text-slate-500">
+                          Total Paid to Date: <strong className="text-emerald-700 font-extrabold">₹{pastPaidTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                        </span>
+                      </div>
+
+                      {pastPayments.length > 0 ? (
+                        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                          <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                              <tr className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
+                                <th className="p-2.5">Date</th>
+                                <th className="p-2.5">Payment Mode</th>
+                                <th className="p-2.5 text-right">Amount Paid (₹)</th>
+                                <th className="p-2.5">Remarks</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                              {pastPayments.map((pay, idx) => (
+                                <tr key={pay.id || idx} className="hover:bg-slate-50/50">
+                                  <td className="p-2.5 font-bold text-slate-800">{pay.date}</td>
+                                  <td className="p-2.5">
+                                    <span className="px-2.5 py-0.5 rounded text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-100">
+                                      {pay.mode || 'Cash'}
+                                    </span>
+                                  </td>
+                                  <td className="p-2.5 text-right font-extrabold text-emerald-700">
+                                    ₹{pay.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </td>
+                                  <td className="p-2.5 text-slate-500 text-[11px]">{pay.remarks || '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="p-3 text-center text-xs text-slate-400 font-medium bg-white rounded-lg border border-dashed border-slate-200">
+                          No past payment history recorded yet. Enter an amount in "Amount Paid Now" to record a payment installment.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Modal Actions */}
               <div className="flex items-center justify-end gap-3 mt-2 flex-shrink-0">
@@ -4353,7 +4562,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
         </div>
       )}
 
-      {/* 2. RECORD RETURN MODAL (MULTI-PRODUCT ITEM ENTRY WITH PER-ITEM REASON & AMOUNT) */}
+      {/* 2. RECORD / EDIT RETURN MODAL (MULTI-PRODUCT ITEM ENTRY WITH PER-ITEM REASON & AMOUNT) */}
       {showNewReturnModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 my-6 flex flex-col max-h-[90vh]">
@@ -4365,12 +4574,20 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                   <RotateCcw size={18} />
                 </div>
                 <div className="flex flex-col text-left">
-                  <span className="font-extrabold text-base">Record Purchase Return</span>
-                  <span className="text-[11.5px] text-blue-100 font-medium">Add returned products with individual reasons and amounts</span>
+                  <span className="font-extrabold text-base">
+                    {editingReturn ? `Edit Purchase Return (${editingReturn.id})` : 'Record Purchase Return'}
+                  </span>
+                  <span className="text-[11.5px] text-blue-100 font-medium">
+                    {editingReturn ? 'Update returned products, reasons, quantities and amounts' : 'Add returned products with individual reasons and amounts'}
+                  </span>
                 </div>
               </div>
               <button
-                onClick={() => setShowNewReturnModal(false)}
+                type="button"
+                onClick={() => {
+                  setShowNewReturnModal(false);
+                  setEditingReturn(null);
+                }}
                 className="text-white/80 hover:text-white border-none bg-transparent cursor-pointer p-1"
               >
                 <X size={20} />
@@ -4380,7 +4597,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
             <form onSubmit={handleCreateReturn} className="p-6 flex flex-col gap-5 overflow-y-auto box-border">
 
               {/* Header Info Section (Return ID, Supplier, PO Ref, Return Date, Refund Status) */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-4 gap-3 text-left">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-5 gap-3 text-left">
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Return ID</label>
                   <input
@@ -4427,6 +4644,17 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                       <option value={newRetPoRef}>{newRetPoRef}</option>
                     )}
                   </select>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Return Date *</label>
+                  <input
+                    type="text"
+                    value={newRetDate}
+                    onChange={(e) => setNewRetDate(e.target.value)}
+                    placeholder="e.g. Jul 30, 2026"
+                    className="p-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 bg-white focus:outline-none focus:border-[#184edb]"
+                  />
                 </div>
 
                 <div className="flex flex-col gap-1">
@@ -4709,7 +4937,10 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
               <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4 mt-2">
                 <button
                   type="button"
-                  onClick={() => setShowNewReturnModal(false)}
+                  onClick={() => {
+                    setShowNewReturnModal(false);
+                    setEditingReturn(null);
+                  }}
                   className="px-4 py-2 border border-slate-200 text-slate-650 font-semibold text-[13px] rounded-lg bg-white hover:bg-slate-50 cursor-pointer transition-colors"
                 >
                   Cancel
@@ -4719,7 +4950,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                   className="px-6 py-2.5 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-[13px] border-none rounded-lg cursor-pointer transition-colors shadow-md flex items-center gap-2"
                 >
                   <CheckCircle size={16} />
-                  <span>Save Purchase Return Record</span>
+                  <span>{editingReturn ? 'Update Purchase Return Record' : 'Save Purchase Return Record'}</span>
                 </button>
               </div>
 
@@ -4727,6 +4958,216 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
           </div>
         </div>
       )}
+
+      {/* VIEW RETURN DETAILS MODAL */}
+      {viewingReturn && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 my-6 flex flex-col max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-[#184edb] text-white flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+                  <Eye size={20} />
+                </div>
+                <div className="flex flex-col text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-lg tracking-tight">Return Details - {viewingReturn.id}</span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wide ${
+                      viewingReturn.status === 'COMPLETED' ? 'bg-emerald-400/20 text-emerald-100 border border-emerald-300/30' :
+                      viewingReturn.status === 'PENDING' ? 'bg-amber-400/20 text-amber-100 border border-amber-300/30' :
+                      'bg-rose-400/20 text-rose-100 border border-rose-300/30'
+                    }`}>
+                      {viewingReturn.status}
+                    </span>
+                  </div>
+                  <span className="text-[12px] text-blue-100 font-medium">
+                    PO Ref: {viewingReturn.poRef} • Supplier: {viewingReturn.supplier}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const retToEdit = viewingReturn;
+                    setViewingReturn(null);
+                    handleStartEditReturn(retToEdit);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-lg border border-white/20 transition-colors cursor-pointer"
+                  title="Edit Return"
+                >
+                  <Pencil size={14} />
+                  <span>Edit</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewingReturn(null)}
+                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer border-none"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1 text-left">
+              
+              {/* Info Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+                <div className="bg-white p-3 rounded-lg border border-slate-200/60 shadow-xs">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Supplier</span>
+                  <span className="text-sm font-bold text-slate-800 mt-0.5 block truncate" title={viewingReturn.supplier}>
+                    {viewingReturn.supplier}
+                  </span>
+                </div>
+
+                <div className="bg-white p-3 rounded-lg border border-slate-200/60 shadow-xs">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">PO Ref No.</span>
+                  <span className="text-sm font-bold text-[#184edb] mt-0.5 block">
+                    {viewingReturn.poRef}
+                  </span>
+                </div>
+
+                <div className="bg-white p-3 rounded-lg border border-slate-200/60 shadow-xs">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Purchase Date</span>
+                  <span className="text-sm font-bold text-slate-700 mt-0.5 block">
+                    {viewingReturn.purchaseDate || purchases.find(p => p.id.toLowerCase() === (viewingReturn.poRef || '').toLowerCase())?.date || 'N/A'}
+                  </span>
+                </div>
+
+                <div className="bg-white p-3 rounded-lg border border-slate-200/60 shadow-xs">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Return Date</span>
+                  <span className="text-sm font-bold text-slate-700 mt-0.5 block">
+                    {viewingReturn.date || getTodayFormattedDate()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Reason Banner if available */}
+              {viewingReturn.reason && (
+                <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3.5 flex items-start gap-2.5">
+                  <Info size={16} className="text-[#184edb] shrink-0 mt-0.5" />
+                  <div>
+                    <span className="text-xs font-bold text-slate-700 block">Overall Return Reason</span>
+                    <p className="text-xs text-slate-600 font-medium mt-0.5">{viewingReturn.reason}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Products Returned Table */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+                    Returned Products ({viewingReturn.items?.length || (viewingReturn.itemsCount || 1)})
+                  </h4>
+                  <span className="text-xs font-bold text-slate-500">
+                    Total Qty: {viewingReturn.items?.reduce((s, i) => s + (Number(i.qty) || 0), 0) || viewingReturn.itemsCount || 1}
+                  </span>
+                </div>
+
+                <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100/80 text-slate-600 font-bold border-b border-slate-200 uppercase text-[11px] tracking-wider">
+                        <th className="py-3 px-4">#</th>
+                        <th className="py-3 px-4">Product Name</th>
+                        <th className="py-3 px-4 text-center">Qty</th>
+                        <th className="py-3 px-4 text-right">Amount</th>
+                        <th className="py-3 px-4">Reason</th>
+                        <th className="py-3 px-4 text-center">Refund Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(() => {
+                        const displayItems = viewingReturn.items && viewingReturn.items.length > 0
+                          ? viewingReturn.items
+                          : [{
+                              id: '1',
+                              productName: viewingReturn.productName || 'Returned Component / Part',
+                              qty: viewingReturn.itemsCount || 1,
+                              amount: viewingReturn.refundValue || 0,
+                              reason: viewingReturn.reason || 'Defective'
+                            }];
+
+                        return displayItems.map((item, idx) => (
+                          <tr key={item.id || idx} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="py-3 px-4 font-bold text-slate-400">{idx + 1}</td>
+                            <td className="py-3 px-4 font-bold text-slate-800">{item.productName}</td>
+                            <td className="py-3 px-4 text-center font-bold text-slate-700">{item.qty}</td>
+                            <td className="py-3 px-4 text-right font-extrabold text-slate-900">
+                              ₹{(Number(item.amount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-3 px-4 font-medium text-slate-600">{item.reason || viewingReturn.reason || '-'}</td>
+                            <td className="py-3 px-4 text-center">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold ${
+                                viewingReturn.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                                viewingReturn.status === 'PENDING' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                                'bg-rose-50 text-rose-600 border border-rose-100'
+                              }`}>
+                                {viewingReturn.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ));
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Total Amount Summary Box */}
+              <div className="bg-gradient-to-r from-blue-50 via-slate-50 to-blue-50/30 p-4 rounded-xl border border-blue-100 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-[#184edb]/10 text-[#184edb] flex items-center justify-center font-bold">
+                    ₹
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Total Refund Amount</span>
+                    <span className="text-xs text-slate-500 font-medium">Total value calculated from return items</span>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-xs font-bold text-slate-400 block uppercase tracking-wider">Grand Total</span>
+                  <span className="text-2xl font-black text-[#184edb]">
+                    ₹{(viewingReturn.refundValue || (viewingReturn.items?.reduce((s, i) => s + (Number(i.amount) || 0), 0) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between flex-shrink-0">
+              <div className="text-xs text-slate-500 font-medium">
+                Return ID: <span className="font-bold text-slate-700">{viewingReturn.id}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => alert(`Printing Return Slip for ${viewingReturn.id}...`)}
+                  className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Printer size={14} />
+                  <span>Print Slip</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewingReturn(null)}
+                  className="px-5 py-2 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+
 
       {/* 3. ADD INVOICE MODAL */}
       {showNewInvoiceModal && (
@@ -4936,41 +5377,54 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
       {/* 5. SUPPLIER BILLS BREAKDOWN MODAL (Ethana Supplier ku Ethana Bill) */}
       {showSupplierBreakdownModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[85vh]">
-            <div className="px-6 py-4.5 bg-[#184edb] text-white flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="font-extrabold text-[16px]">Supplier Bills Breakdown</span>
-                <span className="text-[12px] text-blue-100 font-medium">Ethana Supplier ku Ethana Bill Poturukom Summary</span>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[85vh] my-auto">
+            
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-[#184edb] text-white flex items-center justify-between flex-shrink-0">
+              <div className="flex flex-col text-left">
+                <span className="font-extrabold text-base">Supplier Bills Breakdown</span>
+                <span className="text-[11.5px] text-blue-100 font-medium">
+                  Grouped breakdown of all {invoices.length} bills across {supplierBillSummary.length} suppliers
+                </span>
               </div>
               <button
+                type="button"
                 onClick={() => setShowSupplierBreakdownModal(false)}
-                className="text-white/80 hover:text-white border-none bg-transparent cursor-pointer"
+                className="text-white/80 hover:text-white border-none bg-transparent cursor-pointer p-1"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto flex flex-col gap-4 box-border">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-blue-50/70 border border-blue-100 p-4 rounded-xl flex flex-col gap-1">
-                  <span className="text-[11px] font-bold text-blue-600 uppercase">Total Suppliers</span>
-                  <span className="text-2xl font-extrabold text-slate-850">{supplierBillSummary.length}</span>
+            {/* Modal Body with proper scrolling */}
+            <div className="p-6 overflow-y-auto flex-1 min-h-0 space-y-4 box-border text-left">
+              
+              {/* Summary Cards matching outside data 100% */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-blue-50/80 border border-blue-100 p-3.5 rounded-xl flex flex-col gap-0.5">
+                  <span className="text-[10.5px] font-bold text-blue-600 uppercase tracking-wider">Total Suppliers</span>
+                  <span className="text-xl font-black text-slate-800">{supplierBillSummary.length} Suppliers</span>
                 </div>
-                <div className="bg-emerald-50/70 border border-emerald-100 p-4 rounded-xl flex flex-col gap-1">
-                  <span className="text-[11px] font-bold text-emerald-600 uppercase">Total Invoiced Amount</span>
-                  <span className="text-2xl font-extrabold text-slate-850">₹{totalInvoiceAmount.toLocaleString()}</span>
+                <div className="bg-indigo-50/80 border border-indigo-100 p-3.5 rounded-xl flex flex-col gap-0.5">
+                  <span className="text-[10.5px] font-bold text-indigo-600 uppercase tracking-wider">Total Bills</span>
+                  <span className="text-xl font-black text-slate-800">{invoices.length} Bills</span>
                 </div>
-                <div className="bg-amber-50/70 border border-amber-100 p-4 rounded-xl flex flex-col gap-1">
-                  <span className="text-[11px] font-bold text-amber-600 uppercase">Total Balance Due</span>
-                  <span className="text-2xl font-extrabold text-slate-850">₹{totalInvoiceBalance.toLocaleString()}</span>
+                <div className="bg-emerald-50/80 border border-emerald-100 p-3.5 rounded-xl flex flex-col gap-0.5">
+                  <span className="text-[10.5px] font-bold text-emerald-600 uppercase tracking-wider">Total Invoiced Amt</span>
+                  <span className="text-xl font-black text-slate-800">₹{totalInvoiceAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="bg-amber-50/80 border border-amber-100 p-3.5 rounded-xl flex flex-col gap-0.5">
+                  <span className="text-[10.5px] font-bold text-amber-600 uppercase tracking-wider">Total Balance Due</span>
+                  <span className="text-xl font-black text-slate-800">₹{totalInvoiceBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
 
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <table className="w-full text-left border-collapse">
+              {/* Scrollable Table Container */}
+              <div className="border border-slate-200 rounded-xl overflow-x-auto shadow-xs">
+                <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="bg-slate-50 text-slate-500 text-[11px] uppercase tracking-wider font-bold border-b border-slate-200">
+                    <tr className="bg-slate-100/90 text-slate-600 text-[11px] uppercase tracking-wider font-bold border-b border-slate-200">
                       <th className="py-3 px-4">Supplier Name</th>
                       <th className="py-3 px-4 text-center">Bills Count</th>
                       <th className="py-3 px-4 text-center">Status Breakdown</th>
@@ -4980,33 +5434,40 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                       <th className="py-3 px-4 text-center">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 text-[13.5px]">
+                  <tbody className="divide-y divide-slate-100">
                     {supplierBillSummary.map((sum) => (
-                      <tr key={sum.supplier} className="hover:bg-slate-50/60">
-                        <td className="py-3.5 px-4 font-bold text-slate-800">{sum.supplier}</td>
-                        <td className="py-3.5 px-4 text-center font-bold text-[#184edb]">{sum.totalBills} Bills</td>
-                        <td className="py-3.5 px-4 text-center">
-                          <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 border border-emerald-100 mr-1">
+                      <tr key={sum.supplier} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 px-4 font-bold text-slate-800">{sum.supplier}</td>
+                        <td className="py-3 px-4 text-center font-extrabold text-[#184edb]">
+                          {sum.totalBills} Bills
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span className="text-[10.5px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 border border-emerald-100 mr-1">
                             {sum.paidBills} Paid
                           </span>
                           {sum.pendingBills > 0 && (
-                            <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100">
-                              {sum.pendingBills} Pending
+                            <span className="text-[10.5px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100">
+                              {sum.pendingBills} Unpaid
                             </span>
                           )}
                         </td>
-                        <td className="py-3.5 px-4 text-right font-bold text-slate-800">₹{sum.totalAmount.toLocaleString()}</td>
-                        <td className="py-3.5 px-4 text-right font-bold text-emerald-600">₹{sum.paidAmount.toLocaleString()}</td>
-                        <td className={`py-3.5 px-4 text-right font-bold ${sum.balanceDue > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-                          ₹{sum.balanceDue.toLocaleString()}
+                        <td className="py-3 px-4 text-right font-bold text-slate-800">
+                          ₹{sum.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
-                        <td className="py-3.5 px-4 text-center">
+                        <td className="py-3 px-4 text-right font-bold text-emerald-600">
+                          ₹{sum.paidAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className={`py-3 px-4 text-right font-extrabold ${sum.balanceDue > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                          ₹{sum.balanceDue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 px-4 text-center">
                           <button
+                            type="button"
                             onClick={() => {
                               setSupplierFilter(sum.supplier);
                               setShowSupplierBreakdownModal(false);
                             }}
-                            className="px-2.5 py-1 text-[11.5px] font-bold bg-blue-50 text-[#184edb] hover:bg-[#184edb] hover:text-white rounded-lg border border-blue-200 cursor-pointer transition-colors"
+                            className="px-2.5 py-1 text-[11px] font-bold bg-blue-50 hover:bg-[#184edb] text-[#184edb] hover:text-white rounded-lg border border-blue-200 cursor-pointer transition-colors"
                           >
                             Filter Bills
                           </button>
@@ -5014,18 +5475,47 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                       </tr>
                     ))}
                   </tbody>
+                  {/* Table Footer Grand Totals */}
+                  <tfoot className="bg-slate-50 font-bold text-slate-800 border-t-2 border-slate-200">
+                    <tr>
+                      <td className="py-3 px-4 font-black">Grand Total Summary</td>
+                      <td className="py-3 px-4 text-center font-extrabold text-[#184edb]">
+                        {supplierBillSummary.reduce((a, b) => a + b.totalBills, 0)} Bills
+                      </td>
+                      <td className="py-3 px-4 text-center text-[10.5px]">
+                        <span className="text-emerald-700">{supplierBillSummary.reduce((a, b) => a + b.paidBills, 0)} Paid</span> •{' '}
+                        <span className="text-amber-700">{supplierBillSummary.reduce((a, b) => a + b.pendingBills, 0)} Unpaid</span>
+                      </td>
+                      <td className="py-3 px-4 text-right font-black text-slate-900">
+                        ₹{supplierBillSummary.reduce((a, b) => a + b.totalAmount, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 px-4 text-right font-black text-emerald-600">
+                        ₹{supplierBillSummary.reduce((a, b) => a + b.paidAmount, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 px-4 text-right font-black text-rose-600">
+                        ₹{supplierBillSummary.reduce((a, b) => a + b.balanceDue, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end">
+            {/* Modal Footer */}
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between flex-shrink-0">
+              <span className="text-xs text-slate-500 font-semibold">
+                Showing breakdown for {supplierBillSummary.length} suppliers
+              </span>
               <button
+                type="button"
                 onClick={() => setShowSupplierBreakdownModal(false)}
-                className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-[12.5px] border-none rounded-lg cursor-pointer transition-colors"
+                className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-lg cursor-pointer transition-colors"
               >
                 Close
               </button>
             </div>
+
           </div>
         </div>
       )}
@@ -5246,13 +5736,26 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
             {/* Modal Footer */}
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-              <button
-                onClick={() => window.print()}
-                className="flex items-center gap-2 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-[12.5px] px-5 py-2.5 border-none rounded-lg cursor-pointer transition-colors shadow-md"
-              >
-                <Printer size={15} />
-                <span>Print Invoice</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-2 bg-[#184edb] hover:bg-[#133eb5] text-white font-bold text-[12.5px] px-5 py-2.5 border-none rounded-lg cursor-pointer transition-colors shadow-md"
+                >
+                  <Printer size={15} />
+                  <span>Print Invoice</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setQrPaymentInvoice(selectedInvoice);
+                    setCustomPaymentAmount(getBalanceDue(selectedInvoice));
+                    setShowQrPaymentModal(true);
+                  }}
+                  className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-[12.5px] px-4 py-2.5 border-none rounded-lg cursor-pointer transition-colors shadow-md"
+                >
+                  <QrCode size={15} />
+                  <span>Pay via QR</span>
+                </button>
+              </div>
               <button
                 onClick={() => setSelectedInvoice(null)}
                 className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold text-[12.5px] px-5 py-2.5 rounded-lg cursor-pointer transition-colors"
@@ -5281,7 +5784,10 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                 </div>
               </div>
               <button
-                onClick={() => setShowQrPaymentModal(false)}
+                onClick={() => {
+                  setShowQrPaymentModal(false);
+                  setQrPaymentInvoice(null);
+                }}
                 className="text-slate-400 hover:text-white border-none bg-transparent cursor-pointer p-1"
               >
                 <X size={20} />
@@ -5360,7 +5866,10 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
             <div className="px-6 py-4 bg-white border-t border-slate-100 flex items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={() => setShowQrPaymentModal(false)}
+                onClick={() => {
+                  setShowQrPaymentModal(false);
+                  setQrPaymentInvoice(null);
+                }}
                 className="px-4 py-2.5 border border-slate-200 text-slate-650 font-bold text-[12.5px] rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-colors"
               >
                 Cancel
@@ -5407,6 +5916,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                   }
 
                   setShowQrPaymentModal(false);
+                  setQrPaymentInvoice(null);
                   alert(`✅ UPI Payment of ₹${payVal.toLocaleString()} recorded successfully for Invoice #${targetInv.id}!`);
                 }}
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[13px] rounded-xl border-none cursor-pointer transition-colors shadow-md flex items-center gap-2"
