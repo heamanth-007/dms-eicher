@@ -5521,7 +5521,10 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
       )}
 
       {/* 6. VIEW & EDIT SUPPLIER INVOICE DETAILS MODAL */}
-      {selectedInvoice && (
+      {((invScope) => {
+        if (!invScope) return null;
+        const selectedInvoice = invScope;
+        return (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 my-8 flex flex-col">
             {/* Modal Header */}
@@ -5765,10 +5768,13 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
             </div>
           </div>
         </div>
-      )}
+      );
+      })(selectedInvoice as unknown as SupplierInvoice | null)}
 
       {/* 7. UPI QR CODE PAYMENT MODAL */}
-      {showQrPaymentModal && qrPaymentInvoice && (
+      {((invScope) => {
+        const selectedInvoice = invScope;
+        return showQrPaymentModal && qrPaymentInvoice && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col">
             
@@ -5928,7 +5934,8 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
           </div>
         </div>
-      )}
+      );
+      })(selectedInvoice as unknown as SupplierInvoice | null)}
 
     </div>
   );

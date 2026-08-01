@@ -812,7 +812,7 @@ app.post('/api/sales', async (req, res) => {
         const initials = customerName.split(' ').map(n => n[0] || '').join('').toUpperCase().slice(0, 2) || 'C';
         const colors = ['bg-blue-100 text-blue-600', 'bg-orange-100 text-orange-600', 'bg-indigo-100 text-indigo-600', 'bg-slate-100 text-slate-600'];
         const avatarBg = colors[Math.floor(Math.random() * colors.length)];
-        
+
         await Customer.create({
           id: randomId,
           name: customerName,
@@ -878,7 +878,7 @@ app.put('/api/jobcards/:jcNumber', async (req, res) => {
   try {
     const updated = await JobCard.findOneAndUpdate({ jcNumber: req.params.jcNumber }, req.body, { new: true });
     if (!updated) return res.status(404).json({ message: 'JobCard not found' });
-    
+
     // Auto-release the mechanic if job is completed
     if (updated.status === 'COMPLETED' && updated.mechanicName) {
       await Mechanic.findOneAndUpdate(
@@ -886,7 +886,7 @@ app.put('/api/jobcards/:jcNumber', async (req, res) => {
         { status: 'Available' }
       );
     }
-    
+
     res.json(updated);
   } catch (error) {
     res.status(500).json({ message: 'Server Error updating jobcard', error: error.message });

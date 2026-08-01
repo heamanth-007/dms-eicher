@@ -633,7 +633,20 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
 
           {/* PAYMENTS TAB */}
           {activeTab === 'payments' && (() => {
-            const paymentHistory = [];
+            const paymentHistory: Array<{
+              invoiceNo: string;
+              subtitle: string;
+              date: string;
+              amount: string;
+              paid: string;
+              balance: string;
+              method: string;
+              isUpi: boolean;
+              isNa: boolean;
+              status: string;
+              statusClass: string;
+              receiptAvailable: boolean;
+            }> = [];
             dbSales.forEach(s => {
               paymentHistory.push({
                 invoiceNo: s.invoiceNo,

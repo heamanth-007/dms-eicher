@@ -54,7 +54,7 @@ interface MechanicType {
 }
 
 interface MechanicsProps {
-  onNavigateToService?: (subTab: string) => void;
+  onNavigateToService?: (subTab: 'dashboard' | 'open-job-cards' | 'completed-jobs' | 'service-history' | 'job-queue') => void;
 }
 
 export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => {

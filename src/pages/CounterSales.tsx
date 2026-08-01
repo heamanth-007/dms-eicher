@@ -64,7 +64,6 @@ export interface CounterSalesProps {
     emailAddress: string;
     websiteUrl: string;
     logoUrl: string;
-    defaultDiscountPercent?: string;
     defaultDiscountPercent?: number | string;
   };
 }
@@ -352,7 +351,6 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
         code: code,
         qty: 1,
         unitPrice: price,
-        discountPercent: discount || getDefaultDiscountFromSettings(),
         discountPercent: discount ?? getDefaultDiscountFromSettings(),
         gstPercent: gst
       };
