@@ -24,7 +24,7 @@ function App() {
     try {
       const saved = localStorage.getItem('dms_current_user');
       if (saved) return JSON.parse(saved);
-    } catch (e) {}
+    } catch (e) { }
     return null;
   });
 
@@ -32,7 +32,7 @@ function App() {
     setCurrentUser(user);
     try {
       localStorage.setItem('dms_current_user', JSON.stringify(user));
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const handleSetCurrentUser = (user: { name: string; email: string } | null) => {
@@ -57,9 +57,9 @@ function App() {
             return;
           }
 
-          const isSearchInput = 
-            (target as HTMLInputElement).type === 'search' || 
-            target.getAttribute('placeholder')?.toLowerCase().includes('search') || 
+          const isSearchInput =
+            (target as HTMLInputElement).type === 'search' ||
+            target.getAttribute('placeholder')?.toLowerCase().includes('search') ||
             target.className?.toLowerCase().includes('search');
 
           if (isSearchInput) {
@@ -69,7 +69,7 @@ function App() {
           e.preventDefault();
 
           const container = target.closest('form, [role="dialog"]') || document.body;
-          
+
           const focusableSelector = 'input:not([readonly]):not([disabled]), select:not([disabled]), textarea:not([disabled])';
           const elements = Array.from(container.querySelectorAll(focusableSelector)) as HTMLElement[];
 
@@ -104,7 +104,7 @@ function App() {
           return parsed;
         }
       }
-    } catch (e) {}
+    } catch (e) { }
     return [
       {
         id: 'SUP-6496',
@@ -135,7 +135,7 @@ function App() {
       if (suppliersList && suppliersList.length > 0) {
         localStorage.setItem('dms_suppliers_list', JSON.stringify(suppliersList));
       }
-    } catch (e) {}
+    } catch (e) { }
   }, [suppliersList]);
 
   // Lifted Vehicle Sales state
@@ -163,7 +163,7 @@ function App() {
     try {
       const saved = localStorage.getItem('dms_company_settings');
       if (saved) return JSON.parse(saved);
-    } catch (e) {}
+    } catch (e) { }
     return DEFAULT_SETTINGS;
   });
 
@@ -175,7 +175,7 @@ function App() {
     setCompanySettings(newSettings);
     try {
       localStorage.setItem('dms_company_settings', JSON.stringify(newSettings));
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const fetchSettings = (updatedData?: any) => {
@@ -203,7 +203,7 @@ function App() {
           setSuppliersList(data);
           try {
             localStorage.setItem('dms_suppliers_list', JSON.stringify(data));
-          } catch (e) {}
+          } catch (e) { }
         }
       })
       .catch((err) => console.error('Error fetching suppliers:', err));
