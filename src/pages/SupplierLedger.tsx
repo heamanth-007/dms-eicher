@@ -57,7 +57,7 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
   suppliersList,
   onBack
 }) => {
-  const [ledgerSupplier, setLedgerSupplier] = useState('Global Parts Corp.');
+  const [ledgerSupplier, setLedgerSupplier] = useState('');
   const [ledgerDateRange, setLedgerDateRange] = useState('');
   const [ledgerTxType, setLedgerTxType] = useState('All Transactions');
 
@@ -74,56 +74,7 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
   // Selected Reference No Modal State
   const [selectedLedgerRef, setSelectedLedgerRef] = useState<LedgerTransaction | null>(null);
 
-  const [transactions] = useState<LedgerTransaction[]>([
-    {
-      id: 'tx-1',
-      date: '01/10/2023',
-      referenceNo: '-',
-      type: 'BALANCE',
-      description: 'Opening Balance Forwarded',
-      debit: 0,
-      credit: 0,
-      balance: 15400,
-      paymentMode: '-',
-      remarks: 'Forwarded from FY22'
-    },
-    {
-      id: 'tx-2',
-      date: '05/10/2023',
-      referenceNo: 'PUR-2023-0982',
-      type: 'PURCHASE',
-      description: 'Engine Spares & Gaskets Set (50 units)',
-      debit: 8500,
-      credit: 0,
-      balance: 23900,
-      paymentMode: 'Credit Account',
-      remarks: 'Due in 30 days'
-    },
-    {
-      id: 'tx-3',
-      date: '10/10/2023',
-      referenceNo: 'PAY-9921-X',
-      type: 'PAYMENT',
-      description: 'Partial Settlement against INV-8821',
-      debit: 0,
-      credit: 10000,
-      balance: 13900,
-      paymentMode: 'Bank Transfer',
-      remarks: 'Reference: TXN0021'
-    },
-    {
-      id: 'tx-4',
-      date: '15/10/2023',
-      referenceNo: 'CN-2023-014',
-      type: 'CREDIT NOTE',
-      description: 'Damaged Filters Return Credit',
-      debit: 0,
-      credit: 1500,
-      balance: 12400,
-      paymentMode: 'Adjustment',
-      remarks: 'Approved by Manager'
-    }
-  ]);
+  const [transactions] = useState<LedgerTransaction[]>([]);
 
   useEffect(() => {
     if (selectedSupplier) {

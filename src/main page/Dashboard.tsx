@@ -95,7 +95,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
     fetch(`${API_URL}/api/customers`)
       .then(res => res.json())
       .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           setCustomers(data);
         }
       })
@@ -105,7 +105,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
     fetch(`${API_URL}/api/transactions`)
       .then(res => res.json())
       .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           setTransactions(data);
         }
       })
@@ -200,26 +200,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
     const savedSuppliers = localStorage.getItem('dms_suppliers_list');
     if (savedSuppliers) {
       const parsed = JSON.parse(savedSuppliers);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         suppliersCount = parsed.length;
       }
     }
   } catch (e) {}
 
   // Real-time calculation for Service Bills
-  let serviceBillsCount = 24;
+  let serviceBillsCount = 0;
   try {
     const savedServiceBills = localStorage.getItem('dms_service_bills');
     if (savedServiceBills) {
       const parsed = JSON.parse(savedServiceBills);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         serviceBillsCount = parsed.length;
       }
     }
   } catch (e) {}
 
   // Real-time calculation for Counter Sales
-  let counterSalesTotalStr = '₹42.5k';
+  let counterSalesTotalStr = '₹0';
   try {
     const savedCounterSales = localStorage.getItem('dms_counter_sales_bills');
     if (savedCounterSales) {
@@ -456,177 +456,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
         </div>
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Monthly Sales Performance Bar Chart */}
-        <div className="bg-white rounded-xl p-6 border border-[#eef2f6] shadow-sm flex flex-col gap-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-sm font-bold text-slate-800 m-0">Monthly Sales Performance</h3>
-            <div className="flex gap-4">
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
-                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                <span>Vehicle Sales</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
-                <span className="w-2 h-2 rounded-full bg-blue-900"></span>
-                <span>Parts Sales</span>
-              </div>
-            </div>
-          </div>
-          <div className="h-[180px] relative flex gap-3">
-            <div className="flex flex-col justify-between w-[1px] h-[calc(100%-20px)] border-r border-dashed border-slate-200">
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-            <div className="flex-1 flex justify-around items-end h-full">
-              {[
-                { month: 'JAN', vehicle: 35, parts: 30 },
-                { month: 'FEB', vehicle: 42, parts: 32 },
-                { month: 'MAR', vehicle: 28, parts: 20 },
-                { month: 'APR', vehicle: 55, parts: 45 },
-                { month: 'MAY', vehicle: 68, parts: 50 },
-                { month: 'JUN', vehicle: 78, parts: 62 },
-                { month: 'JUL', vehicle: 85, parts: 70 },
-                { month: 'AUG', vehicle: 80, parts: 68 },
-              ].map((data, index) => (
-                <div key={index} className="flex flex-col items-center h-full justify-end w-10">
-                  <div className="flex items-end gap-1 h-[calc(100%-20px)] w-full justify-center">
-                    <div className="w-3 rounded-t relative cursor-pointer transition-opacity duration-200 hover:opacity-85 group bg-blue-500" style={{ height: `${data.vehicle}%` }}>
-                      <div className="invisible absolute bottom-full left-1/2 -translate-x-1/2 bg-slate-900 text-white px-2 py-1 rounded text-[9px] whitespace-nowrap mb-1 z-10 group-hover:visible">Vehicle: {data.vehicle}%</div>
-                    </div>
-                    <div className="w-3 rounded-t relative cursor-pointer transition-opacity duration-200 hover:opacity-85 group bg-blue-900" style={{ height: `${data.parts}%` }}>
-                      <div className="invisible absolute bottom-full left-1/2 -translate-x-1/2 bg-slate-900 text-white px-2 py-1 rounded text-[9px] whitespace-nowrap mb-1 z-10 group-hover:visible">Parts: {data.parts}%</div>
-                    </div>
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-semibold mt-2">{data.month}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
 
-        {/* Service Operations Analysis Area Chart */}
-        <div className="bg-white rounded-xl p-6 border border-[#eef2f6] shadow-sm flex flex-col gap-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-sm font-bold text-slate-800 m-0">Service Operations Analysis</h3>
-            <select className="border border-slate-200 rounded-md px-2 py-1 text-[11px] text-slate-600 font-semibold outline-none bg-slate-50">
-              <option>Last 6 Months</option>
-              <option>Last 12 Months</option>
-            </select>
-          </div>
-          <div className="h-[180px] flex flex-col justify-between">
-            <svg viewBox="0 0 500 200" className="w-full h-[150px]">
-              <defs>
-                <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#184edb" stopOpacity="0.25" />
-                  <stop offset="100%" stopColor="#184edb" stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
-              <line x1="0" y1="50" x2="500" y2="50" stroke="#f1f5f9" strokeWidth="1" />
-              <line x1="0" y1="100" x2="500" y2="100" stroke="#f1f5f9" strokeWidth="1" />
-              <line x1="0" y1="150" x2="500" y2="150" stroke="#f1f5f9" strokeWidth="1" />
-
-              <path
-                d="M 10 130 C 90 80, 170 120, 250 50 C 330 20, 410 70, 490 40 L 490 200 L 10 200 Z"
-                fill="url(#chartGradient)"
-              />
-              <path
-                d="M 10 130 C 90 80, 170 120, 250 50 C 330 20, 410 70, 490 40"
-                fill="none"
-                stroke="#184edb"
-                strokeWidth="2.5"
-              />
-
-              <circle cx="10" cy="130" r="4" fill="#ffffff" stroke="#184edb" strokeWidth="2" />
-              <circle cx="250" cy="50" r="4" fill="#ffffff" stroke="#184edb" strokeWidth="2" />
-              <circle cx="490" cy="40" r="4" fill="#ffffff" stroke="#184edb" strokeWidth="2" />
-            </svg>
-            <div className="flex justify-between text-[10px] text-slate-400 font-semibold px-2.5">
-              <span>SEP</span>
-              <span>OCT</span>
-              <span>NOV</span>
-              <span>DEC</span>
-              <span>JAN</span>
-              <span>FEB</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Middle Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-5">
-        {/* Product Sales Share */}
-        <div className="bg-white rounded-xl p-6 border border-[#eef2f6] shadow-sm flex flex-col gap-4">
-          <h3 className="text-sm font-bold text-slate-800 m-0 mb-1">Product Sales Share</h3>
-          <div className="flex justify-center items-center h-[140px]">
-            <div className="w-[120px] h-[120px] relative">
-              <svg viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="40" fill="transparent" stroke="#f1f5f9" strokeWidth="10" />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  fill="transparent"
-                  stroke="#184edb"
-                  strokeWidth="10"
-                  strokeDasharray="163.3 251.2"
-                  strokeDashoffset="62.8"
-                  transform="rotate(-90 50 50)"
-                />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  fill="transparent"
-                  stroke="#38bdf8"
-                  strokeWidth="10"
-                  strokeDasharray="37.7 251.2"
-                  strokeDashoffset="-100.5"
-                  transform="rotate(-90 50 50)"
-                />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  fill="transparent"
-                  stroke="#94a3b8"
-                  strokeWidth="10"
-                  strokeDasharray="25.1 251.2"
-                  strokeDashoffset="-138.2"
-                  transform="rotate(-90 50 50)"
-                />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  fill="transparent"
-                  stroke="#ef4444"
-                  strokeWidth="10"
-                  strokeDasharray="25.1 251.2"
-                  strokeDashoffset="-163.3"
-                  transform="rotate(-90 50 50)"
-                />
-              </svg>
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-                <h2 className="text-lg font-extrabold text-slate-800 m-0">65%</h2>
-                <span className="text-[8px] text-slate-400 font-bold tracking-wider block">TOP PARTS</span>
-              </div>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium"><span className="w-2 h-2 rounded-full bg-blue-600"></span><span>Engine Parts</span></div>
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium"><span className="w-2 h-2 rounded-full bg-sky-400"></span><span>Lubricants</span></div>
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium"><span className="w-2 h-2 rounded-full bg-slate-400"></span><span>Filters</span></div>
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium"><span className="w-2 h-2 rounded-full bg-slate-600"></span><span>Tyres</span></div>
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium"><span className="w-2 h-2 rounded-full bg-sky-300"></span><span>Accessories</span></div>
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium"><span className="w-2 h-2 rounded-full bg-red-500"></span><span>Batteries</span></div>
-          </div>
-        </div>
-
-        {/* Right side Tables Stack */}
-        <div className="flex flex-col gap-5">
+      {/* Tables Stack */}
+      <div className="flex flex-col gap-5">
           {/* Recent Customers */}
           <div className="bg-white rounded-xl p-6 border border-[#eef2f6] shadow-sm">
             <div className="flex justify-between items-center mb-3.5">
@@ -698,7 +530,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
               </table>
             </div>
           </div>
-        </div>
       </div>
 
       {/* Transaction History Section */}
@@ -753,38 +584,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
       </div>
 
       {/* Bottom Summary Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Workshop Performance */}
-        <div
-          onClick={() => onNavigate('service')}
-          className="bg-white rounded-xl p-5 border border-[#eef2f6] shadow-sm flex flex-col gap-4 cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
-        >
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-50">
-              <Car size={16} className="text-blue-600" />
-            </div>
-            <h3 className="text-sm font-bold text-slate-800 m-0">Workshop Performance</h3>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <div className="flex justify-between text-xs text-slate-600">
-              <span>Service Efficiency</span>
-              <span className="font-bold">82%</span>
-            </div>
-            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <div className="h-full bg-blue-600 rounded-full" style={{ width: '82%' }}></div>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <div className="flex justify-between text-xs text-slate-600">
-              <span>Delivery Rate</span>
-              <span className="font-bold">88%</span>
-            </div>
-            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <div className="h-full bg-blue-600 rounded-full" style={{ width: '88%' }}></div>
-            </div>
-          </div>
-        </div>
-
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Inventory Summary */}
         <div
           onClick={() => onNavigate('parts')}
@@ -841,11 +641,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
               <span className="font-bold text-[#184edb]">₹63.1L</span>
             </div>
           </div>
-
-          {/* Floating plus button */}
-          <button className="absolute right-4 bottom-4 w-9 h-9 rounded-full bg-[#184edb] text-white border-none flex items-center justify-center cursor-pointer shadow-lg shadow-blue-500/35 transition-all hover:bg-blue-900 hover:scale-105">
-            <Plus size={20} />
-          </button>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Users,
   CheckCircle,
@@ -51,6 +51,11 @@ interface MechanicType {
   experience: string;
   status: 'Available' | 'Busy' | 'Inactive';
   jobs: number;
+  email?: string;
+  specialization?: string;
+  annualSalary?: string;
+  joiningDate?: string;
+  photo?: string;
 }
 
 interface MechanicsProps {
@@ -76,7 +81,8 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
     fetchMechanics();
   }, []);
 
-  const [showToast, setShowToast] = useState(true);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('Mechanic record updated.');
   const [isRegistering, setIsRegistering] = useState(false);
   const [currentView, setCurrentView] = useState<'list' | 'jobs' | 'assign' | 'completed'>('list');
   const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Low');
@@ -189,59 +195,143 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
   const [annualSalary, setAnnualSalary] = useState('');
   const [joiningDate, setJoiningDate] = useState('');
   const [status, setStatus] = useState('Active');
+  const [photoUrl, setPhotoUrl] = useState<string>('');
+  const [editingMechanicId, setEditingMechanicId] = useState<string | null>(null);
+  const [viewingMechanic, setViewingMechanic] = useState<MechanicType | null>(null);
 
-  // mechanicsData removed to use dynamic db state
-  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert('File size exceeds 2MB limit.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleStartEditMechanic = (m: MechanicType) => {
+    setEditingMechanicId(m.id);
+    setFullName(m.name || '');
+    setPhoneNumber(m.phone || '');
+    setEmailAddress(m.email || '');
+    setExperienceYears(m.experience ? m.experience.replace(/[^0-9]/g, '') : '');
+    setSpecialization(m.specialization || 'Select Specialization');
+    setAnnualSalary(m.annualSalary || '');
+    setJoiningDate(m.joiningDate || '');
+    setStatus(m.status || 'Active');
+    setPhotoUrl(m.photo || '');
+    setViewingMechanic(null);
+    setIsRegistering(true);
+  };
+
+  const handleAssignJobForMechanic = (id: string) => {
+    setAssignMechanicId(id);
+    setViewingMechanic(null);
+    setCurrentView('assign');
+  };
+
   const handleSaveMechanic = () => {
     if (!fullName || !phoneNumber) {
       alert('Please enter Name and Phone Number.');
       return;
     }
 
-    const newId = `MEC-${Math.floor(1000 + Math.random() * 9000)}`;
     const initials = fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-    
-    // Choose a random color for avatar
     const colors = ['bg-emerald-100 text-emerald-600', 'bg-orange-100 text-orange-600', 'bg-rose-100 text-rose-600', 'bg-blue-100 text-blue-600'];
-    const avatarBg = colors[Math.floor(Math.random() * colors.length)];
 
-    const payload = {
-      id: newId,
-      name: fullName,
-      phone: phoneNumber,
-      email: emailAddress,
-      specialization: specialization === 'Select Specialization' ? '' : specialization,
-      annualSalary: annualSalary,
-      joiningDate: joiningDate,
-      initials,
-      avatarBg,
-      experience: experienceYears ? `${experienceYears} Years` : '1 Year',
-      status: 'Available',
-      jobs: 0
-    };
+    if (editingMechanicId) {
+      const payload = {
+        name: fullName,
+        phone: phoneNumber,
+        email: emailAddress,
+        specialization: specialization === 'Select Specialization' ? '' : specialization,
+        annualSalary: annualSalary,
+        joiningDate: joiningDate,
+        photo: photoUrl,
+        initials,
+        experience: experienceYears ? `${experienceYears} Years` : '1 Year',
+        status: status === 'Inactive' ? 'Inactive' : 'Available',
+      };
 
-    fetch(`${API_URL}/api/mechanics`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-      .then(res => res.json())
-      .then(() => {
-        fetchMechanics();
-        setIsRegistering(false);
-        handleResetForm();
+      fetch(`${API_URL}/api/mechanics/${editingMechanicId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       })
-      .catch(err => console.error('Error saving mechanic:', err));
+        .then(res => res.json())
+        .then(() => {
+          fetchMechanics();
+          setIsRegistering(false);
+          setEditingMechanicId(null);
+          handleResetForm();
+          setToastMessage('Action Successful! Mechanic Profile Updated.');
+          setShowToast(true);
+          setTimeout(() => {
+            setShowToast(false);
+          }, 2000);
+        })
+        .catch(err => console.error('Error updating mechanic:', err));
+    } else {
+      const newId = `MEC-${Math.floor(1000 + Math.random() * 9000)}`;
+      const avatarBg = colors[Math.floor(Math.random() * colors.length)];
+
+      const payload = {
+        id: newId,
+        name: fullName,
+        phone: phoneNumber,
+        email: emailAddress,
+        specialization: specialization === 'Select Specialization' ? '' : specialization,
+        annualSalary: annualSalary,
+        joiningDate: joiningDate,
+        photo: photoUrl,
+        initials,
+        avatarBg,
+        experience: experienceYears ? `${experienceYears} Years` : '1 Year',
+        status: 'Available',
+        jobs: 0
+      };
+
+      fetch(`${API_URL}/api/mechanics`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+        .then(res => res.json())
+        .then(() => {
+          fetchMechanics();
+          setIsRegistering(false);
+          handleResetForm();
+          setToastMessage('Action Successful! Mechanic Profile Saved.');
+          setShowToast(true);
+          setTimeout(() => {
+            setShowToast(false);
+          }, 2000);
+        })
+        .catch(err => console.error('Error saving mechanic:', err));
+    }
   };
 
   const handleDeleteMechanic = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this mechanic?')) {
+    if (window.confirm('Are you sure you want to delete this mechanic profile?')) {
       fetch(`${API_URL}/api/mechanics/${id}`, {
         method: 'DELETE'
       })
         .then(res => res.json())
         .then(() => {
           fetchMechanics();
+          setViewingMechanic(null);
+          setToastMessage('Action Successful! Mechanic Deleted.');
+          setShowToast(true);
+          setTimeout(() => {
+            setShowToast(false);
+          }, 2000);
         })
         .catch(err => console.error('Error deleting mechanic:', err));
     }
@@ -258,6 +348,7 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
   ];
 
   const handleResetForm = () => {
+    setEditingMechanicId(null);
     setFullName('');
     setPhoneNumber('');
     setEmailAddress('');
@@ -266,6 +357,7 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
     setAnnualSalary('');
     setJoiningDate('');
     setStatus('Active');
+    setPhotoUrl('');
   };
 
   // Register New Mechanic View
@@ -286,10 +378,10 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex flex-col gap-1">
             <h1 className="text-3xl font-bold text-slate-900 m-0 font-heading tracking-tight">
-              Register New Mechanic
+              {editingMechanicId ? 'Edit Mechanic Profile' : 'Register New Mechanic'}
             </h1>
             <span className="text-slate-550 text-[14px] font-medium">
-              Add a new specialist to the dealership service roster.
+              {editingMechanicId ? 'Update specialist information and profile photo.' : 'Add a new specialist to the dealership service roster.'}
             </span>
           </div>
 
@@ -311,7 +403,7 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
               <span className="font-bold text-slate-800 text-[14.5px]">Mechanic Information</span>
             </div>
             <span className="bg-slate-200/60 text-slate-700 text-[11px] font-bold px-3 py-1 rounded-full">
-              Auto-Gen ID: MEC-8842
+              {editingMechanicId ? `ID: ${editingMechanicId}` : 'Auto-Gen ID: MEC-8842'}
             </span>
           </div>
 
@@ -437,8 +529,7 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
                     <Calendar size={18} />
                   </span>
                   <input
-                    type="text"
-                    placeholder="mm/dd/yyyy"
+                    type="date"
                     value={joiningDate}
                     onChange={(e) => setJoiningDate(e.target.value)}
                     className="w-full pl-10.5 pr-4 py-2.5 text-[14px] bg-[#fff] border border-slate-250 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
@@ -471,11 +562,49 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
             {/* Photo upload block */}
             <div className="flex flex-col gap-2 mt-2">
               <span className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">EMPLOYEE PHOTO</span>
-              <div className="w-full min-h-[120px] bg-[#f0f4ff]/50 border-2 border-dashed border-[#d2d9f9] rounded-xl flex flex-col items-center justify-center p-6 text-center text-slate-550 hover:border-[#184edb] transition-colors cursor-pointer group">
-                <UploadCloud size={30} className="text-[#184edb]/80 mb-2 group-hover:scale-105 transition-transform" />
-                <span className="text-[14px] font-bold text-slate-800 mb-1">Click to upload or drag and drop</span>
-                <span className="text-[11px] text-slate-400 font-medium">PNG, JPG or WEBP (Max 2MB)</span>
-              </div>
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                onChange={handlePhotoChange}
+                className="hidden"
+              />
+              {photoUrl ? (
+                <div className="w-full min-h-[120px] bg-[#f0f4ff]/70 border-2 border-dashed border-[#184edb] rounded-xl flex items-center justify-between p-4 box-border">
+                  <div className="flex items-center gap-4">
+                    <img src={photoUrl} alt="Employee Preview" className="w-16 h-16 rounded-full object-cover border-2 border-[#184edb] shadow-sm" />
+                    <div className="flex flex-col">
+                      <span className="text-[14px] font-bold text-slate-800">Photo Uploaded Successfully</span>
+                      <span className="text-[12px] text-slate-500 font-medium">Employee profile picture is ready for saving</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-3.5 py-2 bg-white border border-slate-300 text-slate-700 text-[12px] font-bold rounded-lg hover:bg-slate-50 cursor-pointer transition-colors shadow-2xs"
+                    >
+                      Change Photo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPhotoUrl('')}
+                      className="px-3.5 py-2 bg-rose-50 border border-rose-200 text-rose-600 text-[12px] font-bold rounded-lg hover:bg-rose-100 cursor-pointer transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full min-h-[120px] bg-[#f0f4ff]/50 border-2 border-dashed border-[#d2d9f9] rounded-xl flex flex-col items-center justify-center p-6 text-center text-slate-550 hover:border-[#184edb] transition-colors cursor-pointer group"
+                >
+                  <UploadCloud size={30} className="text-[#184edb]/80 mb-2 group-hover:scale-105 transition-transform" />
+                  <span className="text-[14px] font-bold text-slate-800 mb-1">Click to upload photo</span>
+                  <span className="text-[11px] text-slate-400 font-medium">PNG, JPG or WEBP (Max 2MB)</span>
+                </div>
+              )}
             </div>
 
             {/* Divider */}
@@ -507,7 +636,7 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
                   className="flex items-center gap-2 px-6 py-2.5 bg-[#184edb] hover:bg-[#143eb3] text-white font-bold rounded-lg text-[14.5px] cursor-pointer transition-all border-none shadow-sm"
                 >
                   <Save size={16} />
-                  <span>Save Mechanic Profile</span>
+                  <span>{editingMechanicId ? 'Update Mechanic Profile' : 'Save Mechanic Profile'}</span>
                 </button>
               </div>
             </div>
@@ -957,9 +1086,9 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
                       onChange={e => setAssignMechanicId(e.target.value)}
                       className="w-full appearance-none bg-white border border-slate-255 rounded-lg py-2.5 pl-10.5 pr-10 text-[14px] text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
                     >
-                      <option value="">Search available mechanics...</option>
-                      {mechanics.filter(m => m.status === 'Available').map(m => (
-                        <option key={m.id} value={m.id}>{m.name} — {m.experience}</option>
+                      <option value="">Select mechanic...</option>
+                      {mechanics.map(m => (
+                        <option key={m.id} value={m.id}>{m.name} ({m.status}) — {m.experience}</option>
                       ))}
                     </select>
                     <span className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 pointer-events-none">
@@ -1478,19 +1607,19 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
     <div className="flex-1 p-6 md:p-8 flex flex-col gap-6 bg-[#f6f8fc] overflow-y-auto box-border max-w-full font-sans relative">
       {/* Toast Notification (Action Successful) */}
       {showToast && (
-        <div className="absolute top-[80px] right-6 md:right-8 bg-white border border-slate-100 shadow-xl rounded-xl p-4 flex items-center gap-3.5 max-w-sm z-50 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="text-emerald-500 bg-emerald-50 p-2 rounded-lg flex items-center justify-center border border-emerald-100">
-            <CheckCircle2 size={20} />
+        <div className="fixed top-6 right-6 bg-emerald-600 text-white shadow-2xl rounded-xl p-4 flex items-center gap-3.5 max-w-sm z-[9999] border border-emerald-500 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="text-emerald-600 bg-white p-2 rounded-lg flex items-center justify-center">
+            <CheckCircle2 size={22} />
           </div>
           <div className="flex flex-col gap-0.5 pr-2.5">
-            <span className="text-[13.5px] font-bold text-slate-800">Action Successful</span>
-            <span className="text-[12px] text-slate-400 font-medium">Mechanic record updated.</span>
+            <span className="text-[14px] font-bold text-white">Action Successful</span>
+            <span className="text-[12px] text-emerald-100 font-medium">{toastMessage}</span>
           </div>
           <button
             onClick={() => setShowToast(false)}
-            className="text-slate-450 hover:text-slate-650 cursor-pointer border-none bg-transparent p-0.5 ml-auto flex items-center justify-center"
+            className="text-white/80 hover:text-white cursor-pointer border-none bg-transparent p-0.5 ml-auto flex items-center justify-center"
           >
-            <X size={15} />
+            <X size={16} />
           </button>
         </div>
       )}
@@ -1576,7 +1705,7 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
 
           {/* Add Mechanic button */}
           <button
-            onClick={() => { setIsRegistering(true); }}
+            onClick={() => { handleResetForm(); setIsRegistering(true); }}
             className="flex items-center gap-2 px-5 py-2.5 bg-[#184edb] hover:bg-[#143eb3] text-white font-semibold rounded-lg text-[13.5px] cursor-pointer transition-colors border-none shadow-sm"
           >
             <PlusCircle size={16} />
@@ -1670,18 +1799,21 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
               {mechanics.map((m) => (
                 <tr key={m.id} className="hover:bg-slate-50/50 transition-colors">
                   {/* ID */}
-                  <td className="py-4 px-6 font-semibold text-slate-800 whitespace-nowrap">
+                  <td className="py-4 px-6 font-semibold text-[#184edb] whitespace-nowrap cursor-pointer hover:underline" onClick={() => setViewingMechanic(m)}>
                     {m.id}
                   </td>
-
                   {/* Name */}
-                  <td className="py-4 px-5 whitespace-nowrap">
+                  <td className="py-4 px-5 whitespace-nowrap cursor-pointer group" onClick={() => setViewingMechanic(m)}>
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full ${m.avatarBg} font-bold text-[12px] flex items-center justify-center`}>
-                        {m.initials}
-                      </div>
+                      {m.photo ? (
+                        <img src={m.photo} alt={m.name} className="w-8.5 h-8.5 rounded-full object-cover border border-slate-200 shadow-2xs group-hover:scale-105 transition-transform" />
+                      ) : (
+                        <div className={`w-8.5 h-8.5 rounded-full ${m.avatarBg} font-bold text-[12px] flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform`}>
+                          {m.initials}
+                        </div>
+                      )}
                       <div className="flex flex-col">
-                        <span className="font-bold text-slate-800">{m.name}</span>
+                        <span className="font-bold text-slate-800 group-hover:text-[#184edb] transition-colors">{m.name}</span>
                         <span className="text-[11.5px] text-slate-400 font-medium">{m.phone}</span>
                       </div>
                     </div>
@@ -1722,21 +1854,21 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
                   {/* Actions */}
                   <td className="py-4 px-6 whitespace-nowrap">
                     <div className="flex items-center justify-end gap-2.5">
-                      <button title="View Technician Details" className="p-1.5 text-blue-600 hover:text-blue-700 bg-blue-50/80 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200/60 cursor-pointer shadow-2xs">
+                      <button onClick={(e) => { e.stopPropagation(); setViewingMechanic(m); }} title="View Technician Details" className="p-1.5 text-blue-600 hover:text-blue-700 bg-blue-50/80 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200/60 cursor-pointer shadow-2xs">
                         <Eye size={15} />
                       </button>
-                      <button title="Edit Technician" className="p-1.5 text-amber-600 hover:text-amber-700 bg-amber-50/80 hover:bg-amber-100 rounded-lg transition-colors border border-amber-200/60 cursor-pointer shadow-2xs">
+                      <button onClick={(e) => { e.stopPropagation(); handleStartEditMechanic(m); }} title="Edit Technician" className="p-1.5 text-amber-600 hover:text-amber-700 bg-amber-50/80 hover:bg-amber-100 rounded-lg transition-colors border border-amber-200/60 cursor-pointer shadow-2xs">
                         <Pencil size={15} />
                       </button>
                       <button
-                        onClick={() => setCurrentView('assign')}
+                        onClick={(e) => { e.stopPropagation(); handleAssignJobForMechanic(m.id); }}
                         title="Assign Job"
                         className="p-1.5 text-emerald-600 hover:text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200/60 cursor-pointer shadow-2xs"
                       >
                         <ClipboardList size={15} />
                       </button>
                       <button 
-                        onClick={() => handleDeleteMechanic(m.id)}
+                        onClick={(e) => { e.stopPropagation(); handleDeleteMechanic(m.id); }}
                         title="Delete Technician"
                         className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50/80 hover:bg-rose-100 rounded-lg transition-colors border border-rose-200/60 cursor-pointer shadow-2xs"
                       >
@@ -1814,6 +1946,142 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
           </div>
         </div>
       </div>
+
+      {/* View Mechanic Details Modal with Passport Size Photo */}
+      {viewingMechanic && (
+        <div className="fixed inset-0 z-[9990] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="bg-[#f0f4ff] border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <User className="text-[#184edb]" size={20} />
+                <span className="font-bold text-slate-850 text-base">Mechanic Profile Details</span>
+              </div>
+              <button
+                onClick={() => setViewingMechanic(null)}
+                className="p-1 rounded-lg hover:bg-slate-200 text-slate-500 transition-colors border-none bg-transparent cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex flex-col md:flex-row gap-6 items-start">
+              {/* Passport Photo Box */}
+              <div className="flex flex-col items-center gap-2 flex-shrink-0 w-full md:w-auto">
+                <div className="w-32 h-40 bg-slate-100 rounded-xl border-2 border-slate-300 shadow-sm flex items-center justify-center overflow-hidden relative">
+                  {viewingMechanic.photo ? (
+                    <img
+                      src={viewingMechanic.photo}
+                      alt={viewingMechanic.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-1 text-slate-400 p-2 text-center">
+                      <User size={44} className="text-slate-300" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Passport Photo</span>
+                    </div>
+                  )}
+                </div>
+                <span className="text-[11px] font-bold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full border border-slate-200">
+                  ID: {viewingMechanic.id}
+                </span>
+              </div>
+
+              {/* Details Grid */}
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 text-[13.5px] w-full">
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Full Name</span>
+                  <span className="font-bold text-slate-900 text-base">{viewingMechanic.name}</span>
+                </div>
+
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Status</span>
+                  <span className="mt-0.5">
+                    {viewingMechanic.status === 'Available' && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-100">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Available
+                      </span>
+                    )}
+                    {viewingMechanic.status === 'Busy' && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-orange-50 text-orange-600 border border-orange-100">
+                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500" /> Busy
+                      </span>
+                    )}
+                    {viewingMechanic.status === 'Inactive' && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-rose-50 text-rose-600 border border-rose-100">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Inactive
+                      </span>
+                    )}
+                  </span>
+                </div>
+
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Phone Number</span>
+                  <span className="font-semibold text-slate-800">{viewingMechanic.phone}</span>
+                </div>
+
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Email Address</span>
+                  <span className="font-semibold text-slate-800">{viewingMechanic.email || 'N/A'}</span>
+                </div>
+
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Specialization</span>
+                  <span className="font-semibold text-slate-800">{viewingMechanic.specialization || 'General Repair'}</span>
+                </div>
+
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Experience</span>
+                  <span className="font-semibold text-slate-800">{viewingMechanic.experience}</span>
+                </div>
+
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Annual Salary</span>
+                  <span className="font-semibold text-emerald-600">
+                    {viewingMechanic.annualSalary ? `₹${parseFloat(viewingMechanic.annualSalary).toLocaleString('en-IN')}` : 'N/A'}
+                  </span>
+                </div>
+
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Joining Date</span>
+                  <span className="font-semibold text-slate-800">{viewingMechanic.joiningDate || 'N/A'}</span>
+                </div>
+
+                <div className="flex flex-col sm:col-span-2">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Assigned Active Jobs</span>
+                  <span className="font-bold text-[#184edb]">{viewingMechanic.jobs} Jobs Currently Assigned</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="bg-slate-50 border-t border-slate-200 px-6 py-3.5 flex items-center justify-between">
+              <button
+                onClick={() => handleDeleteMechanic(viewingMechanic.id)}
+                className="px-4 py-2 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 font-bold rounded-lg text-[13px] cursor-pointer transition-colors flex items-center gap-1.5"
+              >
+                <Trash2 size={15} /> Delete Profile
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleStartEditMechanic(viewingMechanic)}
+                  className="px-4 py-2 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 font-bold rounded-lg text-[13px] cursor-pointer transition-colors flex items-center gap-1.5"
+                >
+                  <Pencil size={15} /> Edit Profile
+                </button>
+                <button
+                  onClick={() => handleAssignJobForMechanic(viewingMechanic.id)}
+                  className="px-4 py-2 bg-[#184edb] hover:bg-[#143eb3] text-white font-bold rounded-lg text-[13px] cursor-pointer border-none shadow-sm transition-colors flex items-center gap-1.5"
+                >
+                  <ClipboardList size={15} /> Assign Job
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

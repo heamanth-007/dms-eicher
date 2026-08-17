@@ -83,21 +83,21 @@ export interface ServiceBillingProps {
 
 export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings }) => {
   // Header info
-  const [billNo, setBillNo] = useState('SB-2023-0045');
+  const [billNo, setBillNo] = useState('');
 
   // Customer & Vehicle State
   const [customerName, setCustomerName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [jobCardNo, setJobCardNo] = useState('JC-2023-8842');
+  const [jobCardNo, setJobCardNo] = useState('');
   const [vehicleNo, setVehicleNo] = useState('');
   const [model, setModel] = useState('');
   const [serviceDate, setServiceDate] = useState('');
   const [engineNo, setEngineNo] = useState('');
   const [chassisNo, setChassisNo] = useState('');
-  const [assignedMechanic, setAssignedMechanic] = useState('Vikram Singh');
+  const [assignedMechanic, setAssignedMechanic] = useState('');
 
   // Mechanic Details State
-  const [serviceAdvisor, setServiceAdvisor] = useState('John Admin');
+  const [serviceAdvisor, setServiceAdvisor] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliveryTime, setDeliveryTime] = useState('');
 
@@ -111,82 +111,7 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
         console.error('Error parsing dms_service_bills:', e);
       }
     }
-    return [
-      {
-        id: 'sb-101',
-        billNo: 'SB-2023-0044',
-        jobCardNo: 'JC-2023-8841',
-        customerName: 'Anand Kumar',
-        phoneNumber: '+91 98401 23456',
-        vehicleNo: 'TN 09 CB 4321',
-        model: 'Eicher Pro 2049',
-        serviceDate: '11/23/2023',
-        engineNo: 'ENG-998822',
-        chassisNo: 'CHS-112233',
-        assignedMechanic: 'Ramesh Patel',
-        serviceAdvisor: 'John Admin',
-        deliveryDate: '11/23/2023',
-        deliveryTime: '04:00 PM',
-        labourCharges: [
-          { id: 'l-m1', type: 'Full Service', description: 'General periodic service', amount: 3500 }
-        ],
-        spareParts: [],
-        remarks: 'Payment cleared in cash',
-        discountPercent: '5',
-        paymentMode: 'Cash',
-        grandTotal: 14200.00,
-        status: 'PAID',
-        createdAt: '11/23/2023'
-      },
-      {
-        id: 'sb-102',
-        billNo: 'SB-2023-0043',
-        jobCardNo: 'JC-2023-8839',
-        customerName: 'Venkatesh Logistics',
-        phoneNumber: '+91 97890 12345',
-        vehicleNo: 'TN 22 BK 9876',
-        model: 'Eicher Pro 3015',
-        serviceDate: '11/22/2023',
-        engineNo: 'ENG-445511',
-        chassisNo: 'CHS-778899',
-        assignedMechanic: 'Suresh Kumar',
-        serviceAdvisor: 'John Admin',
-        deliveryDate: '11/22/2023',
-        deliveryTime: '06:00 PM',
-        labourCharges: [],
-        spareParts: [],
-        remarks: 'Card transaction',
-        discountPercent: '0',
-        paymentMode: 'Card',
-        grandTotal: 8650.00,
-        status: 'PAID',
-        createdAt: '11/22/2023'
-      },
-      {
-        id: 'sb-103',
-        billNo: 'SB-2023-0042',
-        jobCardNo: 'JC-2023-8835',
-        customerName: 'Karthik Transport',
-        phoneNumber: '+91 94440 55667',
-        vehicleNo: 'TN 10 AW 5544',
-        model: 'Eicher Pro 6028',
-        serviceDate: '11/20/2023',
-        engineNo: 'ENG-123456',
-        chassisNo: 'CHS-654321',
-        assignedMechanic: 'Vikram Singh',
-        serviceAdvisor: 'John Admin',
-        deliveryDate: '11/20/2023',
-        deliveryTime: '05:00 PM',
-        labourCharges: [],
-        spareParts: [],
-        remarks: 'Partial payment made via UPI',
-        discountPercent: '10',
-        paymentMode: 'UPI',
-        grandTotal: 22400.00,
-        status: 'PARTIAL',
-        createdAt: '11/20/2023'
-      }
-    ];
+    return [];
   });
 
   const [draftBillsList, setDraftBillsList] = useState<ServiceBillRecord[]>(() => {
@@ -198,36 +123,7 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
         console.error('Error parsing dms_service_drafts:', e);
       }
     }
-    return [
-      {
-        id: 'draft-1',
-        billNo: 'SB-2023-0046-DRAFT',
-        jobCardNo: 'JC-2023-8845',
-        customerName: 'Rajesh Heavy Motors',
-        phoneNumber: '+91 98112 33445',
-        vehicleNo: 'KA 04 MP 1122',
-        model: 'Eicher Pro 2059',
-        serviceDate: '11/24/2023',
-        engineNo: 'ENG-771122',
-        chassisNo: 'CHS-334455',
-        assignedMechanic: 'Vikram Singh',
-        serviceAdvisor: 'John Admin',
-        deliveryDate: '11/26/2023',
-        deliveryTime: '03:00 PM',
-        labourCharges: [
-          { id: 'l-d1', type: 'Oil Change', description: 'Engine oil drain & replacement', amount: 900 }
-        ],
-        spareParts: [
-          { id: 'p-d1', partNo: 'P-OIL-01', name: 'Engine Oil 5L', qty: 1, price: 4500, gstPercent: 18, total: 5310, stockStatus: 'Available' }
-        ],
-        remarks: 'Draft pending final inspection',
-        discountPercent: '5',
-        paymentMode: 'Cash',
-        grandTotal: 6210.00,
-        status: 'DRAFT',
-        createdAt: '11/24/2023'
-      }
-    ];
+    return [];
   });
 
   useEffect(() => {

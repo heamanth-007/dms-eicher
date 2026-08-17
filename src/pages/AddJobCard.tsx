@@ -232,11 +232,6 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
                     {vehicles.map(v => (
                       <option key={v.id || v._id} value={v.modelName}>{v.modelName}</option>
                     ))}
-                    {/* Fallbacks if DB is empty */}
-                    <option value="Eicher Pro 2049">Eicher Pro 2049</option>
-                    <option value="Eicher Pro 3015">Eicher Pro 3015</option>
-                    <option value="Eicher Skyline Pro">Eicher Skyline Pro</option>
-                    <option value="Eicher Pro 6028">Eicher Pro 6028</option>
                   </select>
                   <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#184edb] pointer-events-none">
                     <ChevronDown size={14} />

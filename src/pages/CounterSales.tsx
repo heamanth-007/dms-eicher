@@ -177,20 +177,10 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
   // Bill items state initialized with the mockup items
   const [billItems, setBillItems] = useState<BillItem[]>([]);
 
-  const productCatalogMock = [
-    { name: "Synthetic Engine Oil (5W-40) | Part No: AC-OIL-772", code: "AC-OIL-772", price: 850.00, stock: 124, discount: 5, gst: 18, hsn: "2710" },
-    { name: "High-Flow Air Filter | Part No: AF-K7-001", code: "AF-K7-001", price: 2400.00, stock: 45, discount: 5, gst: 28, hsn: "8421" },
-    { name: "Periodic Maintenance Labor | Service: 20K Checkup", code: "PM-LABOR-01", price: 1500.00, stock: 80, discount: 5, gst: 18, hsn: "9987" },
-    { name: "Brake Pad Set - Front Performance", code: "BP-992-FR", price: 120.00, stock: 150, discount: 10, gst: 18, hsn: "8708" },
-    { name: "Oil Filter - V6 Engine", code: "OF-V6-33", price: 35.00, stock: 300, discount: 0, gst: 18, hsn: "8421" },
-    { name: "Standard Spark Plug", code: "SP-STD-02", price: 15.00, stock: 90, discount: 0, gst: 18, hsn: "8511" },
-    { name: "Coolant 1L - Green", code: "CL-GR-01", price: 25.00, stock: 200, discount: 0, gst: 18, hsn: "3820" }
-  ];
-
   // Active product entry selection
   const [searchQuery, setSearchQuery] = useState('');
-  const [catalog, setCatalog] = useState<any[]>(productCatalogMock);
-  const [selectedProduct, setSelectedProduct] = useState<any>(productCatalogMock[0]);
+  const [catalog, setCatalog] = useState<any[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 

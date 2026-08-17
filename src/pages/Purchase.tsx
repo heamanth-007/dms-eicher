@@ -194,98 +194,8 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     setCurrentPage(1);
   }, [subTab, supplierFilter, statusFilter, searchTerm, dateRange]);
 
-  // --- MOCK DATA ---
-
-  // Synced Initial Data Setup for Overview (purchases) & Invoices (invoices)
-  const initialSyncedData = (() => {
-    const todayStr = getTodayFormattedDate();
-    const mockP: PurchaseOrder[] = [
-      {
-        id: 'PO-2026-0943',
-        invoiceNo: 'INV-7728',
-        supplier: 'Precision Parts Co.',
-        supplierInitials: 'PP',
-        supplierBg: 'bg-indigo-50 text-indigo-600 border border-indigo-100',
-        date: todayStr,
-        itemsCount: 14,
-        gstAmount: 1240.00,
-        grandTotal: 13640.00,
-        status: 'PAID',
-        debit: 13640.00,
-        balance: 0.00
-      },
-      {
-        id: 'PO-2026-0942',
-        invoiceNo: 'INV-7727',
-        supplier: 'Elite Motors Wholesale',
-        supplierInitials: 'EM',
-        supplierBg: 'bg-purple-50 text-purple-600 border border-purple-100',
-        date: todayStr,
-        itemsCount: 8,
-        gstAmount: 840.00,
-        grandTotal: 9240.00,
-        status: 'PARTIAL',
-        debit: 4000.00,
-        balance: 5240.00
-      },
-      {
-        id: 'PO-2026-0940',
-        invoiceNo: 'INV-7726',
-        supplier: 'Global Tyres Ltd.',
-        supplierInitials: 'GT',
-        supplierBg: 'bg-rose-50 text-rose-600 border border-rose-100',
-        date: 'Oct 22, 2023',
-        itemsCount: 210,
-        gstAmount: 2450.00,
-        grandTotal: 26950.00,
-        status: 'PENDING',
-        debit: 0.00,
-        balance: 26950.00
-      },
-      {
-        id: 'PO-2026-0938',
-        invoiceNo: 'INV-7725',
-        supplier: 'Apex Hydraulics',
-        supplierInitials: 'AH',
-        supplierBg: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
-        date: 'Oct 18, 2023',
-        itemsCount: 12,
-        gstAmount: 150.00,
-        grandTotal: 1800.00,
-        status: 'PAID',
-        debit: 1800.00,
-        balance: 0.00
-      },
-      {
-        id: 'PO-2026-0937',
-        invoiceNo: 'INV-7724',
-        supplier: 'Standard Engines Co.',
-        supplierInitials: 'SE',
-        supplierBg: 'bg-slate-50 text-slate-600 border border-slate-100',
-        date: 'Oct 15, 2023',
-        itemsCount: 2,
-        gstAmount: 2150.00,
-        grandTotal: 22150.00,
-        status: 'PENDING',
-        debit: 0.00,
-        balance: 22150.00
-      }
-    ];
-
-    const mockI: SupplierInvoice[] = mockP.map(p => ({
-      id: p.invoiceNo,
-      poRef: p.id,
-      supplier: p.supplier,
-      issueDate: p.date,
-      dueDate: 'Nov 30, 2026',
-      amount: p.grandTotal,
-      paidAmount: p.debit || 0,
-      balanceDue: p.balance !== undefined ? p.balance : p.grandTotal,
-      status: p.status === 'PAID' ? 'PAID' : (p.status === 'PARTIAL' ? 'PARTIAL' : (p.id === 'PO-2026-0940' ? 'OVERDUE' : 'UNPAID'))
-    }));
-
-    return { purchases: mockP, invoices: mockI };
-  })();
+  // Synced Data Setup for Overview (purchases) & Invoices (invoices)
+  const initialSyncedData = { purchases: [], invoices: [] };
 
   // Initial Purchases with localStorage persistence
   const [purchases, setPurchases] = useState<PurchaseOrder[]>(() => {
@@ -307,56 +217,10 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
       const saved = localStorage.getItem('dms_purchase_returns_list');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {}
-    return [
-      {
-        id: 'RET-2023-010',
-        poRef: 'PO-2026-0942',
-        supplier: 'Elite Motors Wholesale',
-        date: getTodayFormattedDate(),
-        purchaseDate: 'Oct 20, 2023',
-        itemsCount: 5,
-        refundValue: 550.00,
-        reason: 'Defective alternators',
-        status: 'COMPLETED',
-        productName: 'Heavy Duty Alternator 12V 100A',
-        items: [
-          { id: '1', productName: 'Heavy Duty Alternator 12V 100A', qty: 5, amount: 550.00, reason: 'Defective alternators' }
-        ]
-      },
-      {
-        id: 'RET-2023-009',
-        poRef: 'PO-2026-0938',
-        supplier: 'Apex Hydraulics',
-        date: getTodayFormattedDate(),
-        purchaseDate: 'Oct 15, 2023',
-        itemsCount: 2,
-        refundValue: 300.00,
-        reason: 'Incorrect size fittings',
-        status: 'PENDING',
-        productName: 'Hydraulic Fitting Set',
-        items: [
-          { id: '1', productName: 'Hydraulic Fitting Set', qty: 2, amount: 300.00, reason: 'Incorrect size fittings' }
-        ]
-      },
-      {
-        id: 'RET-2023-008',
-        poRef: 'PO-2026-0940',
-        supplier: 'Global Tyres Ltd.',
-        date: getTodayFormattedDate(),
-        purchaseDate: 'Oct 10, 2023',
-        itemsCount: 8,
-        refundValue: 960.00,
-        reason: 'Sidewall rubber cracking',
-        status: 'COMPLETED',
-        productName: 'Commercial Radial Tyre 10.00R20',
-        items: [
-          { id: '1', productName: 'Commercial Radial Tyre 10.00R20', qty: 8, amount: 960.00, reason: 'Sidewall rubber cracking' }
-        ]
-      }
-    ];
+    return [];
   });
 
   useEffect(() => {
@@ -476,11 +340,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     }
   }, [propSuppliersList]);
 
-  const defaultSuppliersList: SupplierType[] = [
-    { id: 'SUP-1001', name: 'Palani Sankar Auto Components', gstNumber: '33AAACP2341M1Z1', phone: '9842154321', email: 'palani@autosupplies.com', outstanding: '₹14,500.00', isOutstandingPositive: true, status: 'ACTIVE' },
-    { id: 'SUP-1002', name: 'Sri Lakshmi Spares & Lubes', gstNumber: '33BBACS9876K1Z9', phone: '9443210987', email: 'srilakshmi@spares.com', outstanding: '₹0.00', isOutstandingPositive: false, status: 'ACTIVE' },
-    { id: 'SUP-1003', name: 'Kovai Diesel Systems', gstNumber: '33CCACK4567L1Z2', phone: '9789012345', email: 'kovai@dieselsystems.in', outstanding: '₹8,200.00', isOutstandingPositive: true, status: 'ACTIVE' }
-  ];
+  const defaultSuppliersList: SupplierType[] = [];
 
   // Use suppliers from Suppliers page (via props or API), fallback to defaults only if none exist
   const activeSuppliersList = propSuppliersList.length > 0 
@@ -1381,7 +1241,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
     const calculatedSubtotal = itemsToSave.reduce((acc, item) => acc + (item.qty * item.rate), 0);
     const calculatedGst = itemsToSave.reduce((acc, item) => acc + (item.qty * item.rate * (item.gstPercent / 100)), 0);
-    const calculatedGrandTotal = Math.round(calculatedSubtotal + calculatedGst + newPoAdditionalCharges - newPoDiscount);
+    const calculatedGrandTotal = Math.round(calculatedSubtotal + calculatedGst);
 
     const effectivePaidAmount = newPoPaidAmount === ''
       ? 0
@@ -1642,16 +1502,11 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                 <span className="text-[11px] font-extrabold text-[#184edb] uppercase tracking-wider flex items-center gap-1.5">
                   <Plus size={14} /> Add Product Line
                 </span>
-                {quickProdName.trim() && (
-                  <span className="text-xs font-bold text-slate-600 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
-                    Line Total: <span className="text-[#184edb] font-extrabold">₹{(((Number(quickProdQty) || 1) * (Number(quickProdRate) || 0)) * (1 + quickProdGst / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </span>
-                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                 {/* Product Name */}
-                <div className="sm:col-span-4 flex flex-col gap-1 text-left">
+                <div className="sm:col-span-7 flex flex-col gap-1 text-left">
                   <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Product Name *</label>
                   <input
                     ref={quickProdNameRef}
@@ -1695,7 +1550,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                 </div>
 
                 {/* Quantity */}
-                <div className="sm:col-span-2 flex flex-col gap-1 text-left">
+                <div className="sm:col-span-3 flex flex-col gap-1 text-left">
                   <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Quantity *</label>
                   <input
                     ref={quickProdQtyRef}
@@ -1706,56 +1561,12 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        quickProdRateRef.current?.focus();
-                        quickProdRateRef.current?.select();
+                        handleAddQuickProduct();
                       }
                     }}
                     placeholder="1"
                     className="p-2.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 text-center focus:outline-none focus:border-[#184edb] bg-white shadow-2xs"
                   />
-                </div>
-
-                {/* Unit Rate */}
-                <div className="sm:col-span-2 flex flex-col gap-1 text-left">
-                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Rate (₹) *</label>
-                  <input
-                    ref={quickProdRateRef}
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={quickProdRate}
-                    onChange={(e) => setQuickProdRate(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        quickProdGstRef.current?.focus();
-                      }
-                    }}
-                    placeholder="Rate ₹"
-                    className="p-2.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 text-right focus:outline-none focus:border-[#184edb] bg-white shadow-2xs"
-                  />
-                </div>
-
-                {/* GST % */}
-                <div className="sm:col-span-2 flex flex-col gap-1 text-left">
-                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">GST %</label>
-                  <select
-                    ref={quickProdGstRef}
-                    value={quickProdGst}
-                    onChange={(e) => setQuickProdGst(Number(e.target.value))}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddQuickProduct();
-                      }
-                    }}
-                    className="p-2.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 bg-white focus:outline-none focus:border-[#184edb] shadow-2xs cursor-pointer"
-                  >
-                    <option value={5}>5%</option>
-                    <option value={12}>12%</option>
-                    <option value={18}>18%</option>
-                    <option value={28}>28%</option>
-                  </select>
                 </div>
 
                 {/* Add Button */}
@@ -1774,23 +1585,19 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
             {/* Clean Table Displaying Added Items */}
             <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-              <table className="w-full text-left border-collapse min-w-[700px]">
+              <table className="w-full text-left border-collapse min-w-[500px]">
                 <thead>
                   <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-500 text-[11px] uppercase tracking-wider font-extrabold">
                     <th className="py-3 px-4 w-12 text-center">#</th>
                     <th className="py-3 px-4">Product Name</th>
-                    <th className="py-3 px-3 text-center w-24">Quantity</th>
-                    <th className="py-3 px-4 text-right w-28">Rate (₹)</th>
-                    <th className="py-3 px-3 text-center w-20">GST %</th>
-                    <th className="py-3 px-4 text-right w-28">Tax Amount (₹)</th>
-                    <th className="py-3 px-4 text-right w-32">Line Total (₹)</th>
-                    <th className="py-3 px-4 text-center w-16">Action</th>
+                    <th className="py-3 px-4 text-center w-32">Quantity</th>
+                    <th className="py-3 px-4 text-center w-20">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-[13px]">
                   {purchaseItems.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-10 text-center text-slate-400 bg-white">
+                      <td colSpan={4} className="py-10 text-center text-slate-400 bg-white">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <ShoppingBag size={26} className="text-slate-300" />
                           <span className="font-semibold text-slate-500 text-sm">No products added yet</span>
@@ -1799,67 +1606,39 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                       </td>
                     </tr>
                   ) : (
-                    purchaseItems.map((item, index) => {
-                      const baseVal = item.qty * item.rate;
-                      const taxVal = baseVal * (item.gstPercent / 100);
-                      const lineTotal = baseVal + taxVal;
-
-                      return (
-                        <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="py-3.5 px-4 text-center font-bold text-slate-400 text-xs">
-                            {index + 1}
-                          </td>
-                          <td className="py-3.5 px-4 font-bold text-slate-800">
-                            {item.productName}
-                          </td>
-                          <td className="py-3.5 px-3 text-center font-semibold text-slate-700">
-                            {item.qty}
-                          </td>
-                          <td className="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
-                            ₹{item.rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </td>
-                          <td className="py-3.5 px-3 text-center font-semibold text-slate-600">
-                            <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] font-bold">
-                              {item.gstPercent}%
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4 text-right font-mono text-slate-500 font-semibold">
-                            ₹{taxVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </td>
-                          <td className="py-3.5 px-4 text-right font-mono font-bold text-[#184edb]">
-                            ₹{lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </td>
-                          <td className="py-3.5 px-4 text-center">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveItem(item.id)}
-                              className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg border-none bg-transparent cursor-pointer transition-colors hover:bg-rose-50"
-                              title="Delete Item"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
+                    purchaseItems.map((item, index) => (
+                      <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3.5 px-4 text-center font-bold text-slate-400 text-xs">
+                          {index + 1}
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-800">
+                          {item.productName}
+                        </td>
+                        <td className="py-3.5 px-4 text-center font-semibold text-slate-700">
+                          {item.qty}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveItem(item.id)}
+                            className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg border-none bg-transparent cursor-pointer transition-colors hover:bg-rose-50"
+                            title="Delete Item"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
                   )}
                 </tbody>
                 {purchaseItems.length > 0 && (
                   <tfoot>
                     <tr className="bg-slate-50/80 border-t-2 border-slate-200 text-xs font-bold text-slate-700">
                       <td colSpan={2} className="py-3 px-4 text-right font-extrabold uppercase tracking-wider text-slate-500">
-                        Total:
+                        Total Quantity:
                       </td>
-                      <td className="py-3 px-3 text-center font-extrabold text-slate-800">
+                      <td className="py-3 px-4 text-center font-extrabold text-slate-800 text-sm">
                         {purchaseItems.reduce((acc, i) => acc + i.qty, 0)}
-                      </td>
-                      <td></td>
-                      <td></td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-600">
-                        ₹{purchaseItems.reduce((acc, i) => acc + (i.qty * i.rate * (i.gstPercent / 100)), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono font-extrabold text-[#184edb] text-sm">
-                        ₹{purchaseItems.reduce((acc, i) => acc + (i.qty * i.rate * (1 + i.gstPercent / 100)), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td></td>
                     </tr>
@@ -1895,36 +1674,6 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                 <div className="flex items-center justify-between">
                   <span>GST Total (Aggregated):</span>
                   <span className="text-slate-800 font-bold">₹{calculatedGst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span>Additional Charges:</span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-slate-400">₹</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={newPoAdditionalCharges}
-                      onChange={(e) => setNewPoAdditionalCharges(parseFloat(e.target.value) || 0)}
-                      className="w-24 p-1.5 border border-slate-200 bg-white rounded text-center text-xs font-bold text-slate-800 focus:outline-none focus:border-[#184edb]"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span>Discount:</span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-slate-400">₹</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={newPoDiscount}
-                      onChange={(e) => setNewPoDiscount(parseFloat(e.target.value) || 0)}
-                      className="w-24 p-1.5 border border-slate-200 bg-white rounded text-center text-xs font-bold text-slate-800 focus:outline-none focus:border-[#184edb]"
-                    />
-                  </div>
                 </div>
               </div>
 

@@ -476,44 +476,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({ customer: init
 
           {/* SERVICES TAB */}
           {activeTab === 'services' && (() => {
-            const mockServiceLog = [
-              {
-                jobCard: 'JC-2024-9182',
-                date: 'Oct 12, 2023',
-                description: 'Hydraulic pump failure & filter replacement',
-                mechanic: 'Mark Henderson',
-                labour: '₹450.00',
-                parts: '₹1,240.50',
-                total: '₹1,690.50'
-              },
-              {
-                jobCard: 'JC-2024-9245',
-                date: 'Feb 15, 2024',
-                description: 'Engine diagnostic & routine 1000hr service',
-                mechanic: 'Sarah Jenkins',
-                labour: '₹280.00',
-                parts: '₹310.20',
-                total: '₹590.20'
-              },
-              {
-                jobCard: 'JC-2023-8812',
-                date: 'Nov 05, 2023',
-                description: 'Track adjustment & sprocket inspection',
-                mechanic: 'Mark Henderson',
-                labour: '₹320.00',
-                parts: '₹0.00',
-                total: '₹320.00'
-              },
-              {
-                jobCard: 'JC-2023-8700',
-                date: 'Aug 22, 2023',
-                description: 'Electrical short in lighting system',
-                mechanic: 'David Smith',
-                labour: '₹120.00',
-                parts: '₹45.50',
-                total: '₹165.50'
-              }
-            ];
+            const mockServiceLog: any[] = [];
 
             const realServiceLog = dbJobCards.map(jc => ({
               jobCard: jc.jcNumber,
