@@ -11,11 +11,9 @@ import {
   PackageOpen,
   Users,
   Truck,
-  Filter,
-  Download,
   Search,
-  Plus,
-  ArrowUpRight
+  ArrowUpRight,
+  X
 } from 'lucide-react';
 
 import { getStoredInventory } from '../utils/inventory';
@@ -69,7 +67,6 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, onNavigateToService }) => {
-  const [searchTerm, setSearchTerm] = useState('');
   const [customers, setCustomers] = useState<CustomerType[]>([]);
   const [transactions, setTransactions] = useState<TransactionType[]>([]);
   const [parts, setParts] = useState<PartType[]>([]);
@@ -77,6 +74,52 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
   const [jobcards, setJobcards] = useState<JobCardType[]>([]);
   const [sales, setSales] = useState<any[]>([]);
   const [, setLocalDataTick] = useState(0);
+
+  // Customers Modal controls
+  const [showAllCustomersModal, setShowAllCustomersModal] = useState(false);
+  const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+
+  // Service Bills state & Modal controls
+  const [showAllServiceBillsModal, setShowAllServiceBillsModal] = useState(false);
+  const [serviceBillsSearch, setServiceBillsSearch] = useState('');
+
+  // Transactions Modal controls
+  const [showAllTransactionsModal, setShowAllTransactionsModal] = useState(false);
+  const [txnSearchTerm, setTxnSearchTerm] = useState('');
+  const [serviceBills, setServiceBills] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('dms_service_bills');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return [
+      { id: 'sb-101', billNo: 'SB-4492', customerName: 'Balaji Logistics', vehicleNo: 'TN-38-AK-8821', date: 'Oct 12, 2023', grandTotal: 18450, status: 'PAID' },
+      { id: 'sb-102', billNo: 'SB-4493', customerName: 'Ramu Transport', vehicleNo: 'TN-37-BY-1102', date: 'Oct 14, 2023', grandTotal: 24100, status: 'PENDING' },
+      { id: 'sb-103', billNo: 'SB-4494', customerName: 'City Motors Garage', vehicleNo: 'KA-01-EF-5566', date: 'Oct 18, 2023', grandTotal: 9600, status: 'PAID' }
+    ];
+  });
+
+  useEffect(() => {
+    const loadServiceBills = () => {
+      try {
+        const saved = localStorage.getItem('dms_service_bills');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) setServiceBills(parsed);
+        }
+      } catch (e) {}
+    };
+
+    loadServiceBills();
+    window.addEventListener('storage', loadServiceBills);
+    window.addEventListener('dms_billing_updated', loadServiceBills);
+    return () => {
+      window.removeEventListener('storage', loadServiceBills);
+      window.removeEventListener('dms_billing_updated', loadServiceBills);
+    };
+  }, []);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -180,13 +223,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
     ? `₹${(totalCollection / 100000).toFixed(2)}L`
     : `₹${totalCollection.toLocaleString('en-IN')}`;
 
-  // Spare parts low stock logic directly synced from inventory
+  // Spare parts inventory logic directly synced from Spare Parts page
   const storedInventory = getStoredInventory();
   const effectivePartsList = storedInventory.length > 0 ? storedInventory : parts;
 
   const lowStockCount = effectivePartsList.filter(p => {
     const numStock = parseInt((p.stock || '0').replace(/[^0-9]/g, ''), 10) || 0;
-    return p.stockStatus === 'low' || p.stockStatus === 'out' || numStock < 12;
+    return p.stockStatus === 'low' || (numStock > 0 && numStock < 12);
   }).length;
 
   const outStockCount = effectivePartsList.filter(p => {
@@ -218,6 +261,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
     }
   } catch (e) {}
 
+  // Bulletproof numeric parser to avoid NaN
+  const parseNumericAmount = (val: any): number => {
+    if (val === null || val === undefined) return 0;
+    if (typeof val === 'number') return isNaN(val) ? 0 : val;
+    const cleaned = String(val).replace(/[^\d.]/g, '');
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
   // Real-time calculation for Counter Sales
   let counterSalesTotalStr = '₹0';
   try {
@@ -225,7 +277,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
     if (savedCounterSales) {
       const parsed = JSON.parse(savedCounterSales);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        const sumTotal = parsed.reduce((acc: number, bill: any) => acc + (Number(bill.grandTotal) || 0), 0);
+        const sumTotal = parsed.reduce((acc: number, bill: any) => acc + parseNumericAmount(bill.grandTotal), 0);
         if (sumTotal >= 100000) {
           counterSalesTotalStr = `₹${(sumTotal / 100000).toFixed(2)}L`;
         } else if (sumTotal >= 1000) {
@@ -237,11 +289,79 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
     }
   } catch (e) {}
 
-  const filteredTransactions = transactions.filter(t =>
-    t.payeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.refId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.vehicleJob.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // 1. Service Revenue
+  const totalServiceRevenueNum = serviceBills.reduce((acc: number, bill: any) => {
+    return acc + parseNumericAmount(bill.grandTotal || bill.subtotal);
+  }, 0);
+
+  // 2. Spare Parts Revenue
+  let totalSparePartsRevenueNum = 0;
+  try {
+    const savedCounterSales = localStorage.getItem('dms_counter_sales_bills');
+    if (savedCounterSales) {
+      const parsed = JSON.parse(savedCounterSales);
+      if (Array.isArray(parsed)) {
+        totalSparePartsRevenueNum = parsed.reduce((sum: number, b: any) => sum + parseNumericAmount(b.grandTotal || b.subtotal), 0);
+      }
+    }
+  } catch (e) {}
+
+  // 3. Vehicle Sales Revenue
+  let totalVehicleSalesRevenueNum = 0;
+  try {
+    let vSalesList = sales;
+    const savedVehicleSales = localStorage.getItem('dms_vehicle_sales');
+    if (savedVehicleSales) {
+      const parsed = JSON.parse(savedVehicleSales);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        vSalesList = parsed;
+      }
+    }
+    totalVehicleSalesRevenueNum = vSalesList.reduce((sum: number, s: any) => {
+      return sum + parseNumericAmount(s.grandTotal || s.totalAmount || s.price || s.priceAmount || s.amount);
+    }, 0);
+  } catch (e) {}
+
+  // Total Revenue = Service Revenue + Spare Parts Revenue + Vehicle Sales Revenue
+  const grandTotalRevenueNum = totalServiceRevenueNum + totalSparePartsRevenueNum + totalVehicleSalesRevenueNum;
+
+  const formatRevenueStr = (val: number) => {
+    const safeVal = isNaN(val) ? 0 : val;
+    if (safeVal === 0) return '₹0';
+    if (safeVal >= 10000000) return `₹${(safeVal / 10000000).toFixed(2)}Cr (₹${safeVal.toLocaleString('en-IN')})`;
+    if (safeVal >= 100000) return `₹${(safeVal / 100000).toFixed(2)}L (₹${safeVal.toLocaleString('en-IN')})`;
+    return `₹${safeVal.toLocaleString('en-IN')}`;
+  };
+
+  const serviceRevenueStr = formatRevenueStr(totalServiceRevenueNum);
+  const sparePartsRevenueStr = formatRevenueStr(totalSparePartsRevenueNum);
+  const vehicleSalesRevenueStr = formatRevenueStr(totalVehicleSalesRevenueNum);
+  const totalRevenueStr = formatRevenueStr(grandTotalRevenueNum);
+
+  const allCombinedTransactions: TransactionType[] = transactions.length > 0
+    ? transactions
+    : [
+        ...sales.map((s, idx) => ({
+          refId: s.invoiceNo || `TXN-SALE-${100 + idx}`,
+          payeeName: s.customerName || 'Customer',
+          method: 'Bank Transfer',
+          vehicleJob: s.vehicleModel || 'Vehicle Sale',
+          date: s.saleDate || s.date || 'Today',
+          amount: s.grandTotal ? `₹${Number(s.grandTotal).toLocaleString('en-IN')}` : '₹0',
+          status: s.status === 'PAID' ? 'Paid' : (s.status || 'Paid')
+        })),
+        ...serviceBills.map((sb, idx) => ({
+          refId: sb.billNo || `TXN-SB-${200 + idx}`,
+          payeeName: sb.customerName || 'Customer',
+          method: 'UPI / Cash',
+          vehicleJob: sb.vehicleNo || 'Service Bill',
+          date: sb.date || 'Today',
+          amount: sb.grandTotal ? `₹${Number(sb.grandTotal).toLocaleString('en-IN')}` : '₹0',
+          status: sb.status === 'PAID' || sb.status === 'Paid' ? 'Paid' : 'Pending'
+        }))
+      ];
+
+  const filteredTransactions = allCombinedTransactions;
 
   return (
     <div className="p-8 bg-[#f6f8fc] min-h-[calc(100vh-70px)] flex flex-col gap-6 box-border font-sans text-slate-700 text-left">
@@ -463,10 +583,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
           <div className="bg-white rounded-xl p-6 border border-[#eef2f6] shadow-sm">
             <div className="flex justify-between items-center mb-3.5">
               <h3 className="text-sm font-bold text-slate-800 m-0">Recent Customers</h3>
-              <div className="flex gap-1.5">
-                <button className="bg-slate-50 border border-slate-200 rounded-md w-7 h-7 flex items-center justify-center cursor-pointer text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><Filter size={14} /></button>
-                <button className="bg-slate-50 border border-slate-200 rounded-md w-7 h-7 flex items-center justify-center cursor-pointer text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><Download size={14} /></button>
-              </div>
+              <button 
+                type="button"
+                onClick={() => setShowAllCustomersModal(true)}
+                className="bg-transparent border-none text-[#184edb] text-[11px] font-bold cursor-pointer tracking-wider hover:underline"
+              >
+                VIEW ALL
+              </button>
             </div>
             <div className="w-full overflow-x-auto">
               <table className="w-full border-collapse text-left text-[12.5px]">
@@ -478,7 +601,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
                   </tr>
                 </thead>
                 <tbody>
-                  {customers.slice(0, 2).map(c => (
+                  {customers.slice(0, 3).map(c => (
                     <tr key={c.id}>
                       <td className="p-3 border-b border-slate-100 font-bold text-slate-500">{c.id}</td>
                       <td className="p-3 border-b border-slate-100 text-slate-600">{c.name}</td>
@@ -501,31 +624,48 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
           <div className="bg-white rounded-xl p-6 border border-[#eef2f6] shadow-sm">
             <div className="flex justify-between items-center mb-3.5">
               <h3 className="text-sm font-bold text-slate-800 m-0">Recent Service Bills</h3>
-              <button className="bg-transparent border-none text-[#184edb] text-[11px] font-bold cursor-pointer tracking-wider hover:underline">VIEW ALL</button>
+              <button 
+                type="button"
+                onClick={() => setShowAllServiceBillsModal(true)}
+                className="bg-transparent border-none text-[#184edb] text-[11px] font-bold cursor-pointer tracking-wider hover:underline"
+              >
+                VIEW ALL
+              </button>
             </div>
             <div className="w-full overflow-x-auto">
               <table className="w-full border-collapse text-left text-[12.5px]">
                 <thead>
                   <tr>
                     <th className="py-2.5 px-3 text-slate-400 font-bold text-[10px] tracking-wider border-b border-slate-100">BILL ID</th>
+                    <th className="py-2.5 px-3 text-slate-400 font-bold text-[10px] tracking-wider border-b border-slate-100">CUSTOMER / VEHICLE</th>
                     <th className="py-2.5 px-3 text-slate-400 font-bold text-[10px] tracking-wider border-b border-slate-100">DATE</th>
                     <th className="py-2.5 px-3 text-slate-400 font-bold text-[10px] tracking-wider border-b border-slate-100">AMOUNT</th>
                     <th className="py-2.5 px-3 text-slate-400 font-bold text-[10px] tracking-wider border-b border-slate-100">PAYMENT STATUS</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td className="p-3 border-b border-slate-100 font-bold text-slate-500">#SB-4492</td>
-                    <td className="p-3 border-b border-slate-100 text-slate-600">Oct 12, 2023</td>
-                    <td className="p-3 border-b border-slate-100 font-bold text-slate-700">₹18,450</td>
-                    <td className="p-3 border-b border-slate-100 text-slate-600"><span className="px-2 py-0.5 rounded-md text-[10px] font-semibold inline-block bg-green-100 text-green-700">Paid</span></td>
-                  </tr>
-                  <tr>
-                    <td className="p-3 border-b border-slate-100 font-bold text-slate-500">#SB-4493</td>
-                    <td className="p-3 border-b border-slate-100 text-slate-600">Oct 14, 2023</td>
-                    <td className="p-3 border-b border-slate-100 font-bold text-slate-700">₹24,100</td>
-                    <td className="p-3 border-b border-slate-100 text-slate-600"><span className="px-2 py-0.5 rounded-md text-[10px] font-semibold inline-block bg-orange-50 text-orange-600">Pending</span></td>
-                  </tr>
+                  {serviceBills.slice(0, 3).map((bill: any, idx: number) => (
+                    <tr key={bill.id || bill.billNo || idx}>
+                      <td className="p-3 border-b border-slate-100 font-bold text-[#184edb]">{bill.billNo || bill.id}</td>
+                      <td className="p-3 border-b border-slate-100 font-semibold text-slate-700">
+                        {bill.customerName || 'Customer'}
+                        {bill.vehicleNo && <span className="block text-[11px] font-mono text-slate-400 font-normal">{bill.vehicleNo}</span>}
+                      </td>
+                      <td className="p-3 border-b border-slate-100 text-slate-600">{bill.date || 'Today'}</td>
+                      <td className="p-3 border-b border-slate-100 font-bold text-slate-700">
+                        ₹{(bill.grandTotal || bill.subtotal || 0).toLocaleString('en-IN')}
+                      </td>
+                      <td className="p-3 border-b border-slate-100 text-slate-600">
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold inline-block ${
+                          bill.status === 'PAID' || bill.status === 'Paid'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-orange-50 text-orange-600'
+                        }`}>
+                          {bill.status || 'PAID'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -536,19 +676,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
       <div className="bg-white rounded-xl p-6 border border-[#eef2f6] shadow-sm">
         <div className="flex justify-between items-center mb-5">
           <h3 className="text-sm font-bold text-slate-800 m-0">Transaction History</h3>
-          <div className="flex items-center gap-3">
-            <div className="relative flex items-center">
-              <Search className="absolute left-2.5 text-slate-400" size={14} />
-              <input
-                type="text"
-                placeholder="Search transactions..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-md text-xs outline-none w-[180px] bg-slate-50 transition-all focus:border-[#184edb] focus:bg-white focus:ring-2 focus:ring-blue-100"
-              />
-            </div>
-            <button className="bg-[#184edb] text-white border-none py-1.5 px-3.5 rounded-md text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors hover:bg-blue-900"><Plus size={16} /> New Payment</button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowAllTransactionsModal(true)}
+            className="bg-transparent border-none text-[#184edb] text-[11px] font-bold cursor-pointer tracking-wider hover:underline"
+          >
+            VIEW ALL
+          </button>
         </div>
         <div className="w-full overflow-x-auto">
           <table className="w-full border-collapse text-left text-[12.5px]">
@@ -564,8 +698,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
               </tr>
             </thead>
             <tbody>
-              {filteredTransactions.map(t => (
-                <tr key={t.refId}>
+              {filteredTransactions.slice(0, 3).map((t, idx) => (
+                <tr key={t.refId || idx}>
                   <td className="p-3 border-b border-slate-100 font-bold text-[#184edb] cursor-pointer hover:underline">{t.refId}</td>
                   <td className="p-3 border-b border-slate-100 font-medium text-slate-700">{t.payeeName}</td>
                   <td className="p-3 border-b border-slate-100 text-slate-600">{t.method}</td>
@@ -573,7 +707,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
                   <td className="p-3 border-b border-slate-100 text-slate-600">{t.date}</td>
                   <td className="p-3 border-b border-slate-100 font-bold text-slate-700">{t.amount}</td>
                   <td className="p-3 border-b border-slate-100 text-slate-600">
-                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold inline-block ${t.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold inline-block ${t.status === 'Paid' || t.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'
                       }`}>{t.status}</span>
                   </td>
                 </tr>
@@ -626,23 +760,298 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
           <div className="flex flex-col gap-2">
             <div className="flex justify-between text-xs text-slate-500 pb-1.5 border-b border-dashed border-slate-100">
               <span>Service Revenue</span>
-              <span className="font-medium text-slate-800">₹12.4L</span>
+              <span className="font-medium text-slate-800">{serviceRevenueStr}</span>
             </div>
             <div className="flex justify-between text-xs text-slate-500 pb-1.5 border-b border-dashed border-slate-100">
               <span>Spare Parts Revenue</span>
-              <span className="font-medium text-slate-800">₹8.2L</span>
+              <span className="font-medium text-slate-800">{sparePartsRevenueStr}</span>
             </div>
             <div className="flex justify-between text-xs text-slate-500 pb-1.5 border-b border-dashed border-slate-100">
               <span>Vehicle Sales Revenue</span>
-              <span className="font-medium text-slate-800">₹42.5L</span>
+              <span className="font-medium text-slate-800">{vehicleSalesRevenueStr}</span>
             </div>
             <div className="flex justify-between text-xs text-slate-500 pb-0 border-b-0 pt-1.5">
-              <span className="font-bold text-[#184edb]">Total Revenue (MTD)</span>
-              <span className="font-bold text-[#184edb]">₹63.1L</span>
+              <span className="font-bold text-[#184edb]">Total Revenue</span>
+              <span className="font-bold text-[#184edb]">{totalRevenueStr}</span>
             </div>
           </div>
         </div>
       </div>
+
+      {/* ALL SERVICE BILLS MODAL */}
+      {showAllServiceBillsModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn text-left">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden shadow-2xl flex flex-col border border-slate-100">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div>
+                <h2 className="text-lg font-extrabold text-slate-800 m-0">All Service Bills</h2>
+                <span className="text-xs text-slate-400 font-semibold">Total {serviceBills.length} Service Bills Found</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAllServiceBillsModal(false)}
+                className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:text-slate-800 cursor-pointer transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Search & Nav Bar */}
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-white flex-wrap">
+              <div className="relative flex-1 min-w-[240px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                <input
+                  type="text"
+                  placeholder="Search by Bill No, Customer Name, or Vehicle No..."
+                  value={serviceBillsSearch}
+                  onChange={(e) => setServiceBillsSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none focus:border-[#184edb]"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAllServiceBillsModal(false);
+                  onNavigate('billing');
+                }}
+                className="px-4 py-2 bg-[#184edb] hover:bg-blue-800 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+              >
+                Go to Service Billing Page
+              </button>
+            </div>
+
+            {/* Modal Table Content */}
+            <div className="p-5 overflow-y-auto flex-1">
+              <table className="w-full border-collapse text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-100/70 text-slate-500 font-extrabold uppercase text-[10.5px] border-b border-slate-200">
+                    <th className="py-3 px-4 w-12">#</th>
+                    <th className="py-3 px-4">Bill ID</th>
+                    <th className="py-3 px-4">Customer Name</th>
+                    <th className="py-3 px-4">Vehicle No</th>
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4 text-right">Grand Total</th>
+                    <th className="py-3 px-4 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {serviceBills
+                    .filter((b: any) => {
+                      if (!serviceBillsSearch.trim()) return true;
+                      const q = serviceBillsSearch.toLowerCase();
+                      return (
+                        (b.billNo && b.billNo.toLowerCase().includes(q)) ||
+                        (b.id && b.id.toLowerCase().includes(q)) ||
+                        (b.customerName && b.customerName.toLowerCase().includes(q)) ||
+                        (b.vehicleNo && b.vehicleNo.toLowerCase().includes(q))
+                      );
+                    })
+                    .map((b: any, idx: number) => (
+                      <tr key={b.id || b.billNo || idx} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3 px-4 text-slate-400 font-bold">{idx + 1}</td>
+                        <td className="py-3 px-4 font-bold text-[#184edb]">{b.billNo || b.id}</td>
+                        <td className="py-3 px-4 font-semibold text-slate-800">{b.customerName || 'Customer'}</td>
+                        <td className="py-3 px-4 font-mono text-slate-600">{b.vehicleNo || '-'}</td>
+                        <td className="py-3 px-4 text-slate-500">{b.date || 'Today'}</td>
+                        <td className="py-3 px-4 text-right font-bold text-slate-800">
+                          ₹{(b.grandTotal || b.subtotal || 0).toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                            b.status === 'PAID' || b.status === 'Paid'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {b.status || 'PAID'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ALL TRANSACTIONS MODAL */}
+      {showAllTransactionsModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn text-left">
+          <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden shadow-2xl flex flex-col border border-slate-100">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div>
+                <h2 className="text-lg font-extrabold text-slate-800 m-0">All Transaction History</h2>
+                <span className="text-xs text-slate-400 font-semibold">Total {allCombinedTransactions.length} Transactions Found</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAllTransactionsModal(false)}
+                className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:text-slate-800 cursor-pointer transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Search Filter Bar */}
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-white">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                <input
+                  type="text"
+                  placeholder="Search transactions by Ref ID, Payee, or Vehicle/Job..."
+                  value={txnSearchTerm}
+                  onChange={(e) => setTxnSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none focus:border-[#184edb]"
+                />
+              </div>
+            </div>
+
+            {/* Modal Table Content */}
+            <div className="p-5 overflow-y-auto flex-1">
+              <table className="w-full border-collapse text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-100/70 text-slate-500 font-extrabold uppercase text-[10.5px] border-b border-slate-200">
+                    <th className="py-3 px-4 w-12">#</th>
+                    <th className="py-3 px-4">Ref ID</th>
+                    <th className="py-3 px-4">Payee Name</th>
+                    <th className="py-3 px-4">Method</th>
+                    <th className="py-3 px-4">Vehicle / Job</th>
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4 text-right">Amount</th>
+                    <th className="py-3 px-4 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {allCombinedTransactions
+                    .filter((t: any) => {
+                      if (!txnSearchTerm.trim()) return true;
+                      const q = txnSearchTerm.toLowerCase();
+                      return (
+                        (t.refId && t.refId.toLowerCase().includes(q)) ||
+                        (t.payeeName && t.payeeName.toLowerCase().includes(q)) ||
+                        (t.method && t.method.toLowerCase().includes(q)) ||
+                        (t.vehicleJob && t.vehicleJob.toLowerCase().includes(q))
+                      );
+                    })
+                    .map((t: any, idx: number) => (
+                      <tr key={t.refId || idx} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3 px-4 text-slate-400 font-bold">{idx + 1}</td>
+                        <td className="py-3 px-4 font-bold text-[#184edb]">{t.refId}</td>
+                        <td className="py-3 px-4 font-semibold text-slate-800">{t.payeeName}</td>
+                        <td className="py-3 px-4 text-slate-600">{t.method}</td>
+                        <td className="py-3 px-4 font-mono text-slate-600">{t.vehicleJob}</td>
+                        <td className="py-3 px-4 text-slate-500">{t.date}</td>
+                        <td className="py-3 px-4 text-right font-bold text-slate-800">{t.amount}</td>
+                        <td className="py-3 px-4 text-center">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                            t.status === 'Paid' || t.status === 'PAID'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-blue-50 text-blue-600'
+                          }`}>
+                            {t.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ALL CUSTOMERS MODAL */}
+      {showAllCustomersModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn text-left">
+          <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden shadow-2xl flex flex-col border border-slate-100">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div>
+                <h2 className="text-lg font-extrabold text-slate-800 m-0">All Customers</h2>
+                <span className="text-xs text-slate-400 font-semibold">Total {customers.length} Customers Registered</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAllCustomersModal(false)}
+                className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:text-slate-800 cursor-pointer transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Search Filter Bar */}
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-white flex-wrap">
+              <div className="relative flex-1 min-w-[240px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                <input
+                  type="text"
+                  placeholder="Search by Customer ID, Name, Phone, or District..."
+                  value={customerSearchTerm}
+                  onChange={(e) => setCustomerSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none focus:border-[#184edb]"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAllCustomersModal(false);
+                  onNavigate('customers');
+                }}
+                className="px-4 py-2 bg-[#184edb] hover:bg-blue-800 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+              >
+                Go to Customers Page
+              </button>
+            </div>
+
+            {/* Modal Table Content */}
+            <div className="p-5 overflow-y-auto flex-1">
+              <table className="w-full border-collapse text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-100/70 text-slate-500 font-extrabold uppercase text-[10.5px] border-b border-slate-200">
+                    <th className="py-3 px-4 w-12">#</th>
+                    <th className="py-3 px-4">Customer ID</th>
+                    <th className="py-3 px-4">Name</th>
+                    <th className="py-3 px-4">Phone Number</th>
+                    <th className="py-3 px-4">District</th>
+                    <th className="py-3 px-4 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {customers
+                    .filter((c: any) => {
+                      if (!customerSearchTerm.trim()) return true;
+                      const q = customerSearchTerm.toLowerCase();
+                      return (
+                        (c.id && c.id.toLowerCase().includes(q)) ||
+                        (c.name && c.name.toLowerCase().includes(q)) ||
+                        (c.phone && c.phone.toLowerCase().includes(q)) ||
+                        (c.district && c.district.toLowerCase().includes(q))
+                      );
+                    })
+                    .map((c: any, idx: number) => (
+                      <tr key={c.id || idx} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3 px-4 text-slate-400 font-bold">{idx + 1}</td>
+                        <td className="py-3 px-4 font-bold text-[#184edb]">{c.id}</td>
+                        <td className="py-3 px-4 font-semibold text-slate-800">{c.name}</td>
+                        <td className="py-3 px-4 font-mono text-slate-600">{c.phone || '-'}</td>
+                        <td className="py-3 px-4 text-slate-500">{c.district || '-'}</td>
+                        <td className="py-3 px-4 text-center">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                            c.status === 'Active' || c.status === 'ACTIVE'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-blue-50 text-blue-600'
+                          }`}>
+                            {c.status || 'Active'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

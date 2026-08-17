@@ -436,9 +436,10 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
                   </span>
                   <input
                     type="text"
-                    placeholder="1234567890"
+                    maxLength={10}
+                    placeholder="10-digit mobile number"
                     value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                    onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
                     className="w-full pl-10.5 pr-4 py-2.5 text-[14px] bg-[#fff] border border-slate-250 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
                   />
                 </div>

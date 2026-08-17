@@ -211,6 +211,14 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
 
   const loadCatalog = () => {
     const defaultDisc = getDefaultDiscountFromSettings();
+    const defaultCatalogMock = [
+      { name: 'Synthetic Engine Oil (5W-40) | Part No: AC-OIL-772', code: 'AC-OIL-772', price: 850, stock: 45, discount: defaultDisc, gst: 18, hsn: '2710' },
+      { name: 'High-Flow Air Filter | Part No: AF-K7-001', code: 'AF-K7-001', price: 2400, stock: 18, discount: defaultDisc, gst: 28, hsn: '8421' },
+      { name: 'Brake Pad Set - Front Performance | Part No: BP-992-FR', code: 'BP-992-FR', price: 120, stock: 30, discount: defaultDisc, gst: 18, hsn: '8708' },
+      { name: 'Heavy-Duty Oil Filter | Part No: OF-E5-901', code: 'OF-E5-901', price: 450, stock: 25, discount: defaultDisc, gst: 18, hsn: '8421' },
+      { name: 'Hydraulics Control Valve | Part No: HV-C8-112', code: 'HV-C8-112', price: 5800, stock: 8, discount: defaultDisc, gst: 18, hsn: '8481' }
+    ];
+
     const stored = getStoredInventory();
     if (stored && stored.length > 0) {
       const mappedStored = stored.map((item: PartType) => ({
@@ -224,6 +232,9 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
       }));
       setCatalog(mappedStored);
       setSelectedProduct(mappedStored[0]);
+    } else {
+      setCatalog(defaultCatalogMock);
+      setSelectedProduct(defaultCatalogMock[0]);
     }
 
     fetch(`${API_URL}/api/parts`)
@@ -287,6 +298,10 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
 
   // Add selected product to bill
   const handleAddProduct = () => {
+    if (!selectedProduct) {
+      alert('Please select a product first.');
+      return;
+    }
     const finalQty = entryQty === '' ? 1 : entryQty;
     const availableStock = getEffectiveStock(selectedProduct);
     if (availableStock <= 0) {
@@ -1189,9 +1204,10 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
                 </label>
                 <input 
                   type="text"
-                  placeholder="e.g. 9876543210"
+                  maxLength={10}
+                  placeholder="10-digit mobile number"
                   value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                  onChange={(e) => setMobileNumber(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
                   className="w-full p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold text-slate-700 outline-none focus:border-[#184edb] bg-slate-50 focus:bg-white transition-all font-sans"
                 />
               </div>
@@ -1323,30 +1339,36 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
               </div>
 
               {/* Part Code preview row */}
-              <div className="bg-[#f8fafc] border border-slate-100 rounded-lg p-3 grid grid-cols-5 text-center gap-2">
-                <div className="flex flex-col">
-                  <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider">Part Code</span>
-                  <span className="text-xs font-bold text-[#184edb] mt-0.5">{selectedProduct.code}</span>
+              {selectedProduct ? (
+                <div className="bg-[#f8fafc] border border-slate-100 rounded-lg p-3 grid grid-cols-5 text-center gap-2">
+                  <div className="flex flex-col">
+                    <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider">Part Code</span>
+                    <span className="text-xs font-bold text-[#184edb] mt-0.5">{selectedProduct.code || '-'}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider">Stock Available</span>
+                    <span className={`text-xs font-bold mt-0.5 ${getEffectiveStock(selectedProduct) === 0 ? 'text-rose-600 font-extrabold' : 'text-slate-700'}`}>
+                      {getEffectiveStock(selectedProduct)} Units
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider">Unit Price</span>
+                    <span className="text-xs font-bold text-slate-700 mt-0.5">₹{(selectedProduct.price || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider">Discount %</span>
+                    <span className="text-xs font-bold text-red-500 mt-0.5">{selectedProduct.discount ?? 0}%</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider">GST %</span>
+                    <span className="text-xs font-bold text-slate-700 mt-0.5">{selectedProduct.gst ?? 18}%</span>
+                  </div>
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider">Stock Available</span>
-                  <span className={`text-xs font-bold mt-0.5 ${getEffectiveStock(selectedProduct) === 0 ? 'text-rose-600 font-extrabold' : 'text-slate-700'}`}>
-                    {getEffectiveStock(selectedProduct)} Units
-                  </span>
+              ) : (
+                <div className="bg-[#f8fafc] border border-slate-100 rounded-lg p-3 text-center text-xs font-bold text-slate-400">
+                  Select a product from the list to preview details
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider">Unit Price</span>
-                  <span className="text-xs font-bold text-slate-700 mt-0.5">₹{selectedProduct.price.toFixed(2)}</span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider">Discount %</span>
-                  <span className="text-xs font-bold text-red-500 mt-0.5">{selectedProduct.discount}%</span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider">GST %</span>
-                  <span className="text-xs font-bold text-slate-700 mt-0.5">{selectedProduct.gst}%</span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
 

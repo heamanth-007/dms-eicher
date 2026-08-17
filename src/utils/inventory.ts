@@ -235,3 +235,168 @@ export function addInventoryStockFromPurchase(
     console.error('Error adding purchase stock to inventory:', err);
   }
 }
+
+export interface PendingPurchasedPart {
+  id: string;
+  poRef: string;
+  date: string;
+  partName: string;
+  partNumber: string;
+  qty: number;
+  purchasePrice: string;
+  salePrice: string;
+  gstPercent: string;
+  brand?: string;
+  category?: string;
+}
+
+export function getPendingPurchasedParts(): PendingPurchasedPart[] {
+  try {
+    const saved = localStorage.getItem('dms_pending_purchased_parts');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+export function savePendingPurchasedParts(list: PendingPurchasedPart[]) {
+  try {
+    localStorage.setItem('dms_pending_purchased_parts', JSON.stringify(list));
+    window.dispatchEvent(new Event('dms_pending_purchases_updated'));
+  } catch (e) {}
+}
+
+export function addPendingPurchaseItems(
+  items: Array<{ productName: string; qty: number; rate?: number; gstPercent?: number; partNumber?: string }>,
+  poReferenceNo: string
+) {
+  try {
+    let pendingList = getPendingPurchasedParts();
+    let inventory = getStoredInventory();
+
+    items.forEach(item => {
+      if (!item.productName || !item.productName.trim()) return;
+      const cleanName = item.productName.trim();
+      const addedQty = Math.max(1, Number(item.qty) || 1);
+      const generatedNum = item.partNumber || `SP-${Math.floor(10000 + Math.random() * 90000)}`;
+
+      const pendingItem: PendingPurchasedPart = {
+        id: `purch-pending-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        poRef: poReferenceNo,
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        partName: cleanName,
+        partNumber: generatedNum,
+        qty: addedQty,
+        purchasePrice: '₹0',
+        salePrice: '₹0',
+        gstPercent: `${item.gstPercent || 18}%`,
+        brand: 'Eicher Genuine',
+        category: 'Spare Parts'
+      };
+      pendingList.unshift(pendingItem);
+
+      // Also ensure part is added to spare parts without price (or zero price) if not already present
+      let existingPart = inventory.find(p =>
+        p.partNumber.toLowerCase() === generatedNum.toLowerCase() ||
+        p.partName.toLowerCase() === cleanName.toLowerCase()
+      );
+
+      if (!existingPart) {
+        inventory.unshift({
+          partNumber: generatedNum,
+          partName: cleanName,
+          category: 'Spare Parts',
+          brand: 'Eicher Genuine',
+          hsnCode: '842123',
+          gstPercent: `${item.gstPercent || 18}%`,
+          purchasePrice: '₹0',
+          salePrice: '₹0',
+          stock: '0',
+          stockStatus: 'out'
+        });
+      }
+    });
+
+    localStorage.setItem('dms_spare_parts_inventory', JSON.stringify(inventory));
+    savePendingPurchasedParts(pendingList);
+    window.dispatchEvent(new Event('dms_inventory_updated'));
+  } catch (err) {
+    console.error('Error adding pending purchase items:', err);
+  }
+}
+
+export function approvePendingPurchasedPart(
+  pendingId: string,
+  purchasePriceVal: number,
+  salePriceVal: number,
+  gstPercentVal: string = '18%'
+) {
+  try {
+    let pendingList = getPendingPurchasedParts();
+    const targetPending = pendingList.find(p => p.id === pendingId);
+    if (!targetPending) return;
+
+    let inventory = getStoredInventory();
+    let updatedTxns: InventoryTxn[] = [];
+    try {
+      const existingTxns = localStorage.getItem('dms_spare_parts_transactions');
+      if (existingTxns) updatedTxns = JSON.parse(existingTxns);
+    } catch (e) {}
+
+    let targetPart = inventory.find(p =>
+      p.partNumber.toLowerCase() === targetPending.partNumber.toLowerCase() ||
+      p.partName.toLowerCase() === targetPending.partName.toLowerCase()
+    );
+
+    const addedQty = targetPending.qty || 1;
+    const purPriceStr = `₹${purchasePriceVal.toFixed(2)}`;
+    const salePriceStr = `₹${salePriceVal.toFixed(2)}`;
+
+    if (targetPart) {
+      const currStock = parseInt(targetPart.stock.replace(/[^0-9]/g, ''), 10) || 0;
+      const newStock = currStock + addedQty;
+      targetPart.stock = newStock.toString();
+      targetPart.purchasePrice = purPriceStr;
+      targetPart.salePrice = salePriceStr;
+      targetPart.gstPercent = gstPercentVal;
+      targetPart.stockStatus = newStock === 0 ? 'out' : newStock < 12 ? 'low' : 'normal';
+    } else {
+      const newCreatedPart: PartType = {
+        partNumber: targetPending.partNumber,
+        partName: targetPending.partName,
+        category: targetPending.category || 'Spare Parts',
+        brand: targetPending.brand || 'Eicher Genuine',
+        hsnCode: '842123',
+        gstPercent: gstPercentVal,
+        purchasePrice: purPriceStr,
+        salePrice: salePriceStr,
+        stock: addedQty.toString(),
+        stockStatus: addedQty < 12 ? 'low' : 'normal'
+      };
+      inventory.unshift(newCreatedPart);
+    }
+
+    updatedTxns.unshift({
+      id: `txn-in-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      partNumber: targetPending.partNumber,
+      partName: targetPending.partName,
+      type: 'Inward (Purchase Approved)',
+      quantity: `+${addedQty} Units`,
+      reference: `PO #${targetPending.poRef}`,
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      amount: `₹${(addedQty * salePriceVal).toFixed(2)}`
+    });
+
+    // Remove from pending list
+    pendingList = pendingList.filter(p => p.id !== pendingId);
+
+    localStorage.setItem('dms_spare_parts_inventory', JSON.stringify(inventory));
+    localStorage.setItem('dms_spare_parts_transactions', JSON.stringify(updatedTxns));
+    savePendingPurchasedParts(pendingList);
+    window.dispatchEvent(new Event('dms_inventory_updated'));
+  } catch (err) {
+    console.error('Error approving pending purchased part:', err);
+  }
+}

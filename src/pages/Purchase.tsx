@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { getStoredInventory, addInventoryStockFromPurchase, type PartType } from '../utils/inventory';
+import { getStoredInventory, addInventoryStockFromPurchase, addPendingPurchaseItems, type PartType } from '../utils/inventory';
 import {
   ShoppingBag,
   RotateCcw,
@@ -752,10 +752,10 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     setEditPoDescription(po.description || '');
     setEditPoRemarks(po.remarks || '');
 
-    const itemsGstTotal = po.items ? Math.round(po.items.reduce((acc, i) => acc + (i.qty * i.rate * (1 + i.gstPercent/100)), 0)) : 0;
-    const diffCharges = (po.grandTotal && itemsGstTotal > 0 && po.grandTotal > itemsGstTotal) 
+    const itemsGstTotal = po.items ? Math.round(po.items.reduce((acc, i) => acc + (i.qty * (Number(i.rate) || 0) * (1 + (Number(i.gstPercent) || 0)/100)), 0)) : 0;
+    const diffCharges = itemsGstTotal > 0 && po.grandTotal > itemsGstTotal
       ? Math.max(0, po.grandTotal - itemsGstTotal) 
-      : 0;
+      : po.grandTotal;
 
     setEditPoAdditionalCharges(diffCharges);
     setEditPoDiscount(0);
@@ -806,10 +806,11 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
       return;
     }
 
-    const itemsSubtotal = editPurchaseItems.reduce((acc, item) => acc + (item.qty * item.rate), 0);
-    const totalGst = editPurchaseItems.reduce((acc, item) => acc + (item.qty * item.rate * (item.gstPercent / 100)), 0);
-    const calculatedTotal = editPurchaseItems.length > 0
-      ? Math.round(itemsSubtotal + totalGst + Number(editPoAdditionalCharges) - Number(editPoDiscount))
+    const itemsSubtotal = editPurchaseItems.reduce((acc, item) => acc + (item.qty * (Number(item.rate) || 0)), 0);
+    const totalGst = editPurchaseItems.reduce((acc, item) => acc + (item.qty * (Number(item.rate) || 0) * ((Number(item.gstPercent) || 0) / 100)), 0);
+    const itemsWithRateTotal = Math.round(itemsSubtotal + totalGst);
+    const calculatedTotal = itemsWithRateTotal > 0
+      ? Math.round(itemsWithRateTotal + Number(editPoAdditionalCharges || 0) - Number(editPoDiscount || 0))
       : (Number(editPoAdditionalCharges) || editingPurchase.grandTotal);
     
     const debitVal = Math.max(0, calculatedTotal);
@@ -1305,8 +1306,8 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
       saveAndSyncPurchasesAndInvoices(updatedP, updatedI);
       
-      // Auto-update / add to Spare Parts Inventory
-      addInventoryStockFromPurchase(itemsToSave, newPurchase.id);
+      // Save purchased products to Pending Purchases (without price set)
+      addPendingPurchaseItems(itemsToSave, newPurchase.id);
 
       // Reset Form
       setNewPoInvoice('');
@@ -1946,33 +1947,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
           </table>
         </div>
 
-        {/* Date & Payment Summary Note Bar */}
-        <div className="bg-slate-50 border border-slate-200/90 rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-slate-700 my-2">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Transaction Date:</span>
-            <span className="font-extrabold text-slate-800">{po.date || 'N/A'}</span>
-          </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Amount Paid ({po.paymentMode || 'Cash'}):</span>
-            <span className="font-extrabold text-emerald-700">₹{paidVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Balance Remaining:</span>
-            <span className="font-extrabold text-rose-600">₹{balanceVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-          </div>
-
-          <span className={`text-[10.5px] font-extrabold px-2.5 py-0.5 rounded-full uppercase ${
-            statusTag === 'PAID'
-              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-              : statusTag === 'PARTIAL'
-              ? 'bg-amber-100 text-amber-800 border border-amber-200'
-              : 'bg-rose-100 text-rose-800 border border-rose-200'
-          }`}>
-            Status: {statusTag}
-          </span>
-        </div>
 
         {/* PAYMENT HISTORY & INSTALLMENTS BREAKDOWN ON INVOICE */}
         {(() => {
@@ -4106,14 +4081,57 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                       {editPurchaseItems.map((item) => {
-                        const itemSub = item.qty * item.rate;
-                        const itemTotal = itemSub + (itemSub * (item.gstPercent / 100));
+                        const itemSub = (Number(item.qty) || 0) * (Number(item.rate) || 0);
+                        const itemTotal = itemSub + (itemSub * ((Number(item.gstPercent) || 0) / 100));
                         return (
-                          <tr key={item.id}>
+                          <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                             <td className="p-2 font-bold text-slate-800">{item.productName}</td>
-                            <td className="p-2 text-center">{item.qty}</td>
-                            <td className="p-2 text-right">₹{item.rate.toFixed(2)}</td>
-                            <td className="p-2 text-center">{item.gstPercent}%</td>
+                            <td className="p-2 text-center">
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.qty}
+                                onChange={(e) => {
+                                  const newQty = Math.max(1, Number(e.target.value) || 1);
+                                  setEditPurchaseItems(prev => prev.map(i => i.id === item.id ? { ...i, qty: newQty } : i));
+                                }}
+                                className="w-16 p-1 border border-slate-200 rounded text-center text-xs font-semibold focus:outline-none focus:border-[#184edb]"
+                              />
+                            </td>
+                            <td className="p-2 text-right">
+                              <div className="relative flex items-center justify-end">
+                                <span className="text-slate-400 text-xs mr-0.5 font-bold">₹</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={item.rate === 0 ? '' : item.rate}
+                                  placeholder="0.00"
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    const newRate = val === '' ? 0 : (parseFloat(val) || 0);
+                                    setEditPurchaseItems(prev => prev.map(i => i.id === item.id ? { ...i, rate: newRate } : i));
+                                  }}
+                                  className="w-24 p-1 border border-slate-200 rounded text-right text-xs font-bold text-slate-800 focus:outline-none focus:border-[#184edb]"
+                                />
+                              </div>
+                            </td>
+                            <td className="p-2 text-center">
+                              <select
+                                value={item.gstPercent}
+                                onChange={(e) => {
+                                  const newGst = Number(e.target.value) || 0;
+                                  setEditPurchaseItems(prev => prev.map(i => i.id === item.id ? { ...i, gstPercent: newGst } : i));
+                                }}
+                                className="p-1 border border-slate-200 rounded text-center text-xs font-bold text-slate-700 focus:outline-none focus:border-[#184edb] bg-white cursor-pointer"
+                              >
+                                <option value={0}>0%</option>
+                                <option value={5}>5%</option>
+                                <option value={12}>12%</option>
+                                <option value={18}>18%</option>
+                                <option value={28}>28%</option>
+                              </select>
+                            </td>
                             <td className="p-2 text-right font-bold text-slate-900">₹{itemTotal.toFixed(2)}</td>
                             <td className="p-2 text-center">
                               <button
@@ -4134,8 +4152,9 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
               {/* Financials Ledger Box & Payment History Breakdown */}
               {(() => {
-                const totalVal = editPurchaseItems.length > 0 
-                  ? Math.round(editPurchaseItems.reduce((acc, i) => acc + (i.qty * i.rate * (1 + i.gstPercent/100)), 0) + Number(editPoAdditionalCharges) - Number(editPoDiscount))
+                const calculatedItemsTotal = editPurchaseItems.reduce((acc, i) => acc + (i.qty * (Number(i.rate) || 0) * (1 + (Number(i.gstPercent) || 0)/100)), 0);
+                const totalVal = calculatedItemsTotal > 0 
+                  ? Math.round(calculatedItemsTotal + Number(editPoAdditionalCharges || 0) - Number(editPoDiscount || 0))
                   : (Number(editPoAdditionalCharges) || editingPurchase.grandTotal);
                 
                 const pastPayments = editingPurchase.payments || [];

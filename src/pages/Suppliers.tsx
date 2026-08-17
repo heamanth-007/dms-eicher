@@ -279,9 +279,10 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
                     <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94a3b8]" size={16} />
                     <input
                       type="text"
+                      maxLength={10}
                       placeholder="10-digit mobile number"
                       value={formPhone}
-                      onChange={(e) => setFormPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                      onChange={(e) => setFormPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
                       className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] placeholder-[#94a3b8] focus:outline-none focus:border-[#184edb] focus:ring-1 focus:ring-[#184edb]"
                     />
                   </div>
@@ -561,8 +562,10 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
                       <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none" size={16} />
                       <input
                         type="text"
+                        maxLength={10}
+                        placeholder="10-digit mobile number"
                         value={editPhone}
-                        onChange={(e) => setEditPhone(e.target.value)}
+                        onChange={(e) => setEditPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
                         className="w-full pl-10 pr-4 py-2.5 bg-[#f0f5ff] border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] font-medium focus:outline-none focus:border-[#184edb]"
                       />
                     </div>

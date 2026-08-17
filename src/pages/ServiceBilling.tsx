@@ -817,8 +817,10 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
                 <label className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wide">Phone Number</label>
                 <input
                   type="text"
+                  maxLength={10}
+                  placeholder="10-digit mobile number"
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                  onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
                   className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold text-slate-700 focus:outline-none focus:border-[#184edb]"
                 />
               </div>

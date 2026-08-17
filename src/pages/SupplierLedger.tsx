@@ -479,33 +479,7 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
           </table>
         </div>
 
-        {/* Date & Payment Summary Note Bar */}
-        <div className="bg-slate-50 border border-slate-200/90 rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-slate-700 my-2">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Transaction Date:</span>
-            <span className="font-extrabold text-slate-800">{po.date || 'N/A'}</span>
-          </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Amount Paid ({po.paymentMode || 'Cash'}):</span>
-            <span className="font-extrabold text-emerald-700">₹{paidVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Balance Remaining:</span>
-            <span className="font-extrabold text-rose-600">₹{balanceVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-          </div>
-
-          <span className={`text-[10.5px] font-extrabold px-2.5 py-0.5 rounded-full uppercase ${
-            statusTag === 'PAID'
-              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-              : statusTag === 'PARTIAL'
-              ? 'bg-amber-100 text-amber-800 border border-amber-200'
-              : 'bg-rose-100 text-rose-800 border border-rose-200'
-          }`}>
-            Status: {statusTag}
-          </span>
-        </div>
 
         {/* Bottom Instructions and Totals */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start mt-1">

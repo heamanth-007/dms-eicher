@@ -19,12 +19,14 @@ import {
   Save,
   PlusCircle,
   Trash2,
+  Edit,
   Car,
   Download,
   X,
-  Search
+  Search,
+  ShoppingBag
 } from 'lucide-react';
-import { getStoredInventory, saveStoredInventory, type PartType } from '../utils/inventory';
+import { getStoredInventory, saveStoredInventory, getPendingPurchasedParts, approvePendingPurchasedPart, type PartType, type PendingPurchasedPart } from '../utils/inventory';
 
 interface SearchableDropdownInputProps {
   id: string;
@@ -142,13 +144,18 @@ export const SpareParts: React.FC = () => {
 
   const fetchParts = () => {
     const stored = getStoredInventory();
-    setParts(stored);
+    if (stored.length > 0) {
+      setParts([...stored]);
+    }
     fetch(`${API_URL}/api/parts`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
-          setParts(data);
-          saveStoredInventory(data);
+          const currentLocal = getStoredInventory();
+          if (currentLocal.length === 0) {
+            setParts(data);
+            saveStoredInventory(data);
+          }
         }
       })
       .catch(err => console.error('Error fetching parts:', err));
@@ -202,6 +209,58 @@ export const SpareParts: React.FC = () => {
     };
     window.addEventListener('dms_inventory_updated', handleTxnsUpdate);
     return () => window.removeEventListener('dms_inventory_updated', handleTxnsUpdate);
+  }, []);
+
+  // Pending Purchases Modal state
+  const [showPurchasesModal, setShowPurchasesModal] = useState(false);
+  const [pendingPurchases, setPendingPurchases] = useState<PendingPurchasedPart[]>(() => getPendingPurchasedParts());
+  const [purchasePricesInput, setPurchasePricesInput] = useState<{ [key: string]: { purchase: string; sale: string; gst: string } }>({});
+
+  const handleApproveAllPricedParts = () => {
+    if (pendingPurchases.length === 0) return;
+
+    let approvedCount = 0;
+    let skippedCount = 0;
+
+    pendingPurchases.forEach((item) => {
+      const inputState = purchasePricesInput[item.id] || { purchase: '', sale: '', gst: '18%' };
+      const purPrice = parseFloat(inputState.purchase) || 0;
+      const salePrice = parseFloat(inputState.sale) || 0;
+
+      // BOTH Purchase Price AND Sale Price are STRICTLY MANDATORY!
+      if (purPrice > 0 && salePrice > 0) {
+        approvePendingPurchasedPart(item.id, purPrice, salePrice, inputState.gst || '18%');
+        approvedCount++;
+      } else {
+        skippedCount++;
+      }
+    });
+
+    if (approvedCount > 0) {
+      const freshInv = getStoredInventory();
+      setParts([...freshInv]);
+      setPendingPurchases(getPendingPurchasedParts());
+      if (skippedCount > 0) {
+        alert(`Successfully approved ${approvedCount} purchased items into Spare Parts stock!\n\n${skippedCount} item(s) skipped because either Purchase Price or Sale Price was left empty.`);
+      } else {
+        alert(`Successfully approved all ${approvedCount} purchased items into Spare Parts stock!`);
+      }
+    } else {
+      alert('Both Purchase Price and Sale Price are MANDATORY!\nPlease enter valid values for both Purchase Price and Sale Price for the items you want to approve.');
+    }
+  };
+
+  useEffect(() => {
+    const syncPending = () => {
+      setPendingPurchases(getPendingPurchasedParts());
+    };
+    syncPending();
+    window.addEventListener('dms_pending_purchases_updated', syncPending);
+    window.addEventListener('dms_inventory_updated', syncPending);
+    return () => {
+      window.removeEventListener('dms_pending_purchases_updated', syncPending);
+      window.removeEventListener('dms_inventory_updated', syncPending);
+    };
   }, []);
 
   // History Tab Filter & Detail States
@@ -393,16 +452,18 @@ export const SpareParts: React.FC = () => {
       });
   };
 
-  const handleDeletePart = () => {
-    if (!editingPart) return;
-    if (window.confirm(`Are you sure you want to delete spare part ${editingPart}?`)) {
+  const handleDeletePart = (pNum?: string, pName?: string) => {
+    const targetNum = pNum || editingPart;
+    if (!targetNum) return;
+    const labelName = pName ? `"${pName}" (${targetNum})` : targetNum;
+    if (window.confirm(`Are you sure you want to delete spare part ${labelName}?`)) {
       const currentInv = getStoredInventory();
-      const updatedInv = currentInv.filter(p => p.partNumber !== editingPart);
+      const updatedInv = currentInv.filter(p => p.partNumber !== targetNum);
       saveStoredInventory(updatedInv);
       setParts(updatedInv);
-      setEditingPart(null);
+      if (editingPart === targetNum) setEditingPart(null);
 
-      fetch(`${API_URL}/api/parts/${editingPart}`, {
+      fetch(`${API_URL}/api/parts/${targetNum}`, {
         method: 'DELETE'
       })
         .then(() => {
@@ -1557,6 +1618,19 @@ export const SpareParts: React.FC = () => {
                 <span>Export Excel</span>
               </button>
               <button
+                type="button"
+                onClick={() => setShowPurchasesModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-[13.5px] border-none shadow-sm cursor-pointer transition-colors relative"
+              >
+                <ShoppingBag size={16} />
+                <span>Purchases</span>
+                {pendingPurchases.length > 0 && (
+                  <span className="bg-rose-600 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full ml-1 animate-pulse">
+                    {pendingPurchases.length}
+                  </span>
+                )}
+              </button>
+              <button
                 onClick={() => setIsAdding(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-[#184edb] hover:bg-[#143eb3] text-white font-bold rounded-lg text-[13.5px] border-none shadow-sm cursor-pointer transition-colors"
               >
@@ -1608,12 +1682,13 @@ export const SpareParts: React.FC = () => {
                     <th className="py-4.5 px-5 select-none font-bold">PURCHASE PRICE</th>
                     <th className="py-4.5 px-5 select-none font-bold">SALE PRICE</th>
                     <th className="py-4.5 px-6 select-none font-bold">STOCK</th>
+                    <th className="py-4.5 px-6 select-none font-bold text-center">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-[14px]">
                   {paginatedParts.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-slate-400 font-semibold bg-white">
+                      <td colSpan={9} className="py-12 text-center text-slate-400 font-semibold bg-white">
                         No spare parts found matching the selected status or brand filters.
                       </td>
                     </tr>
@@ -1673,6 +1748,28 @@ export const SpareParts: React.FC = () => {
                             >
                               {part.stock} Units {effectiveStatus === 'low' ? '(Low Stock)' : effectiveStatus === 'out' ? '(Out of Stock)' : ''}
                             </span>
+                          </td>
+
+                          {/* Actions: Edit & Delete */}
+                          <td className="py-4.5 px-6 whitespace-nowrap text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setEditingPart(part.partNumber)}
+                                title="Edit Spare Part"
+                                className="p-1.5 hover:bg-blue-50 text-[#184edb] rounded-lg border border-blue-100 transition-colors cursor-pointer"
+                              >
+                                <Edit size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeletePart(part.partNumber, part.partName)}
+                                title="Delete Spare Part"
+                                className="p-1.5 hover:bg-rose-50 text-rose-600 rounded-lg border border-rose-100 transition-colors cursor-pointer"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -2033,6 +2130,140 @@ export const SpareParts: React.FC = () => {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* PURCHASES PRICE ENTRY & APPROVAL MODAL */}
+      {showPurchasesModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn text-left">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden shadow-2xl flex flex-col border border-slate-100">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div>
+                <h2 className="text-lg font-extrabold text-slate-800 m-0 flex items-center gap-2">
+                  <ShoppingBag className="text-amber-500" size={20} />
+                  Purchased Products - Price Entry & Approval
+                </h2>
+                <span className="text-xs text-slate-400 font-semibold">
+                  {pendingPurchases.length} Purchased items waiting for price approval to be added into Spare Parts stock
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                {pendingPurchases.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleApproveAllPricedParts}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer border-none shadow-sm flex items-center gap-1.5"
+                  >
+                    <span>Approve All (Priced Only)</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowPurchasesModal(false)}
+                  className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:text-slate-800 cursor-pointer transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-5 overflow-y-auto flex-1">
+              {pendingPurchases.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 font-semibold flex flex-col items-center gap-2">
+                  <ShoppingBag size={32} className="text-slate-300" />
+                  <span>No pending purchased products waiting for price entry.</span>
+                  <span className="text-xs text-slate-400 font-normal">
+                    When you purchase new stock in the Purchase page, items will appear here for price set.
+                  </span>
+                </div>
+              ) : (
+                <table className="w-full border-collapse text-left text-xs">
+                  <thead>
+                    <tr className="bg-slate-100/70 text-slate-500 font-extrabold uppercase text-[10.5px] border-b border-slate-200">
+                      <th className="py-3 px-3">PO Ref</th>
+                      <th className="py-3 px-3">Part Name & Code</th>
+                      <th className="py-3 px-3 text-center">Purchased Qty</th>
+                      <th className="py-3 px-3">Purchase Price (₹) <span className="text-rose-500 font-bold">*</span></th>
+                      <th className="py-3 px-3">Sale Price (₹) <span className="text-rose-500 font-bold">*</span></th>
+                      <th className="py-3 px-3 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {pendingPurchases.map((item) => {
+                      const inputState = purchasePricesInput[item.id] || { purchase: '', sale: '', gst: '18%' };
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-3.5 px-3 font-bold text-amber-600 whitespace-nowrap">
+                            #{item.poRef}
+                            <span className="block text-[10px] text-slate-400 font-normal">{item.date}</span>
+                          </td>
+                          <td className="py-3.5 px-3 font-bold text-slate-800">
+                            {item.partName}
+                            <span className="block text-[11px] font-mono text-slate-400 font-normal">{item.partNumber}</span>
+                          </td>
+                          <td className="py-3.5 px-3 text-center font-extrabold text-blue-600 text-sm whitespace-nowrap">
+                            +{item.qty} Units
+                          </td>
+                          <td className="py-3.5 px-3">
+                            <input
+                              type="text"
+                              placeholder="Purchase ₹"
+                              value={inputState.purchase}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[^0-9.]/g, '');
+                                setPurchasePricesInput(prev => ({
+                                  ...prev,
+                                  [item.id]: { ...inputState, purchase: val }
+                                }));
+                              }}
+                              className="w-28 px-2.5 py-1.5 border border-slate-200 rounded-md text-xs font-semibold text-slate-800 outline-none focus:border-[#184edb]"
+                            />
+                          </td>
+                          <td className="py-3.5 px-3">
+                            <input
+                              type="text"
+                              placeholder="Sale ₹"
+                              value={inputState.sale}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[^0-9.]/g, '');
+                                setPurchasePricesInput(prev => ({
+                                  ...prev,
+                                  [item.id]: { ...inputState, sale: val }
+                                }));
+                              }}
+                              className="w-28 px-2.5 py-1.5 border border-slate-200 rounded-md text-xs font-semibold text-slate-800 outline-none focus:border-[#184edb]"
+                            />
+                          </td>
+                          <td className="py-3.5 px-3 text-center whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const purPrice = parseFloat(inputState.purchase) || 0;
+                                const salePrice = parseFloat(inputState.sale) || 0;
+                                if (purPrice <= 0 || salePrice <= 0) {
+                                  alert('Both Purchase Price (₹) and Sale Price (₹) are MANDATORY!\nPlease enter valid values for BOTH prices before approving into stock.');
+                                  return;
+                                }
+                                approvePendingPurchasedPart(item.id, purPrice, salePrice, inputState.gst || '18%');
+                                const freshInv = getStoredInventory();
+                                setParts([...freshInv]);
+                                setPendingPurchases(getPendingPurchasedParts());
+                                alert(`Purchased item "${item.partName}" (Purchase: ₹${purPrice.toFixed(2)}, Sale: ₹${salePrice.toFixed(2)}) approved into Spare Parts inventory!`);
+                              }}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer border-none shadow-sm"
+                            >
+                              Approve & Add to Stock
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>
