@@ -157,7 +157,7 @@ app.post('/api/transactions', async (req, res) => {
 
 app.post('/api/vehicles', async (req, res) => {
   try {
-    const { modelName, type, condition, engineNo, chassisNo, colorName, colorHex, price, sellPrice, status, imageUrl, stock } = req.body;
+    const { modelName, type, condition, engineNo, chassisNo, colorName, colorHex, price, sellPrice, status, imageUrl, stock, accessoriesKit, accessoriesTotal } = req.body;
     const randomId = `#VEH-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const newVehicle = new Vehicle({
@@ -173,7 +173,9 @@ app.post('/api/vehicles', async (req, res) => {
       sellPrice: Number(sellPrice) || 0,
       status: status || 'Available',
       stock: Number(stock) || 1,
-      imageUrl: imageUrl || 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=400'
+      imageUrl: imageUrl || 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=400',
+      accessoriesKit: Array.isArray(accessoriesKit) ? accessoriesKit : [],
+      accessoriesTotal: Number(accessoriesTotal) || 0
     });
 
     const savedVehicle = await newVehicle.save();
@@ -357,8 +359,7 @@ app.get('/api/sales', async (req, res) => {
 
 app.post('/api/sales', async (req, res) => {
   try {
-    const { customerPhone, customerDistrict, customerEmail, ...saleData } = req.body;
-    const newSale = new Sale(saleData);
+    const newSale = new Sale(req.body);
     const saved = await newSale.save();
 
     // Sync Customer
