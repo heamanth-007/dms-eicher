@@ -48,7 +48,7 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
     });
   });
   
-  const [intakeStatus, setIntakeStatus] = useState('WORKING');
+  const [intakeStatus, setIntakeStatus] = useState('WAITING TO ASSIGN');
 
   // Customer State
   const [fullName, setFullName] = useState('');
@@ -134,6 +134,7 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
               onChange={(e) => setIntakeStatus(e.target.value)}
               className="appearance-none bg-[#f1f4fd] border-none text-[#184edb] font-bold text-xs rounded-lg py-2 pl-4 pr-10 cursor-pointer focus:outline-none"
             >
+              <option value="WAITING TO ASSIGN">WAITING TO ASSIGN</option>
               <option value="WORKING">IN-PROGRESS</option>
               <option value="ASSIGNED">ASSIGNED</option>
               <option value="WAITING PARTS">WAITING PARTS</option>

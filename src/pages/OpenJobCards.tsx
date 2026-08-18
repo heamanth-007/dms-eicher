@@ -52,6 +52,14 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
   const [editingJc, setEditingJc] = useState<any>(null);
   const [editStatus, setEditStatus] = useState<string>('');
 
+  // Assign Mechanic Modal State
+  const [mechanics, setMechanics] = useState<any[]>([]);
+  const [assigningJc, setAssigningJc] = useState<any>(null);
+  const [selectedMechanicId, setSelectedMechanicId] = useState<string>('');
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string>('');
+  const [assignmentNotes, setAssignmentNotes] = useState<string>('');
+  const [toastMsg, setToastMsg] = useState<string>('');
+
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
   React.useEffect(() => {
@@ -59,7 +67,48 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
       .then(res => res.json())
       .then(data => setParts(data))
       .catch(err => console.error(err));
+
+    fetch(`${API_URL}/api/mechanics`)
+      .then(res => res.json())
+      .then(data => { if (Array.isArray(data)) setMechanics(data); })
+      .catch(err => console.error(err));
   }, [API_URL]);
+
+  const handleConfirmAssignment = () => {
+    if (!assigningJc || !selectedMechanicId) {
+      alert('Please select a mechanic.');
+      return;
+    }
+    const mech = mechanics.find(m => m.id === selectedMechanicId);
+    if (!mech) return;
+
+    const jcNo = assigningJc.jcNumber || assigningJc.rawJc?.jcNumber;
+
+    fetch(`${API_URL}/api/jobcards/${jcNo}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: 'ASSIGNED',
+        mechanicName: mech.name,
+        mechanicInitials: mech.initials || mech.name.slice(0, 2).toUpperCase(),
+        expectedDelivery: expectedDeliveryDate || 'Today, 05:00 PM'
+      })
+    })
+      .then(() => fetch(`${API_URL}/api/mechanics/${selectedMechanicId}/assign-job`, { method: 'PUT' }))
+      .then(() => {
+        setToastMsg(`Job Card ${jcNo} successfully assigned to Mechanic ${mech.name}!`);
+        setAssigningJc(null);
+        setSelectedMechanicId('');
+        setExpectedDeliveryDate('');
+        setAssignmentNotes('');
+        if (onHandoffComplete) onHandoffComplete();
+        setTimeout(() => setToastMsg(''), 5000);
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Failed to assign mechanic.');
+      });
+  };
 
   const getActiveJobCards = () => {
     if (propJobCards && propJobCards.length > 0) {
@@ -75,8 +124,8 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
         mechanicInitials: jc.mechanicInitials || 'UN',
         mechanicStatus: jc.mechanicName ? ('assigned' as const) : ('unassigned' as const),
         dateIn: new Date(jc.createdAt || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
-        status: (jc.status === 'WAITING PARTS' ? 'Waiting Parts' : jc.status === 'ASSIGNED' ? 'Assigned' : 'Working') as any,
-        statusColor: jc.status === 'WAITING PARTS' ? 'bg-red-50 text-red-500 border-red-100' : jc.status === 'ASSIGNED' ? 'bg-blue-50 text-[#184edb] border-blue-100' : 'bg-green-50 text-green-600 border-green-100',
+        status: (jc.status === 'WAITING PARTS' ? 'Waiting Parts' : jc.status === 'ASSIGNED' ? 'Assigned' : (jc.status === 'WAITING TO ASSIGN' || jc.status === 'OPEN' || jc.status === 'OPENING' || jc.status === 'UNASSIGNED' || !jc.mechanicName || jc.mechanicName === 'Unassigned') ? 'Waiting to Assign' : 'Working') as any,
+        statusColor: jc.status === 'WAITING PARTS' ? 'bg-red-50 text-red-500 border-red-100' : jc.status === 'ASSIGNED' ? 'bg-blue-50 text-[#184edb] border-blue-100' : (jc.status === 'WAITING TO ASSIGN' || jc.status === 'OPEN' || jc.status === 'OPENING' || jc.status === 'UNASSIGNED' || !jc.mechanicName || jc.mechanicName === 'Unassigned') ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-green-50 text-green-600 border-green-100',
         rawJc: jc
       }));
     }
@@ -317,7 +366,11 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
                         <Edit size={13} />
                       </button>
                       <button 
-                        onClick={() => alert(`Assign Mechanic for ${jc.jcNumber}`)}
+                        onClick={() => {
+                          setAssigningJc(jc);
+                          setSelectedMechanicId('');
+                          setExpectedDeliveryDate(jc.expectedDelivery || 'Today, 05:00 PM');
+                        }}
                         title="Assign Mechanic"
                         className="p-1.5 bg-cyan-50 border border-cyan-100 rounded-md text-cyan-600 hover:bg-cyan-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
                       >
@@ -722,6 +775,117 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ASSIGN MECHANIC MODAL */}
+      {assigningJc && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-md overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            
+            {/* Header */}
+            <div className="p-4 px-6 border-b border-slate-100 flex items-center justify-between bg-cyan-50/60">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-cyan-600 text-white rounded-xl flex items-center justify-center shadow-xs">
+                  <UserPlus size={18} />
+                </div>
+                <div className="flex flex-col">
+                  <h3 className="text-sm font-extrabold text-slate-800 m-0 font-heading">Assign Mechanic</h3>
+                  <span className="text-[11px] font-bold text-cyan-700">
+                    {assigningJc.jcNumber} • {assigningJc.vehicleModel}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setAssigningJc(null)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer border-none bg-transparent p-1"
+              >
+                <XCircle size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 flex flex-col gap-4 text-xs font-semibold text-slate-600">
+              
+              {/* Info summary */}
+              <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 flex flex-col gap-1 text-[11.5px]">
+                <div className="flex justify-between items-center text-slate-800 font-bold">
+                  <span>Customer: {assigningJc.customerName}</span>
+                  <span className="text-slate-500 font-semibold">Reg: {assigningJc.vehicleReg}</span>
+                </div>
+                <span className="text-slate-500 font-medium truncate">Complaint: {assigningJc.complaint}</span>
+              </div>
+
+              {/* Mechanic Select Dropdown */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider">SELECT MECHANIC *</label>
+                <select
+                  value={selectedMechanicId}
+                  onChange={(e) => setSelectedMechanicId(e.target.value)}
+                  className="border border-slate-250 rounded-lg py-2.5 px-3 text-xs outline-none focus:border-cyan-500 bg-white font-bold text-slate-800 cursor-pointer"
+                >
+                  <option value="">-- Select Mechanic to Assign --</option>
+                  {mechanics.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} ({m.status}) — {m.experience} Exp
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Expected Delivery */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider">EXPECTED COMPLETION TIME</label>
+                <input
+                  type="text"
+                  placeholder="Today, 05:00 PM"
+                  value={expectedDeliveryDate}
+                  onChange={(e) => setExpectedDeliveryDate(e.target.value)}
+                  className="border border-slate-250 rounded-lg py-2 px-3 text-xs outline-none focus:border-cyan-500 bg-white font-medium text-slate-700"
+                />
+              </div>
+
+              {/* Notes */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider">SPECIAL INSTRUCTIONS</label>
+                <textarea
+                  rows={2}
+                  placeholder="Add specific instructions for technician..."
+                  value={assignmentNotes}
+                  onChange={(e) => setAssignmentNotes(e.target.value)}
+                  className="border border-slate-250 rounded-lg p-2.5 text-xs outline-none focus:border-cyan-500 bg-white font-medium text-slate-700 resize-none font-sans"
+                />
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 px-6 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setAssigningJc(null)}
+                className="bg-transparent border-none text-slate-400 hover:text-slate-700 font-bold text-xs py-2 px-4 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAssignment}
+                className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs py-2.5 px-5 border-none rounded-lg cursor-pointer transition-colors shadow-sm"
+              >
+                Confirm Assignment
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div className="fixed top-20 right-6 bg-emerald-600 text-white font-bold text-xs py-3 px-5 rounded-xl shadow-lg z-50 animate-in fade-in slide-in-from-top-3 flex items-center gap-2">
+          <CheckCircle size={16} />
+          <span>{toastMsg}</span>
         </div>
       )}
 

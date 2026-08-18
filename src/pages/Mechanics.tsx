@@ -105,6 +105,11 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
       .catch(err => console.error('Error fetching jobcards:', err));
   }, []);
 
+  const unassignedJobCards = jobCards.filter(jc =>
+    jc.status !== 'COMPLETED' &&
+    (!jc.mechanicName || jc.mechanicName.trim() === '' || jc.status === 'OPEN' || jc.status === 'OPENING' || jc.status === 'UNASSIGNED' || jc.status === 'PENDING')
+  );
+
   const handleAssignJob = () => {
     const mechanic = mechanics.find(m => m.id === assignMechanicId);
     if (!mechanic || !assignVehicle) {
@@ -112,6 +117,9 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
       return;
     }
     
+    const targetJc = jobCards.find(jc => jc.jcNumber === assignVehicle);
+    const successMsg = `Job Card ${assignVehicle} (${targetJc?.vehicleModel || 'Vehicle'}) has been successfully assigned to Mechanic ${mechanic.name}!`;
+
     fetch(`${API_URL}/api/jobcards/${assignVehicle}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -130,8 +138,9 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
         setAssignVehicle('');
         setAssignDeliveryDate('');
         setAssignNotes('');
+        setToastMessage(successMsg);
         setShowToast(true);
-        setTimeout(() => setShowToast(false), 4000);
+        setTimeout(() => setShowToast(false), 5000);
         setCurrentView('jobs');
       })
       .catch(err => console.error('Error assigning job:', err));
@@ -999,8 +1008,8 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
                 <Info size={20} />
               </div>
               <div className="flex flex-col gap-0.5 pr-2.5">
-                <span className="text-[13.5px] font-bold text-slate-800">Success!</span>
-                <span className="text-[12px] text-slate-400 font-medium">Job assigned to David Chen.</span>
+                <span className="text-[13.5px] font-bold text-slate-800">Job Assignment Confirmed</span>
+                <span className="text-[12px] text-slate-600 font-medium">{toastMessage}</span>
               </div>
               <button
                 onClick={() => setShowToast(false)}
@@ -1100,7 +1109,12 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
 
                 {/* Select Job Card */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider">SELECT UNASSIGNED JOB CARD *</label>
+                  <label className="text-[11.5px] font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
+                    <span>SELECT UNASSIGNED JOB CARD *</span>
+                    <span className="text-[10px] font-extrabold text-[#184edb] bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                      {unassignedJobCards.length} Opening / Pending Jobs
+                    </span>
+                  </label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
                       <ClipboardList size={18} />
@@ -1110,12 +1124,16 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
                       onChange={e => setAssignVehicle(e.target.value)}
                       className="w-full appearance-none bg-white border border-slate-255 rounded-lg py-2.5 pl-10.5 pr-10 text-[14px] text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
                     >
-                      <option value="">Select a pending job card...</option>
-                      {jobCards.filter(jc => jc.status !== 'COMPLETED' && !jc.mechanicName).map(jc => (
-                        <option key={jc.jcNumber} value={jc.jcNumber}>
-                          {jc.jcNumber} - {jc.vehicleModel} ({jc.customerName})
-                        </option>
-                      ))}
+                      <option value="">-- Select an unassigned / opening job card --</option>
+                      {unassignedJobCards.length > 0 ? (
+                        unassignedJobCards.map(jc => (
+                          <option key={jc.jcNumber || jc.id} value={jc.jcNumber}>
+                            {jc.jcNumber} - {jc.vehicleModel || jc.vehicleNo || 'Vehicle'} ({jc.customerName || 'Customer'}) — [{jc.status || 'OPENING'}]
+                          </option>
+                        ))
+                      ) : (
+                        <option disabled value="">No unassigned / opening job cards found (All jobs assigned)</option>
+                      )}
                     </select>
                     <span className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 pointer-events-none">
                       <ChevronDown size={18} />
@@ -1123,6 +1141,26 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
                   </div>
                 </div>
               </div>
+
+              {/* Assignment Preview Banner */}
+              {assignMechanicId && assignVehicle && (
+                <div className="bg-blue-50/90 border border-blue-200 rounded-xl p-4 flex items-center justify-between gap-4 shadow-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-[#184edb] text-white rounded-full flex items-center justify-center font-bold text-sm shadow-sm">
+                      {mechanics.find(m => m.id === assignMechanicId)?.initials || 'MC'}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Job Assignment Preview</span>
+                      <span className="text-[13.5px] font-extrabold text-slate-800">
+                        Job <span className="text-[#184edb] font-bold">{assignVehicle}</span> → Assigned to Mechanic <span className="text-[#184edb] font-bold">{mechanics.find(m => m.id === assignMechanicId)?.name}</span>
+                      </span>
+                    </div>
+                  </div>
+                  <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200">
+                    Ready to Assign
+                  </span>
+                </div>
+              )}
 
               {/* Priority Level */}
               <div className="flex flex-col gap-2.5">

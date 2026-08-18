@@ -57,7 +57,7 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
     expected: jc.expectedDelivery || 'TBD',
     expectedBold: !!jc.isDelayed,
     expectedRed: !!jc.isDelayed,
-    status: jc.status === 'WORKING' ? 'In Progress' : jc.status === 'WAITING PARTS' ? 'Waiting for Parts' : 'Pending',
+    status: jc.status === 'WORKING' ? 'In Progress' : jc.status === 'WAITING PARTS' ? 'Waiting for Parts' : jc.status === 'ASSIGNED' ? 'Assigned' : 'Waiting to Assign',
     priority: jc.isDelayed ? 'High' : 'Medium',
     priorityBg: jc.isDelayed ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-amber-50 text-amber-600 border border-amber-100',
     faded: false,

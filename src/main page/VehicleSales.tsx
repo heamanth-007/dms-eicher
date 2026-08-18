@@ -11,7 +11,6 @@ import {
   Eye,
   Edit,
   Printer,
-  X,
   User,
   SlidersHorizontal,
   Building2,
@@ -19,7 +18,7 @@ import {
   Save,
   ShieldCheck,
   CreditCard,
-  Wrench,
+
   Download,
   Truck,
   Trash2
@@ -39,262 +38,343 @@ export interface SaleRecord {
   customerEmail?: string;
   advancePaid?: string;
   balanceAmount?: string;
+  baseVehiclePrice?: number;
+  accessoriesCharge?: number;
+  insuranceAmount?: number;
+  subTotal?: number;
+  discountAmount?: number;
+  taxableValue?: number;
+  gstRate?: number;
+  gstAmount?: number;
+  insuranceProvider?: string;
+  policyNumber?: string;
+  seatCovers?: boolean;
+  gpsTracker?: boolean;
+  warranty?: boolean;
+  deliveryLocation?: string;
+  internalNotes?: string;
+  paymentMode?: string;
+  financeProvider?: string;
+  accessoriesKit?: any[];
+  accessoriesTotal?: number;
 }
 
 interface PrintModalProps {
   printingSale: SaleRecord;
   setPrintingSale: (sale: SaleRecord | null) => void;
-  handlePrintTrigger: () => void;
+  handlePrintTrigger?: () => void;
+  companySettings?: any;
+  dbVehicles?: any[];
 }
 
-// Reusable print modal matching the mockup format exactly
-const PrintInvoiceModal: React.FC<PrintModalProps> = ({ printingSale, setPrintingSale, handlePrintTrigger }) => {
+const PrintInvoiceModal: React.FC<PrintModalProps> = ({ printingSale, setPrintingSale, companySettings, dbVehicles = [] }) => {
+  const gstRate = printingSale.gstRate || parseFloat((companySettings?.defaultGstPercent || '18').toString().replace(/[^\d.]/g, '')) || 18;
+  const discountRate = parseFloat((companySettings?.defaultDiscountPercent || '5').toString().replace(/[^\d.]/g, '')) || 0;
   const grandTotalNum = Number(printingSale.grandTotal.toString().replace(/[^\d.]/g, '')) || 0;
   
-  // Exact mathematical reverse-calculation to ensure taxes and subtotal match 18% GST correctly
-  const insuranceNum = Math.round(grandTotalNum * 0.05); // Insurance is approx 5% with 0% tax
-  const taxableAmount = Math.round((grandTotalNum - insuranceNum) / 1.18);
-  const accessoriesNum = Math.round(grandTotalNum * 0.02);
-  const basePriceNum = taxableAmount - accessoriesNum;
-  
-  const subTotal = basePriceNum + accessoriesNum + insuranceNum;
-  const taxesNum = grandTotalNum - subTotal;
-  const cgst = Math.round(taxesNum / 2);
-  const sgst = taxesNum - cgst;
+  const matchedVehicle = dbVehicles.find((v: any) => v.modelName === printingSale.vehicleModel);
 
-  const invoiceItems = [
-    { id: 1, desc: `${printingSale.vehicleModel} - Base Vehicle`, sub: 'Primary vehicle chassis and cabin', qty: '1', price: `₹${basePriceNum.toLocaleString('en-IN')}`, tax: '18%', total: `₹${basePriceNum.toLocaleString('en-IN')}` },
-    { id: 2, desc: 'Standard Accessories Kit', sub: 'Mats, Mud Flaps, basic toolkit', qty: '1', price: `₹${accessoriesNum.toLocaleString('en-IN')}`, tax: '18%', total: `₹${accessoriesNum.toLocaleString('en-IN')}` },
-    { id: 3, desc: 'Comprehensive Insurance', sub: '1 Year Bumper to Bumper', qty: '1', price: `₹${insuranceNum.toLocaleString('en-IN')}`, tax: '0%', total: `₹${insuranceNum.toLocaleString('en-IN')}` }
+  const accessoriesNum = (printingSale.accessoriesCharge && printingSale.accessoriesCharge > 0)
+    ? printingSale.accessoriesCharge
+    : ((printingSale.accessoriesTotal && printingSale.accessoriesTotal > 0)
+      ? printingSale.accessoriesTotal
+      : (matchedVehicle?.accessoriesTotal && matchedVehicle.accessoriesTotal > 0 ? matchedVehicle.accessoriesTotal : 37760));
+
+  const basePriceNum = (printingSale.baseVehiclePrice && printingSale.baseVehiclePrice > 0)
+    ? printingSale.baseVehiclePrice
+    : ((matchedVehicle?.sellPrice && matchedVehicle.sellPrice > 0)
+      ? matchedVehicle.sellPrice
+      : ((matchedVehicle?.price && matchedVehicle.price > 0)
+        ? matchedVehicle.price
+        : Math.max(0, Math.round(grandTotalNum / (1 + gstRate / 100)) - accessoriesNum)));
+
+  const subTotalNum = basePriceNum + accessoriesNum;
+  const insuranceNum = printingSale.insuranceAmount || 0;
+  const preDiscountTotal = subTotalNum + insuranceNum;
+
+  const discountNum = (printingSale.discountAmount && printingSale.discountAmount > 0)
+    ? printingSale.discountAmount
+    : Math.round(preDiscountTotal * (discountRate / 100));
+
+  const taxableValue = (printingSale.taxableValue && printingSale.taxableValue > 0)
+    ? printingSale.taxableValue
+    : Math.max(0, preDiscountTotal - discountNum);
+
+  const taxesNum = (printingSale.gstAmount && printingSale.gstAmount > 0)
+    ? printingSale.gstAmount
+    : Math.round(taxableValue * (gstRate / 100));
+
+  const computedGrandTotal = printingSale.grandTotal ? grandTotalNum : (taxableValue + taxesNum);
+
+  let accSummary = 'Mats, Mud Flaps, basic toolkit';
+  if (matchedVehicle?.accessoriesKit && matchedVehicle.accessoriesKit.length > 0) {
+    accSummary = matchedVehicle.accessoriesKit.map((a: any) => a.name).filter(Boolean).join(', ');
+  } else if ((printingSale as any).accessoriesKit && (printingSale as any).accessoriesKit.length > 0) {
+    accSummary = (printingSale as any).accessoriesKit.map((a: any) => a.name).filter(Boolean).join(', ');
+  }
+
+  const items = [
+    { sl: '01', desc: `${printingSale.vehicleModel} - Base Vehicle`, subtitle: 'Primary vehicle chassis and cabin', qty: '1 Unit', unitPrice: `₹${basePriceNum.toLocaleString('en-IN')}`, amount: `₹${basePriceNum.toLocaleString('en-IN')}` },
+    { sl: '02', desc: 'Standard Accessories Kit', subtitle: accSummary, qty: '1 Set', unitPrice: `₹${accessoriesNum.toLocaleString('en-IN')}`, amount: `₹${accessoriesNum.toLocaleString('en-IN')}` }
   ];
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 no-print">
-      <div className="bg-white rounded-xl shadow-lg border border-slate-100 w-full max-w-3xl overflow-hidden flex flex-col">
-
-        {/* Modal Header */}
-        <div className="p-4 px-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <h3 className="text-sm font-extrabold text-slate-800 m-0 font-heading">Print Invoice Statement</h3>
-          <button
-            onClick={() => setPrintingSale(null)}
-            className="bg-transparent border-none text-slate-400 hover:text-slate-650 cursor-pointer"
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* Invoice Body Container */}
-        <div className="p-8 max-h-[80vh] overflow-y-auto bg-slate-50/40">
-          <div
-            id="print-invoice-area"
-            className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm text-left flex flex-col gap-6 text-slate-700 relative overflow-hidden"
-          >
-
-            {/* Watermark background */}
-            <div
-              className="absolute pointer-events-none text-slate-100/15 font-black uppercase text-[52px] tracking-[6px] select-none text-center"
-              style={{
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%) rotate(-30deg)',
-                whiteSpace: 'nowrap',
-                zIndex: 0
-              }}
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto no-print">
+      <div className="bg-slate-100 rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl overflow-hidden flex flex-col max-h-[92vh] text-left">
+        
+        {/* Modal Top Bar */}
+        <div className="p-4 px-6 bg-white border-b border-slate-200 flex items-center justify-between no-print">
+          <div className="flex items-center gap-2">
+            <Printer size={16} className="text-[#184edb]" />
+            <h3 className="text-sm font-extrabold text-slate-800 m-0 font-heading">Tax Invoice Statement ({printingSale.invoiceNo})</h3>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => window.print()}
+              className="bg-[#184edb] hover:bg-blue-800 text-white font-bold text-xs py-2 px-4 rounded-md cursor-pointer transition-colors shadow-xs flex items-center gap-1.5"
             >
-              EICHER WORKSHOP
-            </div>
-
-            <div className="relative z-10 flex flex-col gap-6 w-full">
-
-              {/* Invoice Header */}
-              <div className="flex justify-between items-start border-b border-slate-100 pb-5 w-full">
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    {/* Mock logo */}
-                    <div className="bg-slate-900 text-white font-extrabold px-2 py-0.5 rounded text-xs tracking-wider">
-                      EICH
-                    </div>
-                    <h2 className="text-sm font-extrabold text-slate-955 m-0 font-heading tracking-tight">WORKSHOP ERP</h2>
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-bold -mt-1 block">Industrial Solutions & Maintenance</span>
-                  <div className="text-[10.5px] font-medium text-slate-450 mt-1 flex flex-col gap-0.5 leading-tight">
-                    <span>Plot No. 42, Heavy Engineering Zone,</span>
-                    <span>Industrial Area Phase II, Bangalore, 560058</span>
-                    <span>GSTIN: 29AAACE1234F1Z5</span>
-                  </div>
-                </div>
-
-                <div className="text-right flex flex-col items-end gap-1">
-                  <h1 className="text-lg font-extrabold text-blue-600 tracking-tight font-heading m-0 uppercase">TAX INVOICE</h1>
-                  <div className="text-xs font-semibold text-slate-500 mt-2 flex flex-col items-end gap-0.5">
-                    <span>INVOICE NO: &nbsp;<span className="font-bold text-slate-950">{printingSale.invoiceNo}</span></span>
-                    <span>DATE: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="font-bold text-slate-800">{printingSale.deliveryDate.replace('Scheduled: ', '')}</span></span>
-                  </div>
-                </div>
-              </div>
-
-              {/* BILL TO & VEHICLE DETAILS side-by-side cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 w-full">
-
-                {/* Bill To */}
-                <div className="border border-slate-200/80 rounded-lg p-4 bg-slate-50/15 flex flex-col gap-2 text-xs">
-                  <span className="font-bold text-blue-600 tracking-wider text-[9px] uppercase">BILL TO:</span>
-                  <h4 className="text-slate-900 font-bold m-0 text-[12.5px]">{printingSale.customerName}</h4>
-                  <div className="text-slate-500 font-medium flex flex-col gap-0.5 mt-0.5">
-                    <span>{printingSale.customerDistrict || 'Address Not Provided'}</span>
-                    <span>Phone: {printingSale.customerPhone || 'N/A'}</span>
-                  </div>
-                </div>
-
-                {/* Vehicle Details */}
-                <div className="border border-slate-200/80 rounded-lg p-4 bg-slate-50/15 flex flex-col gap-2 text-xs">
-                  <span className="font-bold text-blue-600 tracking-wider text-[9px] uppercase">VEHICLE DETAILS:</span>
-                  <div className="grid grid-cols-3 gap-y-1 font-semibold text-slate-500">
-                    <span className="text-slate-400">Model:</span>
-                    <span className="col-span-2 text-slate-850 font-bold">{printingSale.vehicleModel}</span>
-                    <span className="text-slate-400">Status:</span>
-                    <span className="col-span-2 text-slate-900 font-bold">{printingSale.status}</span>
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Items Table matching mockup items */}
-              <div className="border border-slate-200 rounded-lg overflow-hidden mt-1 text-[11px] w-full">
-                <table className="w-full border-collapse text-left">
-                  <thead>
-                    <tr className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[9.5px] border-b border-slate-200">
-                      <th className="p-3 text-center w-8">#</th>
-                      <th className="p-3">DESCRIPTION</th>
-                      <th className="p-3 text-center">QTY/HRS</th>
-                      <th className="p-3 text-right">UNIT PRICE</th>
-                      <th className="p-3 text-center">TAX (%)</th>
-                      <th className="p-3 text-right">TOTAL</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {invoiceItems.map((item) => (
-                      <tr key={item.id} className="border-b border-slate-100 font-semibold text-slate-700">
-                        <td className="p-3 text-center text-slate-450">{item.id}</td>
-                        <td className="p-3">
-                          <span className="font-bold text-slate-850 block">{item.desc}</span>
-                          <span className="text-[9.5px] text-slate-400 font-medium block mt-0.5">{item.sub}</span>
-                        </td>
-                        <td className="p-3 text-center font-bold text-slate-800">{item.qty}</td>
-                        <td className="p-3 text-right text-slate-550">{item.price}</td>
-                        <td className="p-3 text-center text-slate-500">{item.tax}</td>
-                        <td className="p-3 text-right font-extrabold text-slate-900">{item.total}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Summary row & auth stamp */}
-              <div className="flex justify-between items-start mt-2 flex-wrap gap-4 w-full text-xs">
-
-                {/* Left: Stamp */}
-                <div className="pt-2 flex justify-start items-center">
-                  <div
-                    className="rounded-full border-3 border-double border-blue-500/30 text-blue-600/50 text-[7px] font-black w-[58px] h-[58px] flex items-center justify-center text-center uppercase tracking-wider leading-tight select-none rotate-[-15deg] flex-shrink-0"
-                    style={{
-                      textShadow: '0 0 1px rgba(59, 130, 246, 0.1)'
-                    }}
-                  >
-                    EICHER<br />AUTH STAMP
-                  </div>
-                </div>
-
-                {/* Right: Sum values */}
-                <div className="w-72 flex flex-col gap-2 text-right font-semibold text-slate-500">
-                  <div className="flex justify-between px-1">
-                    <span>Subtotal (Excl. Tax)</span>
-                    <span className="text-slate-850 font-bold">₹{subTotal.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between px-1">
-                    <span>CGST (9%)</span>
-                    <span className="text-slate-850 font-bold">₹{cgst.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between px-1">
-                    <span>SGST (9%)</span>
-                    <span className="text-slate-850 font-bold">₹{sgst.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between px-1">
-                    <span>IGST (0%)</span>
-                    <span className="text-slate-850 font-bold">₹0</span>
-                  </div>
-
-                  <div className="flex justify-between font-extrabold text-blue-650 border-t border-slate-100 pt-2 text-[13px]">
-                    <span>Grand Total</span>
-                    <span>₹{grandTotalNum.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between font-medium text-emerald-600 text-[11px] mt-1">
-                    <span>Advance Paid</span>
-                    <span>{printingSale.advancePaid || '₹0'}</span>
-                  </div>
-                  <div className="flex justify-between font-extrabold text-red-500 text-[12px] mt-0.5 pt-1 border-t border-slate-100/50">
-                    <span>Balance Due</span>
-                    <span>{printingSale.balanceAmount || '₹0'}</span>
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Signatures */}
-              <div className="grid grid-cols-2 gap-10 mt-8 border-t border-slate-100 pt-6 text-[10px] text-slate-450 uppercase font-bold w-full">
-                <div className="flex flex-col gap-1 items-start text-left">
-                  <div className="w-40 border-b border-slate-200 pb-1 h-6" />
-                  <span className="text-slate-700">CUSTOMER SIGNATURE</span>
-                  <span className="text-[8.5px] text-slate-400 lowercase font-medium">Date: _____/_____/{new Date().getFullYear()}</span>
-                </div>
-
-                <div className="flex flex-col gap-1 items-end text-right">
-                  <div className="w-40 border-b border-slate-200 pb-1 h-6" />
-                  <span className="text-slate-700">AUTHORIZED SIGNATORY</span>
-                  <span className="text-[8.5px] text-slate-400 lowercase font-medium">Workshop Manager - Bangalore Hub</span>
-                </div>
-              </div>
-
-              {/* Terms & Conditions footer */}
-              <div className="border-t border-slate-100 pt-5 text-[9px] text-slate-400 leading-relaxed w-full text-left">
-                <span className="font-bold text-slate-500 uppercase tracking-wider block text-[8px] mb-1">TERMS & CONDITIONS</span>
-                <ul className="list-disc pl-3 flex flex-col gap-0.5 m-0 p-0 font-medium">
-                  <li>All payments are due within 7 days of invoice date.</li>
-                  <li>Interest at 18% p.a. will be charged for delayed payments beyond 15 days.</li>
-                  <li>Spare parts warranty is applicable as per manufacturer guidelines only.</li>
-                  <li>Any disputes are subject to Bangalore jurisdiction only.</li>
-                  <li>Goods once sold will not be taken back or exchanged.</li>
-                </ul>
-              </div>
-
-              {/* Centered links and generation message */}
-              <div className="flex flex-col items-center justify-center gap-1 mt-1 text-[8.5px] text-slate-400 font-bold border-t border-slate-100/50 pt-3 w-full">
-                <span>This is a computer-generated document and does not require a physical signature.</span>
-                <span className="text-blue-500 font-bold mt-0.5">
-                  www.eicherworkshop.org | support@eicher.com | 1800-425-XXXX
-                </span>
-              </div>
-
-            </div>
-
+              <Printer size={13} /> Print Invoice (A4)
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-4 rounded-md cursor-pointer transition-colors shadow-xs flex items-center gap-1.5"
+            >
+              <Download size={13} /> Download PDF
+            </button>
+            <button
+              onClick={() => setPrintingSale(null)}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs py-2 px-4 rounded-md cursor-pointer transition-colors"
+            >
+              Close
+            </button>
           </div>
         </div>
 
-        {/* Modal Actions */}
-        <div className="bg-slate-50 border-t border-slate-100 p-4 px-8 flex items-center justify-end gap-3 no-print">
-          <button
-            onClick={() => setPrintingSale(null)}
-            className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-655 font-bold text-xs py-2.5 px-6 rounded-md cursor-pointer transition-colors shadow-xs"
-          >
-            Close Preview
-          </button>
+        {/* Modal Scrollable Container containing the EXACT Tax Invoice Sheet */}
+        <div className="p-6 overflow-y-auto bg-slate-100/80">
+          <div id="print-invoice-area" className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm flex flex-col gap-6 w-full max-w-5xl mx-auto text-slate-700">
 
-          <button
-            onClick={handlePrintTrigger}
-            className="bg-[#184edb] hover:bg-blue-800 text-white font-bold text-xs py-2.5 px-6 border-none rounded-md cursor-pointer transition-colors shadow-md flex items-center gap-1.5"
-          >
-            <Printer size={13} /> Print Invoice
-          </button>
+            {/* Section 1: Header */}
+            <div className="flex justify-between items-start border-b border-slate-100 pb-5">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-3">
+                  {companySettings?.logoUrl ? (
+                    <img src={companySettings.logoUrl} alt="Company Logo" className="h-10 w-auto object-contain max-w-[120px]" />
+                  ) : (
+                    <div className="w-9 h-9 rounded-lg bg-[#184edb] flex items-center justify-center text-white font-extrabold text-sm shadow-xs">
+                      {(companySettings?.companyName || 'HHS EICHER').slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <h2 className="text-base font-extrabold text-slate-900 m-0 font-heading tracking-tight">
+                      {companySettings?.companyName || 'HHS EICHER WORKSHOP'}
+                    </h2>
+                    {companySettings?.dealerName && (
+                      <span className="text-xs text-slate-450 font-bold block">{companySettings.dealerName}</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1 text-[11px] font-semibold text-slate-455 mt-2">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-bold text-slate-500">Address:</span>
+                    <span>{companySettings?.streetAddress || 'Industrial Park West, Sector 12, Block C'}</span>
+                    <span>
+                      {companySettings?.city ? `${companySettings.city}, ${companySettings?.stateName || ''} - ${companySettings?.pinCode || ''}` : 'Automotive City, California - 90210'}
+                    </span>
+                    <span>GSTIN: {companySettings?.gstNumber || '22AAAAA0000A1Z5'}</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-bold text-slate-500">Contact Details:</span>
+                    <span>Phone: {companySettings?.mobileNumber || companySettings?.phoneNum || '+1 (555) 012-3456'}</span>
+                    <span>Email: {companySettings?.emailAddress || 'contact@autopro-elite.com'}</span>
+                    <span>Web: {companySettings?.websiteUrl || 'www.autopro-elite.com'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-right flex flex-col items-end gap-1.5">
+                <h1 className="text-xl font-extrabold text-blue-600 tracking-tight font-heading m-0 uppercase">TAX INVOICE</h1>
+                <div className="text-xs font-semibold text-slate-500 mt-2 flex flex-col items-end gap-0.5">
+                  <span>Invoice Number: <span className="font-bold text-slate-800">{printingSale.invoiceNo}</span></span>
+                  <span>Invoice Date: <span className="font-bold text-slate-800">{printingSale.deliveryDate.replace('Scheduled: ', '')}</span></span>
+                  <span>Job Card: <span className="font-bold text-slate-800">JC/8892/23</span></span>
+                </div>
+                <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-3 py-0.5 rounded text-[10px] font-extrabold mt-1">
+                  PAID
+                </span>
+              </div>
+            </div>
+
+            {/* Section 2: Profiles */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+              {/* Customer info */}
+              <div className="border border-slate-200/80 rounded-xl p-5 bg-slate-50/20 flex flex-col gap-3 text-xs">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                  <User size={14} className="text-blue-600" />
+                  <span className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">Customer Information</span>
+                </div>
+                <div className="grid grid-cols-2 gap-y-2.5 font-semibold text-slate-500">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Name</span>
+                    <span className="text-slate-800 font-bold">{printingSale.customerName}</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Contact</span>
+                    <span className="text-slate-850 font-semibold">{printingSale.customerPhone || '+91 98765 43210'}</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5 col-span-2">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Billing Address</span>
+                    <span className="text-slate-700 font-semibold">{printingSale.customerDistrict || printingSale.district || '12B, Skyview Towers, Sector 56, Gurugram, 122011'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Vehicle Details */}
+              <div className="border border-slate-200/80 rounded-xl p-5 bg-slate-50/20 flex flex-col gap-3 text-xs">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                  <Truck size={14} className="text-blue-600" />
+                  <span className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">Vehicle Details</span>
+                </div>
+                <div className="grid grid-cols-3 gap-y-2.5 font-semibold text-slate-500">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Model</span>
+                    <span className="text-slate-800 font-bold">{printingSale.vehicleModel}</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Reg No.</span>
+                    <span className="text-slate-805 font-bold">HR 55 AT 4492</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Odometer</span>
+                    <span className="text-slate-750">45,210 KM</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5 col-span-2">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Chassis No.</span>
+                    <span className="text-slate-700 font-mono text-[10px] font-bold">MC284JS92X99023</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Service Type</span>
+                    <span className="text-slate-755 font-bold">Comprehensive Annual Service</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Section 3: Items Table */}
+            <div className="border border-slate-200 rounded-xl overflow-hidden mt-2 text-xs">
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[9px] border-b border-slate-250">
+                    <th className="p-3.5 px-5">SI.</th>
+                    <th className="p-3.5 px-5">Description</th>
+                    <th className="p-3.5 px-5 text-center">Qty/Hours</th>
+                    <th className="p-3.5 px-5 text-right">Unit Price</th>
+                    <th className="p-3.5 px-5 text-right">Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item, idx) => (
+                    <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/20 font-semibold text-slate-705">
+                      <td className="p-3.5 px-5 text-slate-455 font-bold">{item.sl}</td>
+                      <td className="p-3.5 px-5">
+                        <span className="font-extrabold text-slate-850 block">{item.desc}</span>
+                        <span className="text-[10px] text-slate-400 font-medium block mt-0.5">{item.subtitle}</span>
+                      </td>
+                      <td className="p-3.5 px-5 text-center font-bold text-slate-850">{item.qty}</td>
+                      <td className="p-3.5 px-5 text-right text-slate-550">{item.unitPrice}</td>
+                      <td className="p-3.5 px-5 text-right font-extrabold text-slate-900">{item.amount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Section 4: Settlement and summary totals */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start mt-2">
+
+              {/* Payment Details */}
+              <div className="lg:col-span-3 flex flex-col gap-4 w-full">
+                <div className="border border-slate-200 rounded-xl p-5 bg-slate-50/20 text-xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-100 pb-2 mb-3">Payment Details</span>
+                  <div className="grid grid-cols-2 gap-y-2.5 font-semibold text-slate-500">
+                    <span>Payment Mode:</span>
+                    <span className="text-slate-800 font-bold">Online / UPI</span>
+                    <span>Transaction ID:</span>
+                    <span className="text-slate-800 font-bold font-mono">TXN_9921884200XC</span>
+                    <span>Status:</span>
+                    <span className="text-emerald-600 font-bold">Successfully Verified</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Subtotals & Grand Total */}
+              <div className="lg:col-span-2 flex flex-col gap-2 text-xs font-semibold text-slate-505 w-full text-right">
+
+                <div className="flex justify-between px-2 font-medium">
+                  <span>Subtotal:</span>
+                  <span className="text-slate-800 font-bold">₹{subTotalNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+
+                <div className="flex justify-between px-2 font-medium">
+                  <span>Service Insurance:</span>
+                  <span className="text-slate-800 font-bold">₹{insuranceNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+
+                <div className="flex justify-between px-2 font-medium">
+                  <span className="text-red-500 font-bold">Discount ({discountRate}%):</span>
+                  <span className="text-red-655 font-extrabold">-₹{discountNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+
+                <div className="flex justify-between px-2 font-medium border-t border-slate-100 pt-2.5">
+                  <span>Taxable Value:</span>
+                  <span className="text-slate-850 font-bold">₹{taxableValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+
+                <div className="flex justify-between px-2 font-medium">
+                  <span>GST ({gstRate}%):</span>
+                  <span className="text-slate-855 font-bold">₹{taxesNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+
+                {/* Grand Total dark box */}
+                <div className="bg-[#0c1a40] rounded-lg p-4 px-5 text-white flex justify-between items-center mt-2.5 shadow-md">
+                  <span className="text-xs font-bold text-white/80">Grand Total</span>
+                  <span className="text-base font-extrabold text-white">₹{computedGrandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+                
+                <div className="flex justify-between px-2 font-medium text-emerald-600 mt-2 text-xs">
+                  <span>Advance Paid:</span>
+                  <span className="font-bold">{printingSale.advancePaid || '₹0'}</span>
+                </div>
+                
+                <div className="flex justify-between px-2 font-extrabold text-red-500 mt-1 pt-1 border-t border-slate-100/50 text-[13px]">
+                  <span>Balance Due:</span>
+                  <span>{printingSale.balanceAmount || '₹0'}</span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Section 5: Terms and Guarantee footer */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-slate-100 pt-6 text-[10px] text-slate-400 font-semibold leading-relaxed mt-2">
+              <div>
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block mb-1">TERMS & CONDITIONS</span>
+                <p className="m-0">Goods once sold will not be taken back. Interest @18% will be charged if not paid within 7 days. All disputes are subject to Gurugram Jurisdiction.</p>
+              </div>
+              <div className="text-right">
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block mb-1">SERVICE GUARANTEE</span>
+                <p className="m-0">All genuine Eicher spare parts come with a 6-month manufacturer warranty. Service labor is guaranteed for 30 days or 2,000 kms, whichever is earlier.</p>
+                <div className="mt-6 flex flex-col items-end gap-1">
+                  <div className="w-44 border-b border-slate-400 pb-1" />
+                  <span className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider mt-1">Authorized Signatory</span>
+                  <span className="text-[8px] text-slate-400 font-normal">THIS IS A COMPUTER-GENERATED INVOICE AND DOES NOT REQUIRE A PHYSICAL SIGNATURE.</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
         </div>
 
       </div>
@@ -306,9 +386,10 @@ interface VehicleSalesProps {
   sales: SaleRecord[];
   setSales: React.Dispatch<React.SetStateAction<SaleRecord[]>>;
   onCustomerClick?: (name: string) => void;
+  companySettings?: any;
 }
 
-export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onCustomerClick }) => {
+export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onCustomerClick, companySettings }) => {
   const [dbVehicles, setDbVehicles] = useState<any[]>([]);
   const [dbCustomers, setDbCustomers] = useState<any[]>([]);
 
@@ -334,17 +415,19 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
       .catch(err => console.error('Error fetching customers for sales:', err));
   }, []);
 
-  // Available stock items
+  // Available stock items mapped with exact inventory selling price & accessories total
   const stocks = dbVehicles.filter(v => v.stock > 0 && v.status === 'Available').map(v => ({
     id: v.id,
-    label: `${v.modelName} - ${v.colorName || 'White'} (Stock: ${v.stock || 0})`,
+    label: `${v.modelName} - ${v.colorName || 'White'} (Price: ₹${(v.sellPrice || v.price || 0).toLocaleString('en-IN')}) (Stock: ${v.stock || 0})`,
     model: v.modelName,
     type: v.type,
     engine: v.engineNo,
     color: v.colorName,
     chassis: v.chassisNo,
-    price: v.sellPrice || 1500000,
-    stock: v.stock || 0
+    price: v.sellPrice || v.price || 1500000,
+    stock: v.stock || 0,
+    accessoriesKit: v.accessoriesKit || [],
+    accessoriesTotal: v.accessoriesTotal || 37760
   }));
 
   // States for modals & sub-pages
@@ -392,52 +475,162 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
   const [regAdvancePaid, setRegAdvancePaid] = useState('0');
   const [regDiscount, setRegDiscount] = useState('0');
 
-  // Form states for Editing
-  const [editCustomer, setEditCustomer] = useState('');
-  const [editVehicle, setEditVehicle] = useState('');
-  const [editStatus, setEditStatus] = useState<'DELIVERED' | 'PENDING' | 'CANCELLED'>('DELIVERED');
-  const [editTotal, setEditTotal] = useState('');
-  const [editDistrict, setEditDistrict] = useState('');
-  const [editDeliveryDate, setEditDeliveryDate] = useState('');
-  const [editExecutive, setEditExecutive] = useState('');
+  // Filter & Search states for Sales Ledger
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+
+  // Filtered sales ledger
+  const filteredSales = sales.filter((sale) => {
+    const q = searchTerm.trim().toLowerCase();
+    const matchesSearch = !q ||
+      (sale.invoiceNo && sale.invoiceNo.toLowerCase().includes(q)) ||
+      (sale.customerName && sale.customerName.toLowerCase().includes(q)) ||
+      (sale.vehicleModel && sale.vehicleModel.toLowerCase().includes(q));
+    const matchesStatus = statusFilter === 'ALL' || sale.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  // Export Sales Ledger to Excel (.csv)
+  const handleExportExcel = () => {
+    const headers = ['INVOICE NO', 'CUSTOMER NAME', 'VEHICLE MODEL', 'SALE STATUS', 'GRAND TOTAL', 'DELIVERY DATE'];
+    const rows = filteredSales.map(s => [
+      `"${(s.invoiceNo || '').replace(/"/g, '""')}"`,
+      `"${(s.customerName || '').replace(/"/g, '""')}"`,
+      `"${(s.vehicleModel || '').replace(/"/g, '""')}"`,
+      `"${(s.status || '').replace(/"/g, '""')}"`,
+      `"${(s.grandTotal || '').toString().replace(/"/g, '""')}"`,
+      `"${(s.deliveryDate || '').replace(/"/g, '""')}"`
+    ]);
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Vehicle_Sales_Ledger_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Export Sales Ledger directly as a PDF file
+  const handleExportPDF = () => {
+    const element = document.createElement('div');
+    element.style.padding = '20px';
+    element.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    element.style.color = '#334155';
+    element.style.background = '#ffffff';
+
+    const companyName = companySettings?.companyName || 'HHS EICHER MOTORS';
+    const dealerName = companySettings?.dealerName || 'Vehicle Sales Ledger Report';
+
+    const logoHtml = companySettings?.logoUrl
+      ? `<img src="${companySettings.logoUrl}" style="height: 38px; object-fit: contain;" />`
+      : `<div style="background: #184edb; color: white; font-weight: 800; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-family: sans-serif; display: inline-block;">${companyName.slice(0, 2).toUpperCase()}</div>`;
+
+    const rowsHtml = filteredSales.map((s, idx) => `
+      <tr style="border-bottom: 1px solid #e2e8f0; font-size: 10.5px;">
+        <td style="padding: 8px 10px; color: #64748b; font-weight: 700; text-align: center;">${idx + 1}</td>
+        <td style="padding: 8px 10px; color: #184edb; font-weight: 800;">${s.invoiceNo}</td>
+        <td style="padding: 8px 10px; color: #1e293b; font-weight: 700;">${s.customerName}</td>
+        <td style="padding: 8px 10px; color: #334155; font-weight: 600;">${s.vehicleModel}</td>
+        <td style="padding: 8px 10px;">
+          <span style="padding: 2px 6px; border-radius: 4px; font-size: 8.5px; font-weight: 800; background: ${s.status === 'DELIVERED' ? '#ecfdf5; color: #059669; border: 1px solid #a7f3d0' : s.status === 'PENDING' ? '#fffbeb; color: #d97706; border: 1px solid #fde68a' : '#fef2f2; color: #dc2626; border: 1px solid #fecaca'}">
+            ${s.status}
+          </span>
+        </td>
+        <td style="padding: 8px 10px; text-align: right; font-weight: 800; color: #0f172a;">${s.grandTotal}</td>
+        <td style="padding: 8px 10px; color: #64748b;">${s.deliveryDate}</td>
+      </tr>
+    `).join('');
+
+    element.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #184edb; padding-bottom: 12px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          ${logoHtml}
+          <div>
+            <h2 style="margin: 0; font-size: 15px; color: #0f172a; font-weight: 800;">${companyName}</h2>
+            <span style="font-size: 11px; color: #64748b; font-weight: 600;">${dealerName}</span>
+          </div>
+        </div>
+        <div style="text-align: right;">
+          <h1 style="font-size: 17px; font-weight: 800; color: #184edb; margin: 0; text-transform: uppercase;">SALES LEDGER REPORT</h1>
+          <div style="font-size: 10px; color: #64748b; margin-top: 4px; font-weight: 600;">
+            Date: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} | Total Records: ${filteredSales.length}
+          </div>
+        </div>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+        <thead>
+          <tr style="background: #f8fafc; color: #475569; font-size: 9.5px; font-weight: 800; text-transform: uppercase;">
+            <th style="padding: 8px 10px; text-align: center; border-bottom: 2px solid #cbd5e1; width: 25px;">#</th>
+            <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid #cbd5e1;">INVOICE NO.</th>
+            <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid #cbd5e1;">CUSTOMER NAME</th>
+            <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid #cbd5e1;">VEHICLE MODEL</th>
+            <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid #cbd5e1;">SALE STATUS</th>
+            <th style="padding: 8px 10px; text-align: right; border-bottom: 2px solid #cbd5e1;">GRAND TOTAL</th>
+            <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid #cbd5e1;">DELIVERY DATE</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+
+      <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 8.5px; color: #94a3b8; text-align: center; font-weight: 600;">
+        Vehicle Sales Management Report • Downloaded on ${new Date().toLocaleString()}
+      </div>
+    `;
+
+    const opt = {
+      margin: [8, 8, 8, 8],
+      filename: `Vehicle_Sales_Ledger_${new Date().toISOString().slice(0, 10)}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    if ((window as any).html2pdf) {
+      (window as any).html2pdf().set(opt).from(element).save();
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      script.onload = () => {
+        (window as any).html2pdf().set(opt).from(element).save();
+      };
+      document.body.appendChild(script);
+    }
+  };
 
   // Handle click edit
 
   const handleEditClick = (sale: SaleRecord) => {
     setEditingSale(sale);
-    setEditCustomer(sale.customerName);
-    setEditVehicle(sale.vehicleModel);
-    setEditStatus(sale.status);
-    setEditTotal(sale.grandTotal);
-    setEditDistrict(sale.district);
-    setEditDeliveryDate(sale.deliveryDate);
-    setEditExecutive(sale.salesExecutive);
-  };
+    setRegFullName(sale.customerName || '');
+    setRegMobile(sale.customerPhone || '');
+    setRegAddress(sale.customerDistrict || sale.district || '');
+    setRegEmail(sale.customerEmail || '');
+    setRegInsuranceProvider(sale.insuranceProvider || 'ICICI Lombard GIC');
+    setRegPolicyNumber(sale.policyNumber || '');
+    setRegPremiumAmount(sale.insuranceAmount !== undefined ? sale.insuranceAmount.toString() : '');
+    setRegSeatCovers(!!sale.seatCovers);
+    setRegGpsTracker(!!sale.gpsTracker);
+    setRegWarranty(!!sale.warranty);
+    setRegDeliveryDate(sale.deliveryDate ? sale.deliveryDate.replace('Scheduled: ', '') : '');
+    setRegDeliveryLocation(sale.deliveryLocation || 'Showroom Delivery');
+    setRegInternalNotes(sale.internalNotes || '');
+    setRegPaymentMode(sale.paymentMode || 'Cash/Bank Transfer');
+    setRegFinanceProvider(sale.financeProvider || '');
+    setRegAdvancePaid(sale.advancePaid ? sale.advancePaid.replace(/[^\d.]/g, '') : '0');
+    setRegDiscount(sale.discountAmount !== undefined ? sale.discountAmount.toString() : '0');
 
-  // Save edit changes
-  const handleSaveEdit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingSale) return;
+    // Match vehicle in stock
+    const matchedStock = stocks.find(s => s.model === sale.vehicleModel);
+    if (matchedStock) {
+      setRegSelectedStock(matchedStock.id);
+    }
 
-    fetch(`${API_URL}/api/sales/${encodeURIComponent(editingSale.invoiceNo)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        customerName: editCustomer,
-        vehicleModel: editVehicle,
-        status: editStatus,
-        grandTotal: editTotal,
-        district: editDistrict,
-        deliveryDate: editDeliveryDate,
-        salesExecutive: editExecutive
-      })
-    })
-      .then(res => res.json())
-      .then(data => {
-        setSales(sales.map(s => s.invoiceNo === editingSale.invoiceNo ? data : s));
-        setEditingSale(null);
-      })
-      .catch(err => console.error('Error saving edited sale:', err));
+    setIsRegisteringSale(true);
   };
 
   const handleDeleteSale = (sale: SaleRecord) => {
@@ -458,26 +651,46 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
     window.print();
   };
 
+  // GST percentage & Discount percentage from Settings
+  const gstRate = parseFloat((companySettings?.defaultGstPercent || '18').toString().replace(/[^\d.]/g, '')) || 18;
+  const discountRate = parseFloat((companySettings?.defaultDiscountPercent || '5').toString().replace(/[^\d.]/g, '')) || 0;
+
   // Calculate prices dynamically for active stock item
   const selectedStockItem = stocks.find(s => s.id === regSelectedStock) || stocks[0];
-  const calculatedAccessoriesCost =
+  const vehicleAccessoriesTotal = selectedStockItem?.accessoriesTotal || 37760;
+  const optionalAccessoriesCost =
     (regSeatCovers ? 8500 : 0) +
     (regGpsTracker ? 12000 : 0) +
     (regWarranty ? 24999 : 0);
+  const calculatedAccessoriesCost = vehicleAccessoriesTotal + optionalAccessoriesCost;
   const calculatedInsuranceCost = parseFloat(regPremiumAmount || '0');
   const basePrice = selectedStockItem ? Number(selectedStockItem.price.toString().replace(/[^\d.]/g, '')) || 0 : 0;
-  const calculatedTaxes = basePrice * 0.18;
-  const calculatedDiscount = parseFloat(regDiscount || '0');
-  const grandTotalPayable =
-    basePrice +
-    calculatedAccessoriesCost +
-    calculatedInsuranceCost +
-    calculatedTaxes -
-    calculatedDiscount;
-  const balancePayable = grandTotalPayable - parseFloat(regAdvancePaid || '0');
-  const financialProgress = (parseFloat(regAdvancePaid || '0') / grandTotalPayable) * 100;
+  
+  // Subtotal = Base Vehicle + Accessories Kit
+  const subTotalNum = basePrice + calculatedAccessoriesCost;
 
-  // Handle New Sale Registration Form Submit
+  // Pre-discount total = Subtotal + Insurance
+  const preDiscountTotal = subTotalNum + calculatedInsuranceCost;
+
+  // Discount calculation: user custom input if > 0, else Settings discount %
+  const userEnteredDiscount = parseFloat(regDiscount || '0');
+  const calculatedDiscount = userEnteredDiscount > 0 ? userEnteredDiscount : Math.round(preDiscountTotal * (discountRate / 100));
+
+  // Taxable Value
+  const taxableNum = Math.max(0, preDiscountTotal - calculatedDiscount);
+
+  // GST Amount
+  const calculatedTaxes = Math.round(taxableNum * (gstRate / 100));
+
+  // Grand Total
+  const grandTotalPayable = taxableNum + calculatedTaxes;
+
+  // Advance paid & balance
+  const advancePaidNum = parseFloat(regAdvancePaid || '0');
+  const balancePayable = Math.max(0, grandTotalPayable - advancePaidNum);
+  const financialProgress = grandTotalPayable > 0 ? (advancePaidNum / grandTotalPayable) * 100 : 0;
+
+  // Handle Sale Registration / Edit Form Submit
   const handleRegisterSale = (e: React.FormEvent, forceStatus: 'DELIVERED' | 'PENDING' = 'PENDING') => {
     e.preventDefault();
     if (!regFullName || !regMobile) {
@@ -490,16 +703,13 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
       return;
     }
 
-    const advancePaidNum = parseFloat(regAdvancePaid || '0');
     let finalStatus = forceStatus;
-    
-    // Automatically set as delivered (paid) if advance amount matches or exceeds total
-    if (advancePaidNum >= grandTotalPayable) {
+    if (advancePaidNum >= grandTotalPayable && grandTotalPayable > 0) {
       finalStatus = 'DELIVERED';
     }
 
-    const newInvoice = `#INV-2023-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newRecord: any = {
+    const newInvoice = editingSale ? editingSale.invoiceNo : `#INV-2023-${Math.floor(1000 + Math.random() * 9000)}`;
+    const salePayload: any = {
       invoiceNo: newInvoice,
       customerName: regFullName,
       customerPhone: regMobile,
@@ -507,6 +717,14 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
       customerEmail: regEmail,
       vehicleModel: selectedStockItem ? selectedStockItem.model : 'Unknown Model',
       status: finalStatus,
+      baseVehiclePrice: basePrice,
+      accessoriesCharge: calculatedAccessoriesCost,
+      insuranceAmount: calculatedInsuranceCost,
+      subTotal: subTotalNum,
+      discountAmount: calculatedDiscount,
+      taxableValue: taxableNum,
+      gstRate: gstRate,
+      gstAmount: calculatedTaxes,
       grandTotal: `₹${Math.round(grandTotalPayable).toLocaleString('en-IN')}`,
       advancePaid: `₹${Math.round(advancePaidNum).toLocaleString('en-IN')}`,
       balanceAmount: `₹${Math.round(balancePayable).toLocaleString('en-IN')}`,
@@ -514,33 +732,54 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
       deliveryDate: regDeliveryDate
         ? new Date(regDeliveryDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
         : 'Scheduled: ' + new Date(Date.now() + 86400000 * 5).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-      salesExecutive: 'System User'
+      salesExecutive: 'System User',
+      insuranceProvider: regInsuranceProvider,
+      policyNumber: regPolicyNumber,
+      seatCovers: regSeatCovers,
+      gpsTracker: regGpsTracker,
+      warranty: regWarranty,
+      deliveryLocation: regDeliveryLocation,
+      internalNotes: regInternalNotes,
+      paymentMode: regPaymentMode,
+      financeProvider: regFinanceProvider,
+      accessoriesKit: selectedStockItem?.accessoriesKit || [],
+      accessoriesTotal: vehicleAccessoriesTotal
     };
 
-    fetch(`${API_URL}/api/sales`, {
-      method: 'POST',
+    const isEdit = !!editingSale;
+    const url = isEdit ? `${API_URL}/api/sales/${encodeURIComponent(editingSale.invoiceNo)}` : `${API_URL}/api/sales`;
+    const method = isEdit ? 'PUT' : 'POST';
+
+    fetch(url, {
+      method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newRecord)
+      body: JSON.stringify(salePayload)
     })
       .then(res => res.json())
       .then(data => {
-        setSales([data, ...sales]);
-        setIsRegisteringSale(false);
+        if (isEdit) {
+          setSales(sales.map(s => s.invoiceNo === editingSale.invoiceNo ? data : s));
+        } else {
+          setSales([data, ...sales]);
 
-        // Also update the vehicle's status and stock in the database
-        if (selectedStockItem && selectedStockItem.id) {
-          const newStock = Math.max(0, selectedStockItem.stock - 1);
-          const newStatus = newStock === 0 ? 'Out of Stock' : 'Available';
+          // Update vehicle stock only on new sale creation
+          if (selectedStockItem && selectedStockItem.id) {
+            const newStock = Math.max(0, selectedStockItem.stock - 1);
+            const newStatus = newStock === 0 ? 'Out of Stock' : 'Available';
 
-          fetch(`${API_URL}/api/vehicles/${encodeURIComponent(selectedStockItem.id)}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: newStatus, stock: newStock })
-          })
-            .catch(err => console.error('Error updating vehicle status on sale:', err));
+            fetch(`${API_URL}/api/vehicles/${encodeURIComponent(selectedStockItem.id)}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: newStatus, stock: newStock })
+            })
+              .catch(err => console.error('Error updating vehicle status on sale:', err));
+          }
         }
 
-        // Reset fields
+        setIsRegisteringSale(false);
+        setEditingSale(null);
+
+        // Reset form fields
         setRegFullName('');
         setRegMobile('');
         setRegAddress('');
@@ -551,7 +790,7 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
         setRegAdvancePaid('0');
         setRegDiscount('0');
       })
-      .catch(err => console.error('Error registering sale:', err));
+      .catch(err => console.error('Error saving sale:', err));
   };
 
   // 1. View state switcher: New Sale Registration
@@ -563,20 +802,22 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
         <div className="flex justify-between items-center flex-wrap gap-4">
           <div>
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              <span className="cursor-pointer hover:text-slate-650" onClick={() => setIsRegisteringSale(false)}>Vehicles</span>
+              <span className="cursor-pointer hover:text-slate-650" onClick={() => { setIsRegisteringSale(false); setEditingSale(null); }}>Vehicles</span>
               <span>&gt;</span>
-              <span className="text-slate-600 font-bold">New Vehicle Sale</span>
+              <span className="text-slate-600 font-bold">{editingSale ? 'Edit Vehicle Sale' : 'New Vehicle Sale'}</span>
             </div>
             <h1 className="text-2xl font-extrabold text-slate-900 m-0 mt-1.5 tracking-tight font-heading">
-              New Vehicle Sale Registration
+              {editingSale ? `Edit Vehicle Sale (${editingSale.invoiceNo})` : 'New Vehicle Sale Registration'}
             </h1>
-            <p className="text-xs text-slate-400 m-0 mt-1">Register a primary vehicle sale, assign accessories, and generate the commercial invoice.</p>
+            <p className="text-xs text-slate-400 m-0 mt-1">
+              {editingSale ? 'Update customer details, insurance, accessories, and financial payment terms for this invoice.' : 'Register a primary vehicle sale, assign accessories, and generate the commercial invoice.'}
+            </p>
           </div>
 
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setIsRegisteringSale(false)}
+              onClick={() => { setIsRegisteringSale(false); setEditingSale(null); }}
               className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-605 font-bold text-xs py-2.5 px-6 rounded-md cursor-pointer transition-colors shadow-xs"
             >
               Cancel
@@ -655,10 +896,10 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">GST Number (Optional)</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Aadhar Number (Optional)</label>
                   <input
                     type="text"
-                    placeholder="27AAAAA0000A1Z5"
+                    placeholder="2555 6584 6985"
                     value={regGst}
                     onChange={(e) => setRegGst(e.target.value)}
                     className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700 placeholder-slate-400 font-mono"
@@ -863,10 +1104,31 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Chassis No.</label>
                   <input
                     type="text"
-                    value={selectedStockItem.chassis}
+                    value={selectedStockItem ? selectedStockItem.chassis : ''}
                     disabled
                     className="border border-blue-200 rounded-md py-2 px-3 bg-blue-50/50 text-[#184edb] outline-none font-mono font-bold"
                   />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Base Selling Price (From Inventory)</label>
+                    <input
+                      type="text"
+                      value={`₹${(selectedStockItem ? Number(selectedStockItem.price.toString().replace(/[^\d.]/g, '')) : 0).toLocaleString('en-IN')}`}
+                      disabled
+                      className="border border-emerald-200 rounded-md py-2 px-3 bg-emerald-50/60 text-emerald-700 outline-none font-bold"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Accessories Kit (From Inventory)</label>
+                    <input
+                      type="text"
+                      value={`₹${(selectedStockItem?.accessoriesTotal || 37760).toLocaleString('en-IN')}`}
+                      disabled
+                      className="border border-amber-200 rounded-md py-2 px-3 bg-amber-50/60 text-amber-800 outline-none font-bold"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1058,17 +1320,59 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
 
   // 2. View state switcher: Detailed Tax Invoice (Mockup Format)
   if (viewingSale) {
+    const gstRate = viewingSale.gstRate || parseFloat((companySettings?.defaultGstPercent || '18').toString().replace(/[^\d.]/g, '')) || 18;
+    const discountRate = parseFloat((companySettings?.defaultDiscountPercent || '5').toString().replace(/[^\d.]/g, '')) || 0;
     const grandTotalNum = Number(viewingSale.grandTotal.toString().replace(/[^\d.]/g, '')) || 0;
     
-    const basePriceNum = Math.round(grandTotalNum * 0.75);
-    const accessoriesNum = Math.round(grandTotalNum * 0.02);
-    const insuranceNum = Math.round(grandTotalNum * 0.05);
-    const discountNum = 0; 
-    const taxesNum = grandTotalNum - (basePriceNum + accessoriesNum + insuranceNum);
+    const matchedVehicle = dbVehicles.find(v => v.modelName === viewingSale.vehicleModel);
+
+    const accessoriesNum = (viewingSale.accessoriesCharge && viewingSale.accessoriesCharge > 0)
+      ? viewingSale.accessoriesCharge
+      : ((viewingSale.accessoriesTotal && viewingSale.accessoriesTotal > 0)
+        ? viewingSale.accessoriesTotal
+        : (matchedVehicle?.accessoriesTotal && matchedVehicle.accessoriesTotal > 0 ? matchedVehicle.accessoriesTotal : 37760));
+
+    const basePriceNum = (viewingSale.baseVehiclePrice && viewingSale.baseVehiclePrice > 0)
+      ? viewingSale.baseVehiclePrice
+      : ((matchedVehicle?.sellPrice && matchedVehicle.sellPrice > 0)
+        ? matchedVehicle.sellPrice
+        : ((matchedVehicle?.price && matchedVehicle.price > 0)
+          ? matchedVehicle.price
+          : Math.max(0, Math.round(grandTotalNum / (1 + gstRate / 100)) - accessoriesNum)));
+
+    // Subtotal = Base Vehicle + Accessories Kit
+    const subTotalNum = basePriceNum + accessoriesNum;
+
+    // Service Insurance: Only if added during sale registration, else 0
+    const insuranceNum = viewingSale.insuranceAmount || 0;
+
+    const preDiscountTotal = subTotalNum + insuranceNum;
+
+    // Discount: Settings discount % or saved discount amount
+    const discountNum = (viewingSale.discountAmount && viewingSale.discountAmount > 0)
+      ? viewingSale.discountAmount
+      : Math.round(preDiscountTotal * (discountRate / 100));
+
+    const taxableValue = (viewingSale.taxableValue && viewingSale.taxableValue > 0)
+      ? viewingSale.taxableValue
+      : Math.max(0, preDiscountTotal - discountNum);
+
+    const taxesNum = (viewingSale.gstAmount && viewingSale.gstAmount > 0)
+      ? viewingSale.gstAmount
+      : Math.round(taxableValue * (gstRate / 100));
+
+    const computedGrandTotal = viewingSale.grandTotal ? grandTotalNum : (taxableValue + taxesNum);
+
+    let accSummary = 'Mats, Mud Flaps, basic toolkit';
+    if (matchedVehicle?.accessoriesKit && matchedVehicle.accessoriesKit.length > 0) {
+      accSummary = matchedVehicle.accessoriesKit.map((a: any) => a.name).filter(Boolean).join(', ');
+    } else if ((viewingSale as any).accessoriesKit && (viewingSale as any).accessoriesKit.length > 0) {
+      accSummary = (viewingSale as any).accessoriesKit.map((a: any) => a.name).filter(Boolean).join(', ');
+    }
 
     const items = [
       { sl: '01', desc: `${viewingSale.vehicleModel} - Base Vehicle`, subtitle: 'Primary vehicle chassis and cabin', qty: '1 Unit', unitPrice: `₹${basePriceNum.toLocaleString('en-IN')}`, amount: `₹${basePriceNum.toLocaleString('en-IN')}` },
-      { sl: '02', desc: 'Standard Accessories Kit', subtitle: 'Mats, Mud Flaps, basic toolkit', qty: '1 Set', unitPrice: `₹${accessoriesNum.toLocaleString('en-IN')}`, amount: `₹${accessoriesNum.toLocaleString('en-IN')}` }
+      { sl: '02', desc: 'Standard Accessories Kit', subtitle: accSummary, qty: '1 Set', unitPrice: `₹${accessoriesNum.toLocaleString('en-IN')}`, amount: `₹${accessoriesNum.toLocaleString('en-IN')}` }
     ];
 
     return (
@@ -1092,7 +1396,10 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
             >
               <Printer size={13} /> Print
             </button>
-            <button className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs py-2.5 px-4 rounded-md cursor-pointer transition-colors shadow-xs flex items-center gap-1.5">
+            <button
+              onClick={() => window.print()}
+              className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs py-2.5 px-4 rounded-md cursor-pointer transition-colors shadow-xs flex items-center gap-1.5"
+            >
               <Download size={13} /> PDF
             </button>
             <button className="bg-[#184edb] hover:bg-blue-800 text-white font-bold text-xs py-2.5 px-5 border-none rounded-md cursor-pointer transition-colors shadow-md flex items-center gap-1.5">
@@ -1107,26 +1414,38 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
           {/* Section 1: Header */}
           <div className="flex justify-between items-start border-b border-slate-100 pb-5">
             <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">
-                  <Wrench size={16} />
+              <div className="flex items-center gap-3">
+                {companySettings?.logoUrl ? (
+                  <img src={companySettings.logoUrl} alt="Company Logo" className="h-10 w-auto object-contain max-w-[120px]" />
+                ) : (
+                  <div className="w-9 h-9 rounded-lg bg-[#184edb] flex items-center justify-center text-white font-extrabold text-sm shadow-xs">
+                    {(companySettings?.companyName || 'HHS EICHER').slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-900 m-0 font-heading tracking-tight">
+                    {companySettings?.companyName || 'HHS EICHER MOTORS'}
+                  </h2>
+                  {companySettings?.dealerName && (
+                    <span className="text-xs text-slate-450 font-bold block">{companySettings.dealerName}</span>
+                  )}
                 </div>
-                <h2 className="text-base font-extrabold text-slate-900 m-0 font-heading">Eicher Authorized Workshop</h2>
               </div>
-              <span className="text-xs text-slate-450 font-bold">Grand Motor Works Pvt. Ltd.</span>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1 text-[11px] font-semibold text-slate-455 mt-2">
                 <div className="flex flex-col gap-0.5">
-                  <span className="font-bold text-slate-500">Workshop Address:</span>
-                  <span>Plot No. 45, Industrial Area</span>
-                  <span>Phase II, Gurugram, Haryana - 122001</span>
-                  <span>GSTIN: 07AAACG1234F1Z5</span>
+                  <span className="font-bold text-slate-500">Address:</span>
+                  <span>{companySettings?.streetAddress || 'Industrial Park West, Sector 12'}</span>
+                  <span>
+                    {companySettings?.city ? `${companySettings.city}, ${companySettings?.stateName || ''} - ${companySettings?.pinCode || ''}` : 'Automotive City, CA 90210'}
+                  </span>
+                  <span>GSTIN: {companySettings?.gstNumber || '22AAAAA0000A1Z5'}</span>
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="font-bold text-slate-500">Contact Details:</span>
-                  <span>Phone: +91 124 456 7890</span>
-                  <span>Email: service@grandmotors.in</span>
-                  <span>Web: www.eicher-service.com</span>
+                  <span>Phone: {companySettings?.mobileNumber || companySettings?.phoneNum || '+1 (555) 012-3456'}</span>
+                  <span>Email: {companySettings?.emailAddress || 'contact@autopro-elite.com'}</span>
+                  <span>Web: {companySettings?.websiteUrl || 'www.autopro-elite.com'}</span>
                 </div>
               </div>
             </div>
@@ -1233,36 +1552,12 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
           {/* Section 4: Settlement and summary totals */}
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start mt-2">
 
-            {/* Column 1: Payment Settlement */}
+            {/* Column 1: Payment Details */}
             <div className="lg:col-span-3 flex flex-col gap-4 w-full">
-
-              {/* Quick scan box */}
-              <div className="border border-blue-100 rounded-xl p-4 bg-blue-50/10 flex items-center gap-4">
-                <div className="w-14 h-14 bg-white border border-slate-200 rounded p-1 flex items-center justify-center flex-shrink-0 shadow-xs">
-                  {/* Mock small QR */}
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-slate-800">
-                    <rect x="2" y="2" width="6" height="6" strokeWidth="2" />
-                    <rect x="16" y="2" width="6" height="6" strokeWidth="2" />
-                    <rect x="2" y="16" width="6" height="6" strokeWidth="2" />
-                    <path d="M10 2h4M10 6h4M10 10h4M2 12h8M14 12h8M12 14v8" strokeWidth="2" />
-                  </svg>
-                </div>
-                <div className="flex flex-col gap-1 text-xs text-left">
-                  <span className="font-extrabold text-blue-600 font-heading">Quick Settlement</span>
-                  <span className="text-[10px] text-slate-455 font-medium">Scan to pay via any UPI app</span>
-                  <span className="font-mono text-slate-700 font-bold">VPA: grandmotors@upi</span>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="bg-slate-100 text-slate-450 border border-slate-200 px-1 py-0.2 rounded text-[7.5px] font-extrabold uppercase">BHIM</span>
-                    <span className="bg-slate-100 text-slate-450 border border-slate-200 px-1 py-0.2 rounded text-[7.5px] font-extrabold uppercase">GPay</span>
-                    <span className="bg-slate-100 text-slate-450 border border-slate-200 px-1 py-0.2 rounded text-[7.5px] font-extrabold uppercase">PhonePe</span>
-                  </div>
-                </div>
-              </div>
-
               {/* Payment Details text box */}
-              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/20 text-xs">
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-100 pb-1.5 mb-2.5">Payment Details</span>
-                <div className="grid grid-cols-2 gap-y-2 font-semibold text-slate-500">
+              <div className="border border-slate-200 rounded-xl p-5 bg-slate-50/20 text-xs">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-100 pb-2 mb-3">Payment Details</span>
+                <div className="grid grid-cols-2 gap-y-2.5 font-semibold text-slate-500">
                   <span>Payment Mode:</span>
                   <span className="text-slate-800 font-bold">Online / UPI</span>
                   <span>Transaction ID:</span>
@@ -1278,12 +1573,7 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
 
               <div className="flex justify-between px-2 font-medium">
                 <span>Subtotal:</span>
-                <span className="text-slate-800 font-bold">₹{(basePriceNum + accessoriesNum).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-              </div>
-
-              <div className="flex justify-between px-2 font-medium">
-                <span>Accessories Charge:</span>
-                <span className="text-slate-800 font-bold">₹{accessoriesNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                <span className="text-slate-800 font-bold">₹{subTotalNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
 
               <div className="flex justify-between px-2 font-medium">
@@ -1292,24 +1582,24 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
               </div>
 
               <div className="flex justify-between px-2 font-medium">
-                <span className="text-red-500 font-bold">Discount:</span>
+                <span className="text-red-500 font-bold">Discount ({discountRate}%):</span>
                 <span className="text-red-655 font-extrabold">-₹{discountNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
 
               <div className="flex justify-between px-2 font-medium border-t border-slate-100 pt-2.5">
                 <span>Taxable Value:</span>
-                <span className="text-slate-850 font-bold">₹{(basePriceNum + accessoriesNum + insuranceNum - discountNum).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                <span className="text-slate-850 font-bold">₹{taxableValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
 
               <div className="flex justify-between px-2 font-medium">
-                <span>GST (18%):</span>
+                <span>GST ({gstRate}%):</span>
                 <span className="text-slate-855 font-bold">₹{taxesNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
 
               {/* Grand Total dark box block */}
               <div className="bg-[#0c1a40] rounded-lg p-4 px-5 text-white flex justify-between items-center mt-2.5 shadow-md">
                 <span className="text-xs font-bold text-white/80">Grand Total</span>
-                <span className="text-base font-extrabold text-white">₹{grandTotalNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                <span className="text-base font-extrabold text-white">₹{computedGrandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
               
               <div className="flex justify-between px-2 font-medium text-emerald-600 mt-2 text-xs">
@@ -1403,19 +1693,22 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
           body * {
             visibility: hidden;
           }
-          #print-invoice-area, #print-invoice-area * {
+          #print-invoice-area, #print-invoice-area *,
+          #sales-ledger-print-area, #sales-ledger-print-area * {
             visibility: visible;
           }
-          #print-invoice-area {
+          #print-invoice-area, #sales-ledger-print-area {
             position: absolute;
             left: 0;
             top: 0;
-            width: 100%;
-            background: white !important;
-            color: black !important;
+            width: 100% !important;
+            max-width: 100% !important;
             box-shadow: none !important;
             border: none !important;
-            padding: 0 !important;
+            padding: 15px !important;
+            margin: 0 auto !important;
+            background: #ffffff !important;
+            box-sizing: border-box !important;
           }
           .no-print {
             display: none !important;
@@ -1430,18 +1723,23 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
           <h1 className="text-2xl font-extrabold text-slate-900 m-0 mt-1.5 tracking-tight font-heading">Vehicle Sales</h1>
         </div>
         <div className="flex items-center gap-3">
-          <button className="bg-white border border-slate-200 rounded-md py-2 px-4 text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors text-slate-600 hover:bg-slate-50">
-            <SlidersHorizontal size={13} /> Filter
+          <button
+            onClick={handleExportExcel}
+            className="bg-white border border-slate-200 rounded-md py-2 px-4 text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors text-slate-600 hover:bg-slate-50 shadow-xs"
+            title="Export Sales Ledger to Excel CSV"
+          >
+            <FileSpreadsheet size={13} className="text-emerald-600" /> Export Excel
           </button>
-          <button className="bg-white border border-slate-200 rounded-md py-2 px-4 text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors text-slate-600 hover:bg-slate-50">
-            <FileSpreadsheet size={13} /> Export Excel
-          </button>
-          <button className="bg-white border border-slate-200 rounded-md py-2 px-4 text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors text-slate-600 hover:bg-slate-50">
-            <FileText size={13} /> Export PDF
+          <button
+            onClick={handleExportPDF}
+            className="bg-white border border-slate-200 rounded-md py-2 px-4 text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors text-slate-600 hover:bg-slate-50 shadow-xs"
+            title="Print or Save Sales Ledger as PDF"
+          >
+            <FileText size={13} className="text-red-500" /> Export PDF
           </button>
           <button
             onClick={() => setIsRegisteringSale(true)}
-            className="bg-[#184edb] text-white border-none py-2 px-4 rounded-md text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors hover:bg-blue-900"
+            className="bg-[#184edb] text-white border-none py-2 px-4 rounded-md text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors hover:bg-blue-900 shadow-sm"
           >
             <Plus size={13} /> New Sale
           </button>
@@ -1526,14 +1824,61 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
       </div>
 
       {/* Sales Ledger Table Section */}
-      <div className="bg-white rounded-xl border border-[#eef2f6] shadow-sm overflow-hidden flex flex-col w-full">
+      <div id="sales-ledger-print-area" className="bg-white rounded-xl border border-[#eef2f6] shadow-sm overflow-hidden flex flex-col w-full">
 
-        <div className="p-4 px-6 border-b border-slate-100 bg-slate-50/10 flex items-center justify-between flex-wrap gap-3">
+        <div className="p-4 px-6 border-b border-slate-100 bg-slate-50/10 flex items-center justify-between flex-wrap gap-4 no-print">
           <div className="flex items-center gap-3">
             <h3 className="text-base font-extrabold text-slate-800 m-0 font-heading">Sales Ledger</h3>
             <span className="bg-blue-50 text-[#184edb] text-[10px] font-bold py-0.5 px-2.5 rounded-full border border-blue-100">
-              Total {sales.length} Sales
+              Showing {filteredSales.length} of {sales.length} Sales
             </span>
+          </div>
+
+          {/* Filter Option Controls right above Sales Ledger table */}
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Search Input */}
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                placeholder="Search invoice, customer, model..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="border border-slate-200 rounded-md py-1.5 pl-3 pr-7 text-xs outline-none bg-slate-50 focus:bg-white focus:border-blue-400 transition-all font-medium text-slate-700 w-56"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2 text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer text-xs font-bold"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Status Filter Dropdown */}
+            <div className="flex items-center gap-1.5">
+              <SlidersHorizontal size={13} className="text-slate-400" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="border border-slate-200 rounded-md py-1.5 px-3 text-xs outline-none bg-slate-50 focus:bg-white focus:border-blue-400 transition-all font-semibold text-slate-700 cursor-pointer"
+              >
+                <option value="ALL">All Status</option>
+                <option value="DELIVERED">Delivered</option>
+                <option value="PENDING">Pending</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+            </div>
+
+            {/* Reset Button */}
+            {(searchTerm || statusFilter !== 'ALL') && (
+              <button
+                onClick={() => { setSearchTerm(''); setStatusFilter('ALL'); }}
+                className="text-xs text-red-500 font-bold hover:underline cursor-pointer border-none bg-transparent"
+              >
+                Reset
+              </button>
+            )}
           </div>
         </div>
 
@@ -1547,11 +1892,11 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
                 <th className="py-3.5 px-6 border-b border-slate-100">SALE STATUS</th>
                 <th className="py-3.5 px-6 border-b border-slate-100 text-right">GRAND TOTAL</th>
                 <th className="py-3.5 px-6 border-b border-slate-100">DELIVERY DATE</th>
-                <th className="py-3.5 px-6 border-b border-slate-100 text-center">ACTIONS</th>
+                <th className="py-3.5 px-6 border-b border-slate-100 text-center no-print">ACTIONS</th>
               </tr>
             </thead>
             <tbody>
-              {sales.map((sale) => (
+              {filteredSales.map((sale) => (
                 <tr 
                   key={sale.invoiceNo} 
                   onClick={() => setViewingSale(sale)}
@@ -1655,136 +2000,59 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
 
 
 
-      {/* EDIT MODAL DIALOG */}
-      {editingSale && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-lg border border-slate-100 w-full max-w-2xl overflow-hidden flex flex-col">
+      {/* Style block for printing Tax Invoice with 100% exact A4 fidelity */}
+      <style>{`
+        @page {
+          size: A4 portrait;
+          margin: 8mm;
+        }
 
-            {/* Header */}
-            <div className="p-4 px-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <h3 className="text-sm font-extrabold text-slate-800 m-0 font-heading">Edit Sale: {editingSale.invoiceNo}</h3>
-              <button
-                onClick={() => setEditingSale(null)}
-                className="bg-transparent border-none text-slate-400 hover:text-slate-650 cursor-pointer"
-              >
-                <X size={16} />
-              </button>
-            </div>
+        @media print {
+          html, body {
+            width: 210mm;
+            background: #ffffff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
 
-            {/* Form */}
-            <form onSubmit={handleSaveEdit} className="p-6 flex flex-col gap-4 text-xs font-semibold text-slate-500 max-h-[80vh] overflow-y-auto">
+          body * {
+            visibility: hidden;
+          }
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Customer Name</label>
-                  <input
-                    type="text"
-                    value={editCustomer}
-                    onChange={(e) => setEditCustomer(e.target.value)}
-                    required
-                    className="border border-slate-200 rounded-md py-2 px-3 outline-none focus:border-blue-400 bg-slate-50 focus:bg-white transition-all font-medium text-slate-700"
-                  />
-                </div>
+          #print-invoice-area, #print-invoice-area * {
+            visibility: visible;
+          }
 
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Vehicle Model</label>
-                  <input
-                    type="text"
-                    value={editVehicle}
-                    onChange={(e) => setEditVehicle(e.target.value)}
-                    required
-                    className="border border-slate-200 rounded-md py-2 px-3 outline-none focus:border-blue-400 bg-slate-50 focus:bg-white transition-all font-medium text-slate-700"
-                  />
-                </div>
-              </div>
+          #print-invoice-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-shadow: none !important;
+            border: none !important;
+            padding: 15px !important;
+            margin: 0 auto !important;
+            background: #ffffff !important;
+            box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+          }
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Grand Total</label>
-                  <input
-                    type="text"
-                    value={editTotal}
-                    onChange={(e) => setEditTotal(e.target.value)}
-                    required
-                    className="border border-slate-200 rounded-md py-2 px-3 outline-none focus:border-blue-400 bg-slate-50 focus:bg-white transition-all font-medium text-slate-700"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sale Status</label>
-                  <select
-                    value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value as any)}
-                    className="border border-slate-200 rounded-md py-2 px-3 outline-none focus:border-blue-400 bg-slate-50 focus:bg-white transition-all font-bold text-slate-705"
-                  >
-                    <option value="DELIVERED">DELIVERED</option>
-                    <option value="PENDING">PENDING</option>
-                    <option value="CANCELLED">CANCELLED</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Delivery Date</label>
-                  <input
-                    type="text"
-                    value={editDeliveryDate}
-                    onChange={(e) => setEditDeliveryDate(e.target.value)}
-                    className="border border-slate-200 rounded-md py-2 px-3 outline-none focus:border-blue-400 bg-slate-50 focus:bg-white transition-all font-medium text-slate-700"
-                  />
-                </div>
-                
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">District</label>
-                  <input
-                    type="text"
-                    value={editDistrict}
-                    onChange={(e) => setEditDistrict(e.target.value)}
-                    className="border border-slate-200 rounded-md py-2 px-3 outline-none focus:border-blue-400 bg-slate-50 focus:bg-white transition-all font-medium text-slate-700"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sales Executive</label>
-                <input
-                  type="text"
-                  value={editExecutive}
-                  onChange={(e) => setEditExecutive(e.target.value)}
-                  className="border border-slate-200 rounded-md py-2 px-3 outline-none focus:border-blue-400 bg-slate-50 focus:bg-white transition-all font-medium text-slate-700"
-                />
-              </div>
-
-              {/* Actions Footer */}
-              <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingSale(null)}
-                  className="bg-transparent border-none text-slate-400 hover:text-slate-700 font-bold text-xs py-2 px-4 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-[#184edb] hover:bg-blue-800 text-white font-bold text-xs py-2.5 px-6 border-none rounded-md cursor-pointer transition-colors shadow-md"
-                >
-                  Save Changes
-                </button>
-              </div>
-
-            </form>
-
-          </div>
-        </div>
-      )}
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
 
       {/* Render Print Modal overlay inside main view scope */}
       {printingSale && (
         <PrintInvoiceModal
           printingSale={printingSale}
           setPrintingSale={setPrintingSale}
-          handlePrintTrigger={handlePrintTrigger}
+          companySettings={companySettings}
+          dbVehicles={dbVehicles}
         />
       )}
 

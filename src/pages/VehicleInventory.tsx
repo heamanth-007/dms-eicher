@@ -15,7 +15,6 @@ import {
   CircleDollarSign,
   Calendar,
   Settings,
-  Image as ImageIcon,
   Camera,
   X,
   PlusCircle,
@@ -28,6 +27,14 @@ import {
   Edit,
   Trash2
 } from 'lucide-react';
+
+export interface AccessoryItem {
+  id: string;
+  name: string;
+  qty: number;
+  price: number;
+  total: number;
+}
 
 interface VehicleType {
   id: string;
@@ -45,13 +52,14 @@ interface VehicleType {
   imageUrl?: string;
   stock: number;
   year: string;
+  accessoriesKit?: AccessoryItem[];
+  accessoriesTotal?: number;
 }
 
 export const VehicleInventory: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [viewingDetails, setViewingDetails] = useState(false);
-  const [editingVehicleId, setEditingVehicleId] = useState('');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -60,12 +68,45 @@ export const VehicleInventory: React.FC = () => {
   const [dateFilter, setDateFilter] = useState('');
 
   // Edit view form states
-  const [vehicleModel, setVehicleModel] = useState('Eicher Pro 3015');
-  const [regNumber, setRegNumber] = useState('MH-12-FG-8821');
-  const [chassisNumber, setChassisNumber] = useState('EIC3015X2024KL9902');
-  const [engineNumber, setEngineNumber] = useState('E494-CRT-24');
-  const [vehicleStock, setVehicleStock] = useState('1');
-  const [vehicleStatus, setVehicleStatus] = useState('Available');
+  const [editVehicleType, setEditVehicleType] = useState('Eicher');
+  const [editModel, setEditModel] = useState('Eicher Pro 3015');
+  const [editColor, setEditColor] = useState('');
+  const [editEngineNum, setEditEngineNum] = useState('E494-CRT-24');
+  const [editChassisNum, setEditChassisNum] = useState('EIC3015X2024KL9902');
+  const [editPurchasePrice, setEditPurchasePrice] = useState('');
+  const [editSellingPrice, setEditSellingPrice] = useState('');
+  const [editStock, setEditStock] = useState('1');
+  const [editStatus, setEditStatus] = useState('Available');
+  const [editImage, setEditImage] = useState<string | null>(null);
+  const [editAccessories, setEditAccessories] = useState<AccessoryItem[]>([]);
+  const [editingVehicleId, setEditingVehicleId] = useState('');
+  const [previousView, setPreviousView] = useState<'list' | 'details'>('list');
+
+  const editAccessoriesTotal = editAccessories.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+
+  const handleAddEditAccessory = () => {
+    setEditAccessories(prev => [
+      ...prev,
+      { id: Date.now().toString(), name: '', qty: 1, price: 0, total: 0 }
+    ]);
+  };
+
+  const handleUpdateEditAccessory = (id: string, field: 'name' | 'qty' | 'price', value: any) => {
+    setEditAccessories(prev => prev.map(item => {
+      if (item.id === id) {
+        const updated = { ...item, [field]: value };
+        const qty = Number(updated.qty) || 0;
+        const price = Number(updated.price) || 0;
+        updated.total = qty * price;
+        return updated;
+      }
+      return item;
+    }));
+  };
+
+  const handleDeleteEditAccessory = (id: string) => {
+    setEditAccessories(prev => prev.filter(item => item.id !== id));
+  };
 
   // Register view form states
   const [regVehicleType, setRegVehicleType] = useState('Eicher');
@@ -77,6 +118,40 @@ export const VehicleInventory: React.FC = () => {
   const [regPurchasePrice, setRegPurchasePrice] = useState('');
   const [regSellingPrice, setRegSellingPrice] = useState('');
   const [regStock, setRegStock] = useState('1');
+
+  // Standard Accessories Kit state
+  const DEFAULT_ACCESSORIES_KIT: AccessoryItem[] = [
+    { id: '1', name: 'Mats', qty: 1, price: 3760, total: 3760 },
+    { id: '2', name: 'Mud Flaps', qty: 1, price: 4000, total: 4000 },
+    { id: '3', name: 'Basic Toolkit', qty: 1, price: 30000, total: 30000 },
+  ];
+  const [regAccessories, setRegAccessories] = useState<AccessoryItem[]>(DEFAULT_ACCESSORIES_KIT);
+
+  const regAccessoriesTotal = regAccessories.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+
+  const handleAddAccessory = () => {
+    setRegAccessories(prev => [
+      ...prev,
+      { id: Date.now().toString(), name: '', qty: 1, price: 0, total: 0 }
+    ]);
+  };
+
+  const handleUpdateAccessory = (id: string, field: 'name' | 'qty' | 'price', value: any) => {
+    setRegAccessories(prev => prev.map(item => {
+      if (item.id === id) {
+        const updated = { ...item, [field]: value };
+        const qty = Number(updated.qty) || 0;
+        const price = Number(updated.price) || 0;
+        updated.total = qty * price;
+        return updated;
+      }
+      return item;
+    }));
+  };
+
+  const handleDeleteAccessory = (id: string) => {
+    setRegAccessories(prev => prev.filter(item => item.id !== id));
+  };
 
   // SVGs for the vehicles
   const SemiTruckSVG = (
@@ -143,60 +218,6 @@ export const VehicleInventory: React.FC = () => {
     </svg>
   );
 
-  const TruckVisualSVG = (
-    <svg viewBox="0 0 160 110" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full object-cover">
-      <rect width="160" height="110" fill="#1e293b" />
-      <rect x="0" y="80" width="160" height="30" fill="#0f172a" />
-      <rect x="35" y="15" width="90" height="68" rx="8" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="2" />
-      <rect x="42" y="22" width="76" height="24" rx="4" fill="#0284c7" />
-      <rect x="44" y="24" width="72" height="10" fill="#38bdf8" opacity="0.5" />
-      <line x1="55" y1="42" x2="68" y2="38" stroke="#0f172a" strokeWidth="1.5" />
-      <line x1="90" y1="42" x2="103" y2="38" stroke="#0f172a" strokeWidth="1.5" />
-      <rect x="42" y="52" width="76" height="18" rx="2" fill="#0f172a" />
-      <circle cx="80" cy="61" r="3.5" fill="#e2e8f0" />
-      <rect x="68" y="60.5" width="24" height="1" fill="#e2e8f0" />
-      <rect x="46" y="56" width="10" height="8" rx="2" fill="#ffffff" />
-      <circle cx="51" cy="60" r="2" fill="#fbbf24" />
-      <rect x="104" y="56" width="10" height="8" rx="2" fill="#ffffff" />
-      <circle cx="109" cy="60" r="2" fill="#fbbf24" />
-      <rect x="30" y="76" width="100" height="10" rx="3" fill="#334155" />
-      <rect x="32" y="78" width="6" height="3" fill="#f59e0b" />
-      <rect x="122" y="78" width="6" height="3" fill="#f59e0b" />
-      <rect x="42" y="86" width="16" height="14" rx="3" fill="#090d16" />
-      <rect x="102" y="86" width="16" height="14" rx="3" fill="#090d16" />
-    </svg>
-  );
-
-  const ExcavatorDetailsSVG = (
-    <svg viewBox="0 0 240 160" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full object-cover">
-      <rect width="240" height="160" fill="#f1f5f9" />
-      <rect x="0" y="120" width="240" height="40" fill="#cbd5e1" />
-      <rect x="45" y="110" width="115" height="22" rx="6" fill="#1e293b" />
-      <rect x="52" y="113" width="101" height="16" rx="4" fill="#475569" />
-      <circle cx="60" cy="121" r="5" fill="#0f172a" />
-      <circle cx="78" cy="121" r="5" fill="#0f172a" />
-      <circle cx="96" cy="121" r="5" fill="#0f172a" />
-      <circle cx="114" cy="121" r="5" fill="#0f172a" />
-      <circle cx="132" cy="121" r="5" fill="#0f172a" />
-      <circle cx="148" cy="121" r="5" fill="#0f172a" />
-      <rect x="65" y="100" width="65" height="10" fill="#334155" />
-      <path d="M55 55H118L124 100H55V55Z" fill="#eab308" stroke="#ca8a04" strokeWidth="2" />
-      <rect x="62" y="60" width="24" height="22" rx="3" fill="#0f172a" />
-      <rect x="64" y="62" width="20" height="18" rx="2" fill="#38bdf8" opacity="0.7" />
-      <rect x="94" y="65" width="18" height="3" fill="#475569" />
-      <rect x="94" y="71" width="18" height="3" fill="#475569" />
-      <rect x="94" y="77" width="18" height="3" fill="#475569" />
-      <path d="M118 62H134V94H122L118 62Z" fill="#475569" />
-      <path d="M100 70L155 35L185 85L202 105" stroke="#eab308" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M100 70L155 35L185 85L202 105" stroke="#1e293b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <line x1="90" y1="85" x2="135" y2="48" stroke="#94a3b8" strokeWidth="3" />
-      <line x1="148" y1="41" x2="176" y2="76" stroke="#94a3b8" strokeWidth="3" />
-      <path d="M202 105L210 115H190L186 99L202 105Z" fill="#475569" stroke="#1e293b" strokeWidth="1.5" />
-      <line x1="210" y1="115" x2="216" y2="111" stroke="#1e293b" strokeWidth="2" />
-      <line x1="208" y1="115" x2="214" y2="108" stroke="#1e293b" strokeWidth="2" />
-    </svg>
-  );
-
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const [vehicles, setVehicles] = useState<VehicleType[]>([]);
 
@@ -230,7 +251,9 @@ export const VehicleInventory: React.FC = () => {
             stock: v.stock || 0,
             imageSvg: getVehicleSVG(v.type),
             imageUrl: v.imageUrl,
-            year: v.createdAt ? new Date(v.createdAt).getFullYear().toString() : '2024'
+            year: v.createdAt ? new Date(v.createdAt).getFullYear().toString() : '2024',
+            accessoriesKit: v.accessoriesKit || [],
+            accessoriesTotal: v.accessoriesTotal || 0
           }));
           setVehicles(formatted);
         }
@@ -278,7 +301,9 @@ export const VehicleInventory: React.FC = () => {
       sellPrice: sellPriceVal,
       status: 'Available',
       stock: Number(regStock) || 0,
-      imageUrl: regImage || 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=400'
+      imageUrl: regImage || 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=400',
+      accessoriesKit: regAccessories,
+      accessoriesTotal: regAccessoriesTotal
     };
 
     fetch(`${API_URL}/api/vehicles`, {
@@ -299,17 +324,64 @@ export const VehicleInventory: React.FC = () => {
         setRegSellingPrice('');
         setRegStock('1');
         setRegImage(null);
+        setRegAccessories(DEFAULT_ACCESSORIES_KIT);
       })
       .catch(err => console.error(err));
   };
 
+  const startEditing = (v: VehicleType, from: 'list' | 'details' = 'list') => {
+    setEditingVehicleId(v.id);
+    setEditVehicleType(v.category || 'Eicher');
+    setEditModel(v.model || '');
+    setEditColor(v.colorName || '');
+    setEditEngineNum(v.eng || '');
+    setEditChassisNum(v.chs || '');
+    setEditPurchasePrice(v.price ? v.price.replace(/[^\d.]/g, '') : '');
+    setEditSellingPrice(v.sellPrice ? v.sellPrice.replace(/[^\d.]/g, '') : '');
+    setEditStock(v.stock !== undefined ? v.stock.toString() : '1');
+    setEditStatus(v.status || 'Available');
+    setEditImage(v.imageUrl || null);
+    setEditAccessories(
+      v.accessoriesKit && v.accessoriesKit.length > 0
+        ? v.accessoriesKit
+        : DEFAULT_ACCESSORIES_KIT
+    );
+    setPreviousView(from);
+    setIsEditing(true);
+    setIsRegistering(false);
+    if (from === 'list') {
+      setViewingDetails(false);
+    }
+  };
+
+  const handleBackFromEdit = () => {
+    setIsEditing(false);
+    if (previousView === 'details') {
+      setViewingDetails(true);
+    }
+  };
+
   const handleUpdateVehicle = () => {
+    if (!editModel) {
+      alert('Please enter a vehicle model.');
+      return;
+    }
+    const priceVal = parseFloat(editPurchasePrice.replace(/[^\d.]/g, '')) || 0;
+    const sellPriceVal = parseFloat(editSellingPrice.replace(/[^\d.]/g, '')) || 0;
+
     const bodyPayload = {
-      modelName: vehicleModel,
-      engineNo: engineNumber,
-      chassisNo: chassisNumber,
-      stock: Number(vehicleStock) || 0,
-      status: vehicleStatus
+      modelName: editModel,
+      type: editVehicleType,
+      colorName: editColor,
+      engineNo: editEngineNum,
+      chassisNo: editChassisNum,
+      price: priceVal,
+      sellPrice: sellPriceVal,
+      stock: Number(editStock) || 0,
+      status: editStatus,
+      imageUrl: editImage,
+      accessoriesKit: editAccessories,
+      accessoriesTotal: editAccessoriesTotal
     };
 
     fetch(`${API_URL}/api/vehicles/${encodeURIComponent(editingVehicleId)}`, {
@@ -321,9 +393,29 @@ export const VehicleInventory: React.FC = () => {
       .then(() => {
         fetchVehicles();
         setIsEditing(false);
+        if (previousView === 'details' && selectedVehicle) {
+          setSelectedVehicle({
+            ...selectedVehicle,
+            model: editModel,
+            category: editVehicleType,
+            colorName: editColor,
+            eng: editEngineNum,
+            chs: editChassisNum,
+            price: `₹${priceVal.toLocaleString('en-IN')}`,
+            sellPrice: `₹${sellPriceVal.toLocaleString('en-IN')}`,
+            stock: Number(editStock) || 0,
+            status: editStatus as any,
+            imageUrl: editImage || selectedVehicle.imageUrl,
+            accessoriesKit: editAccessories,
+            accessoriesTotal: editAccessoriesTotal
+          });
+          setViewingDetails(true);
+        }
       })
       .catch(err => console.error('Error updating vehicle:', err));
-  };  const [selectedVehicle, setSelectedVehicle] = useState<VehicleType | null>(null);
+  };
+
+  const [selectedVehicle, setSelectedVehicle] = useState<VehicleType | null>(null);
 
   const handleRowClick = (v: VehicleType) => {
     setSelectedVehicle(v);
@@ -352,17 +444,7 @@ export const VehicleInventory: React.FC = () => {
           </button>
 
           <button
-            onClick={() => {
-              setVehicleModel(selectedVehicle.model);
-              setRegNumber(selectedVehicle.id);
-              setChassisNumber(selectedVehicle.chs);
-              setEngineNumber(selectedVehicle.eng);
-              setVehicleStock(selectedVehicle.stock?.toString() || '0');
-              setVehicleStatus(selectedVehicle.status || 'Available');
-              setEditingVehicleId(selectedVehicle.id);
-              setIsEditing(true);
-              setViewingDetails(false);
-            }}
+            onClick={() => startEditing(selectedVehicle, 'details')}
             className="flex items-center gap-1.5 px-4 py-2 bg-[#184edb] hover:bg-[#143eb3] text-white font-semibold rounded-lg text-[13.5px] cursor-pointer transition-colors border-none shadow-sm"
           >
             <Settings size={15} />
@@ -663,6 +745,116 @@ export const VehicleInventory: React.FC = () => {
                 </label>
               </div>
             </div>
+
+            {/* Standard Accessories Kit Table Section */}
+            <div className="flex flex-col gap-4 border-t border-slate-100 pt-6 mt-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="bg-[#eef2ff] text-[#184edb] p-2 rounded-lg flex items-center justify-center">
+                    <Wrench size={18} />
+                  </div>
+                  <div className="flex flex-col">
+                    <h2 className="text-[16px] font-bold text-slate-800 m-0">
+                      Standard Accessories Kit
+                    </h2>
+                    <span className="text-[12px] text-slate-400 font-medium">
+                      List of standard accessory parts included with this vehicle unit.
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddAccessory}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#184edb] hover:bg-[#143eb3] text-white font-semibold rounded-lg text-[13px] cursor-pointer transition-colors border-none shadow-sm"
+                >
+                  <Plus size={15} />
+                  <span>Add Accessory Part</span>
+                </button>
+              </div>
+
+              <div className="border border-slate-200 rounded-xl overflow-hidden text-xs">
+                <table className="w-full border-collapse text-left">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                      <th className="p-3 px-4 w-12 text-center">SI.</th>
+                      <th className="p-3 px-4">Part / Accessory Name</th>
+                      <th className="p-3 px-4 w-28 text-center">Quantity</th>
+                      <th className="p-3 px-4 w-36 text-right">Unit Price (₹)</th>
+                      <th className="p-3 px-4 w-36 text-right">Total Amount (₹)</th>
+                      <th className="p-3 px-4 w-16 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {regAccessories.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-6 text-center text-slate-400 italic">
+                          No accessory items added yet. Click "Add Accessory Part" to include items.
+                        </td>
+                      </tr>
+                    ) : (
+                      regAccessories.map((item, idx) => (
+                        <tr key={item.id} className="border-b border-slate-100 font-semibold text-slate-700 hover:bg-slate-50/50">
+                          <td className="p-3 px-4 text-center font-bold text-slate-400">{idx + 1}</td>
+                          <td className="p-3 px-4">
+                            <input
+                              type="text"
+                              placeholder="e.g. Mats, Mud Flaps, Toolkit"
+                              value={item.name}
+                              onChange={(e) => handleUpdateAccessory(item.id, 'name', e.target.value)}
+                              className="w-full px-3 py-1.5 text-[13px] bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb]"
+                            />
+                          </td>
+                          <td className="p-3 px-4 text-center">
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.qty}
+                              onChange={(e) => handleUpdateAccessory(item.id, 'qty', parseInt(e.target.value) || 1)}
+                              className="w-20 px-2 py-1.5 text-[13px] text-center bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb]"
+                            />
+                          </td>
+                          <td className="p-3 px-4 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              placeholder="0"
+                              value={item.price || ''}
+                              onChange={(e) => handleUpdateAccessory(item.id, 'price', parseFloat(e.target.value) || 0)}
+                              className="w-32 px-3 py-1.5 text-[13px] text-right bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb]"
+                            />
+                          </td>
+                          <td className="p-3 px-4 text-right font-extrabold text-slate-900">
+                            ₹{Number(item.total).toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteAccessory(item.id)}
+                              className="text-rose-500 hover:text-rose-700 bg-transparent border-none cursor-pointer p-1 rounded"
+                              title="Delete Item"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-100/70 border-t border-slate-200 font-extrabold text-slate-800">
+                      <td colSpan={4} className="p-3.5 px-4 text-right uppercase tracking-wider text-[11px] text-slate-600">
+                        Total Accessories Kit Amount:
+                      </td>
+                      <td className="p-3.5 px-4 text-right text-base text-[#184edb]">
+                        ₹{regAccessoriesTotal.toLocaleString('en-IN')}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
           </div>
 
 
@@ -747,103 +939,170 @@ export const VehicleInventory: React.FC = () => {
   if (isEditing) {
     return (
       <div className="flex-1 p-6 md:p-8 flex flex-col gap-6 bg-[#f6f8fc] overflow-y-auto box-border max-w-full font-sans">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 m-0 font-heading tracking-tight">
-              Edit Vehicle Details
-            </h1>
-            <span className="text-slate-500 text-[13.5px] font-medium">
-              Manage and update technical specifications for {vehicleModel}.
-            </span>
-          </div>
+        {/* Navigation Breadcrumb & Back button */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={handleBackFromEdit}
+            className="flex items-center gap-2 text-[13px] text-slate-500 hover:text-[#184edb] font-semibold border-none bg-transparent cursor-pointer transition-colors"
+          >
+            <ArrowLeft size={16} />
+            <span>{previousView === 'details' ? 'Back to Vehicle Details' : 'Back to Inventory'}</span>
+          </button>
 
           <div className="flex items-center gap-3">
             <button
-              onClick={() => { setIsEditing(false); setViewingDetails(vehicleModel === 'Titan 9000-X Excavator'); }}
-              className="px-5 py-2 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg text-[13.5px] cursor-pointer transition-all bg-white"
+              onClick={handleBackFromEdit}
+              className="px-4 py-2 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg text-[13.5px] cursor-pointer transition-all bg-white"
             >
               Cancel
             </button>
             <button
               onClick={handleUpdateVehicle}
-              className="px-5 py-2 bg-[#184edb] hover:bg-[#143eb3] text-white font-semibold rounded-lg text-[13.5px] cursor-pointer transition-all border-none shadow-sm"
+              className="flex items-center gap-1.5 px-5 py-2 bg-[#184edb] hover:bg-[#143eb3] text-white font-semibold rounded-lg text-[13.5px] cursor-pointer transition-all border-none shadow-sm"
             >
-              Update Vehicle
+              <CheckCircle size={15} />
+              <span>Update Vehicle</span>
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start w-full box-border">
-          <div className="lg:col-span-2 flex flex-col gap-6">
-            {/* Identity & Registration */}
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 flex flex-col gap-5 box-border">
-              <div className="flex items-center gap-3 pb-3.5 border-b border-slate-100">
-                <div className="bg-[#eef2ff] text-[#184edb] p-2 rounded-lg flex items-center justify-center">
-                  <LayoutDashboard size={18} />
-                </div>
-                <h2 className="text-[16px] font-bold text-slate-800 m-0">
-                  Identity & Registration
-                </h2>
+        {/* Title Header */}
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 m-0 font-heading tracking-tight">
+            Edit Vehicle Details ({editingVehicleId})
+          </h1>
+          <span className="text-slate-500 text-[13.5px] font-medium">
+            Update technical specifications, pricing, inventory status, and standard accessories kit for {editModel}.
+          </span>
+        </div>
+
+        {/* Main Edit Form Card */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 flex flex-col gap-8 w-full box-border">
+          <div className="flex flex-col gap-6">
+            <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+              <div className="bg-[#eef2ff] text-[#184edb] p-2 rounded-lg flex items-center justify-center">
+                <Edit size={18} />
               </div>
+              <h2 className="text-[16px] font-bold text-slate-800 m-0">
+                Vehicle Information & Specifications
+              </h2>
+            </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Vehicle Type */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">VEHICLE MODEL</label>
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Vehicle Type</label>
+                  <div className="relative">
+                    <select
+                      value={editVehicleType}
+                      onChange={(e) => setEditVehicleType(e.target.value)}
+                      className="w-full appearance-none bg-[#fff] border border-slate-200 rounded-lg py-2.5 pl-4 pr-10 text-[14px] text-slate-850 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
+                    >
+                      <option value="Eicher">Eicher</option>
+                      <option value="Tractor">Tractor</option>
+                      <option value="Heavy Duty Truck">Heavy Duty Truck</option>
+                      <option value="Coach Bus">Coach Bus</option>
+                      <option value="LCV">LCV</option>
+                      <option value="Tipper Truck">Tipper Truck</option>
+                    </select>
+                    <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 pointer-events-none">
+                      <ChevronDown size={16} />
+                    </span>
+                  </div>
+                </div>
+
+                {/* Model */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Model</label>
                   <input
                     type="text"
-                    value={vehicleModel}
-                    onChange={(e) => setVehicleModel(e.target.value)}
+                    placeholder="e.g. Pro 2055"
+                    value={editModel}
+                    onChange={(e) => setEditModel(e.target.value)}
                     className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
                   />
                 </div>
 
+                {/* Color */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">REGISTRATION NUMBER</label>
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Color</label>
                   <input
                     type="text"
-                    value={regNumber}
-                    onChange={(e) => setRegNumber(e.target.value)}
+                    placeholder="e.g. Polar White"
+                    value={editColor}
+                    onChange={(e) => setEditColor(e.target.value)}
                     className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
                   />
                 </div>
 
+                {/* Engine Number */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">CHASSIS NUMBER</label>
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Engine Number</label>
                   <input
                     type="text"
-                    value={chassisNumber}
-                    onChange={(e) => setChassisNumber(e.target.value)}
+                    placeholder="Enter Engine ID"
+                    value={editEngineNum}
+                    onChange={(e) => setEditEngineNum(e.target.value)}
                     className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
                   />
                 </div>
 
+                {/* Chassis Number */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">ENGINE NUMBER</label>
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Chassis Number</label>
                   <input
                     type="text"
-                    value={engineNumber}
-                    onChange={(e) => setEngineNumber(e.target.value)}
+                    placeholder="Enter VIN/Chassis ID"
+                    value={editChassisNum}
+                    onChange={(e) => setEditChassisNum(e.target.value)}
                     className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
                   />
                 </div>
 
+                {/* Purchase Price */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">STOCK QUANTITY</label>
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Purchase Price (₹)</label>
+                  <input
+                    type="text"
+                    placeholder="0.00"
+                    value={editPurchasePrice}
+                    onChange={(e) => setEditPurchasePrice(e.target.value)}
+                    className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
+                  />
+                </div>
+
+                {/* Selling Price */}
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Selling Price (₹)</label>
+                  <input
+                    type="text"
+                    placeholder="0.00"
+                    value={editSellingPrice}
+                    onChange={(e) => setEditSellingPrice(e.target.value)}
+                    className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
+                  />
+                </div>
+
+                {/* Stock Quantity */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Stock Quantity</label>
                   <input
                     type="number"
                     min="0"
-                    value={vehicleStock}
-                    onChange={(e) => setVehicleStock(e.target.value)}
+                    value={editStock}
+                    onChange={(e) => setEditStock(e.target.value)}
                     className="w-full px-4 py-2.5 text-[14px] bg-[#fff] border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb] transition-colors"
                   />
                 </div>
 
+                {/* Extra Field: Vehicle Status */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">STATUS</label>
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Vehicle Status (Extra)</label>
                   <div className="relative">
                     <select
-                      value={vehicleStatus}
-                      onChange={(e) => setVehicleStatus(e.target.value)}
+                      value={editStatus}
+                      onChange={(e) => setEditStatus(e.target.value)}
                       className="w-full appearance-none bg-[#fff] border border-slate-200 rounded-lg py-2.5 pl-4 pr-10 text-[14px] text-slate-850 font-medium cursor-pointer focus:outline-none focus:border-[#184edb] transition-colors"
                     >
                       <option value="Available">Available</option>
@@ -858,41 +1117,165 @@ export const VehicleInventory: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Vehicle Image Upload */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Vehicle Image</span>
+                <label className="flex-1 min-h-[220px] bg-[#f4f6ff] border-2 border-dashed border-[#d2d9f9] rounded-xl flex flex-col items-center justify-center p-6 text-center text-slate-500 hover:border-[#184edb] transition-colors cursor-pointer group relative overflow-hidden">
+                  {editImage ? (
+                    <img src={editImage} alt="Preview" className="absolute inset-0 w-full h-full object-cover" />
+                  ) : (
+                    <>
+                      <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-[#184edb] shadow-sm mb-4 group-hover:scale-105 transition-transform">
+                        <Camera size={22} />
+                      </div>
+                      <span className="text-[14px] font-bold text-slate-800 mb-1">Drop image here or click to upload</span>
+                      <span className="text-[12px] text-slate-400 font-medium">PNG, JPG up to 10MB</span>
+                    </>
+                  )}
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setEditImage(reader.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }} />
+                </label>
+              </div>
             </div>
 
-
-
-            {/* Vehicle Visuals */}
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 flex flex-col gap-5 box-border">
-              <div className="flex items-center gap-3 pb-3.5 border-b border-slate-100">
-                <div className="bg-[#eef2ff] text-[#184edb] p-2 rounded-lg flex items-center justify-center">
-                  <ImageIcon size={18} />
+            {/* Edit Standard Accessories Kit Table Section */}
+            <div className="flex flex-col gap-4 border-t border-slate-100 pt-6 mt-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="bg-[#eef2ff] text-[#184edb] p-2 rounded-lg flex items-center justify-center">
+                    <Wrench size={18} />
+                  </div>
+                  <div className="flex flex-col">
+                    <h2 className="text-[16px] font-bold text-slate-800 m-0">
+                      Standard Accessories Kit
+                    </h2>
+                    <span className="text-[12px] text-slate-400 font-medium">
+                      List of standard accessory parts included with this vehicle unit.
+                    </span>
+                  </div>
                 </div>
-                <h2 className="text-[16px] font-bold text-slate-800 m-0">
-                  Vehicle Visuals
-                </h2>
+
+                <button
+                  type="button"
+                  onClick={handleAddEditAccessory}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#184edb] hover:bg-[#143eb3] text-white font-semibold rounded-lg text-[13px] cursor-pointer transition-colors border-none shadow-sm"
+                >
+                  <Plus size={15} />
+                  <span>Add Accessory Part</span>
+                </button>
               </div>
 
-              <div className="flex flex-wrap gap-4">
-                <div className="w-[150px] h-[100px] bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-                  {vehicleModel === 'Titan 9000-X Excavator' ? (
-                    <div className="w-full h-full p-1 bg-white">
-                      {ExcavatorDetailsSVG}
-                    </div>
-                  ) : (
-                    TruckVisualSVG
-                  )}
-                </div>
-
-                <div className="w-[150px] h-[100px] border-2 border-dashed border-slate-200 rounded-lg hover:border-[#184edb] flex flex-col items-center justify-center gap-1.5 text-slate-400 cursor-pointer hover:text-[#184edb] transition-colors">
-                  <Camera size={20} />
-                  <span className="text-[11px] font-bold uppercase tracking-wider">Add Image</span>
-                </div>
+              <div className="border border-slate-200 rounded-xl overflow-hidden text-xs">
+                <table className="w-full border-collapse text-left">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                      <th className="p-3 px-4 w-12 text-center">SI.</th>
+                      <th className="p-3 px-4">Part / Accessory Name</th>
+                      <th className="p-3 px-4 w-28 text-center">Quantity</th>
+                      <th className="p-3 px-4 w-36 text-right">Unit Price (₹)</th>
+                      <th className="p-3 px-4 w-36 text-right">Total Amount (₹)</th>
+                      <th className="p-3 px-4 w-16 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {editAccessories.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-6 text-center text-slate-400 italic">
+                          No accessory items added yet. Click "Add Accessory Part" to include items.
+                        </td>
+                      </tr>
+                    ) : (
+                      editAccessories.map((item, idx) => (
+                        <tr key={item.id} className="border-b border-slate-100 font-semibold text-slate-700 hover:bg-slate-50/50">
+                          <td className="p-3 px-4 text-center font-bold text-slate-400">{idx + 1}</td>
+                          <td className="p-3 px-4">
+                            <input
+                              type="text"
+                              placeholder="e.g. Mats, Mud Flaps, Toolkit"
+                              value={item.name}
+                              onChange={(e) => handleUpdateEditAccessory(item.id, 'name', e.target.value)}
+                              className="w-full px-3 py-1.5 text-[13px] bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb]"
+                            />
+                          </td>
+                          <td className="p-3 px-4 text-center">
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.qty}
+                              onChange={(e) => handleUpdateEditAccessory(item.id, 'qty', parseInt(e.target.value) || 1)}
+                              className="w-20 px-2 py-1.5 text-[13px] text-center bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb]"
+                            />
+                          </td>
+                          <td className="p-3 px-4 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              placeholder="0"
+                              value={item.price || ''}
+                              onChange={(e) => handleUpdateEditAccessory(item.id, 'price', parseFloat(e.target.value) || 0)}
+                              className="w-32 px-3 py-1.5 text-[13px] text-right bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb]"
+                            />
+                          </td>
+                          <td className="p-3 px-4 text-right font-extrabold text-slate-900">
+                            ₹{Number(item.total).toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteEditAccessory(item.id)}
+                              className="text-rose-500 hover:text-rose-700 bg-transparent border-none cursor-pointer p-1 rounded"
+                              title="Delete Item"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-100/70 border-t border-slate-200 font-extrabold text-slate-800">
+                      <td colSpan={4} className="p-3.5 px-4 text-right uppercase tracking-wider text-[11px] text-slate-600">
+                        Total Accessories Kit Amount:
+                      </td>
+                      <td className="p-3.5 px-4 text-right text-base text-[#184edb]">
+                        ₹{editAccessoriesTotal.toLocaleString('en-IN')}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             </div>
           </div>
+        </div>
 
+        {/* Footer Action buttons */}
+        <div className="bg-[#f8fafc] border border-slate-100 rounded-xl p-4 flex items-center justify-between gap-4 box-border">
+          <button
+            onClick={handleBackFromEdit}
+            className="flex items-center gap-1.5 px-4 py-2 border-none hover:bg-slate-100 text-slate-600 font-semibold rounded-lg text-[13.5px] cursor-pointer transition-colors bg-transparent"
+          >
+            <ArrowLeft size={16} />
+            <span>Back</span>
+          </button>
 
+          <button
+            onClick={handleUpdateVehicle}
+            className="flex items-center gap-1.5 px-6 py-2 bg-[#184edb] hover:bg-[#143eb3] text-white font-semibold rounded-lg text-[13.5px] cursor-pointer transition-all border-none shadow-sm"
+          >
+            <CheckCircle size={15} />
+            <span>Update Vehicle Specifications</span>
+          </button>
         </div>
       </div>
     );
@@ -1219,18 +1602,7 @@ export const VehicleInventory: React.FC = () => {
                         <Eye size={13} />
                       </button>
                       <button 
-                        onClick={() => {
-                          setVehicleModel(v.model);
-                          setRegNumber(v.id);
-                          setChassisNumber(v.chs);
-                          setEngineNumber(v.eng);
-                          setVehicleStock(v.stock?.toString() || '0');
-                          setVehicleStatus(v.status || 'Available');
-                          setEditingVehicleId(v.id);
-                          setIsEditing(true);
-                          setIsRegistering(false);
-                          setViewingDetails(false);
-                        }}
+                        onClick={() => startEditing(v, 'list')}
                         title="Edit Vehicle Details"
                         className="p-1.5 bg-amber-50 border border-amber-100 rounded-md text-amber-600 hover:bg-amber-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
                       >

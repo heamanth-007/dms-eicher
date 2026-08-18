@@ -253,6 +253,7 @@ function App() {
               sales={salesRecords}
               setSales={setSalesRecords}
               onCustomerClick={navigateToCustomer}
+              companySettings={companySettings}
             />
           ) : activeTab === 'service' ? (
             <ServiceDashboard

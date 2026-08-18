@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { getStoredInventory, addInventoryStockFromPurchase, addPendingPurchaseItems, type PartType } from '../utils/inventory';
+import { getStoredInventory, addPendingPurchaseItems, type PartType } from '../utils/inventory';
 import {
   ShoppingBag,
   RotateCcw,
