@@ -82,6 +82,8 @@ export interface ServiceBillingProps {
 }
 
 export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings }) => {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
   // Header info
   const [billNo, setBillNo] = useState('');
 
@@ -95,6 +97,20 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
   const [engineNo, setEngineNo] = useState('');
   const [chassisNo, setChassisNo] = useState('');
   const [assignedMechanic, setAssignedMechanic] = useState('');
+  const [mechanicsList, setMechanicsList] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/mechanics`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setMechanicsList(data);
+        }
+      })
+      .catch(err => console.error('Error fetching mechanics in ServiceBilling:', err));
+  }, [API_URL]);
+
+  const activeMechanics = mechanicsList.filter(m => !m.status || m.status.toLowerCase() !== 'inactive');
 
   // Mechanic Details State
   const [serviceAdvisor, setServiceAdvisor] = useState('');
@@ -201,7 +217,6 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
   const [partGstInput, setPartGstInput] = useState(18);
   const [partStockInput, setPartStockInput] = useState<'Available' | 'Low Stock' | 'Out of Stock'>('Available');
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const [inventoryParts, setInventoryParts] = useState<PartType[]>(() => getStoredInventory());
 
   const loadInventoryParts = () => {
@@ -899,9 +914,17 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
                   onChange={(e) => setAssignedMechanic(e.target.value)}
                   className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold text-slate-700 bg-white focus:outline-none focus:border-[#184edb]"
                 >
-                  <option value="Vikram Singh">Vikram Singh</option>
-                  <option value="Amit Sharma">Amit Sharma</option>
-                  <option value="Suresh Gupta">Suresh Gupta</option>
+                  <option value="">Select Mechanic...</option>
+                  {activeMechanics.map(m => (
+                    <option key={m.id || m._id} value={m.name}>{m.name} ({m.status || 'Active'})</option>
+                  ))}
+                  {activeMechanics.length === 0 && (
+                    <>
+                      <option value="Vikram Singh">Vikram Singh</option>
+                      <option value="Amit Sharma">Amit Sharma</option>
+                      <option value="Suresh Gupta">Suresh Gupta</option>
+                    </>
+                  )}
                 </select>
               </div>
             </div>
@@ -923,9 +946,17 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
                   onChange={(e) => setAssignedMechanic(e.target.value)}
                   className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] font-semibold text-slate-700 bg-white focus:outline-none focus:border-[#184edb]"
                 >
-                  <option value="Vikram Singh">Vikram Singh</option>
-                  <option value="Amit Sharma">Amit Sharma</option>
-                  <option value="Suresh Gupta">Suresh Gupta</option>
+                  <option value="">Select Mechanic...</option>
+                  {activeMechanics.map(m => (
+                    <option key={m.id || m._id} value={m.name}>{m.name} ({m.status || 'Active'})</option>
+                  ))}
+                  {activeMechanics.length === 0 && (
+                    <>
+                      <option value="Vikram Singh">Vikram Singh</option>
+                      <option value="Amit Sharma">Amit Sharma</option>
+                      <option value="Suresh Gupta">Suresh Gupta</option>
+                    </>
+                  )}
                 </select>
               </div>
 

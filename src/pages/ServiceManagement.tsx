@@ -13,7 +13,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  FileText
+  FileText,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 
 interface ServiceManagementProps {
@@ -467,17 +469,6 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
         {/* Table Header Filter controls */}
         <div className="px-6 py-4.5 border-b border-slate-150 flex items-center justify-between gap-4">
           <span className="font-bold text-slate-800 text-[14.5px]">Current Service Queue</span>
-          <div className="flex items-center gap-2">
-            <span className="text-[13px] text-slate-500 font-semibold">Sort by:</span>
-            <div className="relative">
-              <select className="appearance-none bg-white border border-slate-200 rounded-lg py-1.5 pl-3 pr-8 text-[13px] text-slate-700 font-bold cursor-pointer focus:outline-none focus:border-[#184edb]">
-                <option>Priority (Highest)</option>
-              </select>
-              <span className="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-500 pointer-events-none">
-                <ChevronDown size={14} />
-              </span>
-            </div>
-          </div>
         </div>
 
         {/* Table */}
@@ -491,7 +482,6 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
                 <th className="py-4.5 px-5 select-none font-bold">SERVICE TYPE</th>
                 <th className="py-4.5 px-5 select-none font-bold">TIMELINE</th>
                 <th className="py-4.5 px-5 select-none font-bold">STATUS</th>
-                <th className="py-4.5 px-6 select-none font-bold">PRIORITY</th>
                 <th className="py-4.5 px-6 select-none font-bold text-right">ACTIONS</th>
               </tr>
             </thead>
@@ -577,24 +567,30 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
                     )}
                   </td>
 
-                  {/* Priority */}
-                  <td className="py-4.5 px-6 whitespace-nowrap">
-                    <span className={`inline-block px-3 py-1 rounded-full text-[12px] font-bold ${job.priorityBg}`}>
-                      {job.priority}
-                    </span>
-                  </td>
-
                   {/* Actions */}
                   <td className="py-4.5 px-6 whitespace-nowrap text-right">
-                    <button 
-                      onClick={() => {
-                         if (onNavigateToService) onNavigateToService('open-job-cards');
-                      }}
-                      className="text-[#184edb] hover:text-[#143eb3] p-1.5 rounded-lg border border-transparent hover:border-slate-200 bg-transparent cursor-pointer transition-all inline-flex items-center"
-                      title="View Job Card Details"
-                    >
-                      <Eye size={16} />
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      <button 
+                        onClick={() => {
+                           if (onNavigateToService) onNavigateToService('open-job-cards');
+                        }}
+                        className="p-1.5 text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200/60 cursor-pointer transition-all inline-flex items-center shadow-2xs"
+                        title="Edit Job Card"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button 
+                        onClick={() => {
+                           if (window.confirm(`Are you sure you want to delete Job Card ${job.id}?`)) {
+                             alert(`Job Card ${job.id} deleted.`);
+                           }
+                        }}
+                        className="p-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg border border-rose-200/60 cursor-pointer transition-all inline-flex items-center shadow-2xs"
+                        title="Delete Job Card"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
