@@ -504,7 +504,7 @@ export const SpareParts: React.FC = () => {
               Cancel
             </button>
             <button
-              onClick={handleDeletePart}
+              onClick={() => handleDeletePart()}
               className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-red-50 border border-red-200 text-[#dc2626] font-bold rounded-lg text-[13.5px] cursor-pointer transition-colors shadow-sm"
             >
               <Trash2 size={16} />

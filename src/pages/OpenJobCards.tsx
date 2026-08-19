@@ -34,7 +34,8 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
   onNewJobCard,
   onViewJcDetails,
   searchTerm,
-  jobCards: propJobCards
+  jobCards: propJobCards,
+  onHandoffComplete
 }) => {
   const [showTable, setShowTable] = useState(true);
   const [addingPartsJc, setAddingPartsJc] = useState<any>(null);
@@ -126,6 +127,7 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
         dateIn: new Date(jc.createdAt || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
         status: (jc.status === 'WAITING PARTS' ? 'Waiting Parts' : jc.status === 'ASSIGNED' ? 'Assigned' : (jc.status === 'WAITING TO ASSIGN' || jc.status === 'OPEN' || jc.status === 'OPENING' || jc.status === 'UNASSIGNED' || !jc.mechanicName || jc.mechanicName === 'Unassigned') ? 'Waiting to Assign' : 'Working') as any,
         statusColor: jc.status === 'WAITING PARTS' ? 'bg-red-50 text-red-500 border-red-100' : jc.status === 'ASSIGNED' ? 'bg-blue-50 text-[#184edb] border-blue-100' : (jc.status === 'WAITING TO ASSIGN' || jc.status === 'OPEN' || jc.status === 'OPENING' || jc.status === 'UNASSIGNED' || !jc.mechanicName || jc.mechanicName === 'Unassigned') ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-green-50 text-green-600 border-green-100',
+        expectedDelivery: jc.expectedDelivery,
         rawJc: jc
       }));
     }

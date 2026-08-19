@@ -13,7 +13,6 @@ import {
   CheckCircle,
   ShoppingCart,
   Users,
-  ChevronDown,
   Plus,
   RefreshCw,
   Eye,
@@ -28,9 +27,9 @@ interface JobCard {
   vehicleModel: string;
   vehicleReg: string;
   complaintSummary: string;
-  mechanicName: string;
-  mechanicInitials: string;
-  status: 'WORKING' | 'WAITING PARTS' | 'ASSIGNED' | 'COMPLETED';
+  mechanicName?: string;
+  mechanicInitials?: string;
+  status: string;
   expectedDelivery: string;
   isDelayed?: boolean;
   readyForPickup?: boolean;
@@ -52,7 +51,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
 }) => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [isCreatingJobCard, setIsCreatingJobCard] = useState(false);
-  const [showLiveTable, setShowLiveTable] = useState(true);
+  const [showLiveTable] = useState(true);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const [jobCards, setJobCards] = useState<JobCard[]>([]);
