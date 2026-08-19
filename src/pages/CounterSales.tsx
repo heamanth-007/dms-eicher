@@ -69,9 +69,10 @@ export interface CounterSalesProps {
 }
 
 export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) => {
+  const currentYear = new Date().getFullYear();
   // Navigation overlay toggle
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
-  const [billNo, setBillNo] = useState('INV-2023-8842');
+  const [billNo, setBillNo] = useState(`INV-${currentYear}-2001`);
 
   // Customer details state
   const [customerName, setCustomerName] = useState('');
@@ -551,8 +552,19 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
       }
       
       // Auto increment bill number only when creating a NEW bill
-      const currentNum = parseInt(billNo.replace(/[^0-9]/g, ''), 10) || 8842;
-      const nextBillNo = `INV-2023-${currentNum + 1}`;
+      let maxInvSeq = 2000;
+      [...totalBillsList, ...draftBillsList].forEach(b => {
+        if (b.billNo) {
+          const match = b.billNo.match(new RegExp(`INV-${currentYear}-(2\\d{3})$`, 'i'));
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num >= 2001 && num < 3000) {
+              if (num > maxInvSeq) maxInvSeq = num;
+            }
+          }
+        }
+      });
+      const nextBillNo = `INV-${currentYear}-${maxInvSeq + 1}`;
       setBillNo(nextBillNo);
     }
 
@@ -664,8 +676,19 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
     setEditingBillId(null);
 
     // Auto increment bill number so subsequent new drafts get unique numbers
-    const currentNum = parseInt(billNo.replace(/[^0-9]/g, ''), 10) || 8842;
-    const nextBillNo = `INV-2023-${currentNum + 1}`;
+    let maxInvSeq = 2000;
+    [...totalBillsList, ...draftBillsList].forEach(b => {
+      if (b.billNo) {
+        const match = b.billNo.match(new RegExp(`INV-${currentYear}-(2\\d{3})$`, 'i'));
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num >= 2001 && num < 3000) {
+            if (num > maxInvSeq) maxInvSeq = num;
+          }
+        }
+      }
+    });
+    const nextBillNo = `INV-${currentYear}-${maxInvSeq + 1}`;
     setBillNo(nextBillNo);
 
     // Clear filled details from form

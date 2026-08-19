@@ -656,9 +656,24 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
       }
     ] : [];
 
+    const currentYear = new Date().getFullYear();
+    let maxPoSeq = 5000;
+    purchases.forEach(p => {
+      if (p.id) {
+        const match = p.id.match(new RegExp(`PO-${currentYear}-(5\\d{3})$`, 'i'));
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num >= 5001 && num < 6000) {
+            if (num > maxPoSeq) maxPoSeq = num;
+          }
+        }
+      }
+    });
+    const generatedPoId = `PO-${currentYear}-${maxPoSeq + 1}`;
+
     const newPO: PurchaseOrder = {
-      id: newPoId || `PO-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-      invoiceNo: newPoInvoice || `INV-${Math.floor(10000 + Math.random() * 90000)}`,
+      id: newPoId || generatedPoId,
+      invoiceNo: newPoInvoice || generateNextInvoiceNumber(invoices, purchases),
       supplier: newPoSupplier,
       supplierInitials: initials,
       supplierBg: randomBg,

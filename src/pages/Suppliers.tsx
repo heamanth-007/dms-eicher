@@ -95,7 +95,19 @@ export const Suppliers: React.FC<SuppliersProps> = ({ suppliersList, setSupplier
       return;
     }
 
-    const newId = `SUP-${Math.floor(1000 + Math.random() * 9000)}`;
+    let maxSupSeq = 4000;
+    suppliersList.forEach(s => {
+      if (s.id) {
+        const match = s.id.match(/#?SUP-(4\d{3})/i);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num >= 4001 && num < 5000) {
+            if (num > maxSupSeq) maxSupSeq = num;
+          }
+        }
+      }
+    });
+    const newId = `#SUP-${maxSupSeq + 1}`;
     const parsedOutstanding = parseFloat(formOutstanding || '0');
     const formattedOutstanding = `₹${parsedOutstanding.toLocaleString('en-IN', {
       minimumFractionDigits: 2,

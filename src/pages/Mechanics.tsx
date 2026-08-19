@@ -270,7 +270,7 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
     const colors = ['bg-emerald-100 text-emerald-600', 'bg-orange-100 text-orange-600', 'bg-rose-100 text-rose-600', 'bg-blue-100 text-blue-600'];
 
     if (editingMechanicId) {
-      const payload = {
+      const updatePayload = {
         name: fullName,
         phone: phoneNumber,
         email: emailAddress,
@@ -286,7 +286,7 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
       fetch(`${API_URL}/api/mechanics/${editingMechanicId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(updatePayload)
       })
         .then(res => res.json())
         .then(() => {
@@ -302,10 +302,22 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
         })
         .catch(err => console.error('Error updating mechanic:', err));
     } else {
-      const newId = `MEC-${Math.floor(1000 + Math.random() * 9000)}`;
+      let maxMchSeq = 1000;
+      mechanics.forEach(m => {
+        if (m.id) {
+          const match = m.id.match(/#?MCH-(1\d{3})/i) || m.id.match(/#?MEC-(1\d{3})/i);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num >= 1001 && num < 2000) {
+              if (num > maxMchSeq) maxMchSeq = num;
+            }
+          }
+        }
+      });
+      const newId = `#MCH-${maxMchSeq + 1}`;
       const avatarBg = colors[Math.floor(Math.random() * colors.length)];
 
-      const payload = {
+      const createPayload = {
         id: newId,
         name: fullName,
         phone: phoneNumber,
@@ -324,7 +336,7 @@ export const Mechanics: React.FC<MechanicsProps> = ({ onNavigateToService }) => 
       fetch(`${API_URL}/api/mechanics`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(createPayload)
       })
         .then(res => res.json())
         .then(() => {

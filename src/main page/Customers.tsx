@@ -56,8 +56,20 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
         setSelectedCustomer(found);
         setIsAddingCustomer(false);
       } else {
+        let maxNum = 3010;
+        customers.forEach(c => {
+          if (c.id) {
+            const match = c.id.match(/#?CUST-(3\d{3})/i);
+            if (match) {
+              const num = parseInt(match[1], 10);
+              if (!isNaN(num) && num >= 3011 && num < 4000) {
+                if (num > maxNum) maxNum = num;
+              }
+            }
+          }
+        });
         const tempCustomer: CustomerType = {
-          id: `#CUST-${Math.floor(1000 + Math.random() * 9000)}`,
+          id: `#CUST-${maxNum + 1}`,
           name: selectedCustomerName,
           avatar: selectedCustomerName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
           avatarBg: 'bg-indigo-100 text-indigo-600',

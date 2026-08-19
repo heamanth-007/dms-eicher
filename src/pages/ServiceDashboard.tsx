@@ -394,7 +394,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
 
         {/* Completed Today */}
         <div
-          onClick={() => setSubTab('completed-jobs')}
+          onClick={() => { setStatusFilter('COMPLETED'); const el = document.getElementById('live-job-cards-table'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}
           className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/65 flex items-center gap-3 cursor-pointer hover:border-emerald-400 transition-all"
         >
           <div className="bg-emerald-50 text-emerald-600 p-2 rounded-lg flex items-center justify-center">

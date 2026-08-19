@@ -68,7 +68,22 @@ app.get('/api/customers', async (req, res) => {
 app.post('/api/customers', async (req, res) => {
   try {
     const { name, phone, district, vehicles, lastService, outstanding, status } = req.body;
-    const randomId = `#CUST-${Math.floor(1000 + Math.random() * 9000)}`;
+    
+    // Sequential Customer ID starting from #CUST-3011
+    const existingCustomers = await Customer.find({});
+    let maxCustSeq = 3010;
+    existingCustomers.forEach(c => {
+      if (c.id) {
+        const match = c.id.match(/#?CUST-(3\d{3})/i);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num >= 3011 && num < 4000) {
+            if (num > maxCustSeq) maxCustSeq = num;
+          }
+        }
+      }
+    });
+    const customerId = `#CUST-${maxCustSeq + 1}`;
     const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
     // Choose a random color for avatar
@@ -76,7 +91,7 @@ app.post('/api/customers', async (req, res) => {
     const avatarBg = colors[Math.floor(Math.random() * colors.length)];
 
     const newCustomer = new Customer({
-      id: randomId,
+      id: customerId,
       name,
       avatar: initials,
       avatarBg,
@@ -158,10 +173,25 @@ app.post('/api/transactions', async (req, res) => {
 app.post('/api/vehicles', async (req, res) => {
   try {
     const { modelName, type, condition, engineNo, chassisNo, colorName, colorHex, price, sellPrice, status, imageUrl, stock, accessoriesKit, accessoriesTotal } = req.body;
-    const randomId = `#VEH-${Math.floor(1000 + Math.random() * 9000)}`;
+    
+    // Sequential Vehicle ID starting from #VEH-7890
+    const existingVehicles = await Vehicle.find({});
+    let maxVehSeq = 7889;
+    existingVehicles.forEach(v => {
+      if (v.id) {
+        const match = v.id.match(/#?VEH-(78\d{2}|79\d{2})/i);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num >= 7890 && num < 8000) {
+            if (num > maxVehSeq) maxVehSeq = num;
+          }
+        }
+      }
+    });
+    const vehicleId = `#VEH-${maxVehSeq + 1}`;
 
     const newVehicle = new Vehicle({
-      id: randomId,
+      id: vehicleId,
       modelName,
       type,
       condition: condition || 'Brand New',
@@ -371,13 +401,26 @@ app.post('/api/sales', async (req, res) => {
         existingCustomer.lastService = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         await existingCustomer.save();
       } else {
-        const randomId = `#CUST-${Math.floor(1000 + Math.random() * 9000)}`;
+        const existingCustomers = await Customer.find({});
+        let maxCustSeq = 3010;
+        existingCustomers.forEach(c => {
+          if (c.id) {
+            const match = c.id.match(/#?CUST-(3\d{3})/i);
+            if (match) {
+              const num = parseInt(match[1], 10);
+              if (!isNaN(num) && num >= 3011 && num < 4000) {
+                if (num > maxCustSeq) maxCustSeq = num;
+              }
+            }
+          }
+        });
+        const customerId = `#CUST-${maxCustSeq + 1}`;
         const initials = customerName.split(' ').map(n => n[0] || '').join('').toUpperCase().slice(0, 2) || 'C';
         const colors = ['bg-blue-100 text-blue-600', 'bg-orange-100 text-orange-600', 'bg-indigo-100 text-indigo-600', 'bg-slate-100 text-slate-600'];
         const avatarBg = colors[Math.floor(Math.random() * colors.length)];
 
         await Customer.create({
-          id: randomId,
+          id: customerId,
           name: customerName,
           avatar: initials,
           avatarBg,

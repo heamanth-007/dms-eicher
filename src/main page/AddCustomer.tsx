@@ -18,13 +18,16 @@ export const AddCustomer: React.FC<AddCustomerProps> = ({ customers = [], onBack
   const [customerId, setCustomerId] = useState('');
   
   useEffect(() => {
-    let maxIdNum = 1000;
+    let maxIdNum = 3010;
     if (customers && customers.length > 0) {
       customers.forEach(c => {
-        if (c.id && c.id.includes('#CUST-')) {
-          const numPart = parseInt(c.id.split('-')[1]);
-          if (!isNaN(numPart) && numPart > maxIdNum) {
-            maxIdNum = numPart;
+        if (c.id) {
+          const match = c.id.match(/#?CUST-(3\d{3})/i);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num >= 3011 && num < 4000) {
+              if (num > maxIdNum) maxIdNum = num;
+            }
           }
         }
       });

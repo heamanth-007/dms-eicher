@@ -25,6 +25,9 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
   const [customers, setCustomers] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
 
+  const currentYear = new Date().getFullYear();
+  const [jcNumber, setJcNumber] = useState(`JC-${currentYear}-1001`);
+
   useEffect(() => {
     fetch(`${API_URL}/api/customers`)
       .then(res => res.json())
@@ -36,10 +39,30 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
       .then(data => setVehicles(data))
       .catch(err => console.error('Error fetching vehicles:', err));
 
-
-  }, [API_URL]);
-  // Generated Job Card Number & Current Date
-  const [jcNumber] = useState(`JC-2023-${Math.floor(1000 + Math.random() * 9000)}`);
+    fetch(`${API_URL}/api/jobcards`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          let maxSeq = 1000;
+          data.forEach(jc => {
+            if (jc.jcNumber) {
+              // Match 4-digit sequence specifically for current year (e.g. JC-2026-1001)
+              const match = jc.jcNumber.match(new RegExp(`JC-${currentYear}-(\\d{4})$`, 'i'));
+              if (match) {
+                const parsed = parseInt(match[1], 10);
+                if (!isNaN(parsed) && parsed >= 1000 && parsed < 9999) {
+                  if (parsed > maxSeq) {
+                    maxSeq = parsed;
+                  }
+                }
+              }
+            }
+          });
+          setJcNumber(`JC-${currentYear}-${maxSeq + 1}`);
+        }
+      })
+      .catch(err => console.error('Error fetching jobcards for sequence:', err));
+  }, [API_URL, currentYear]);
   const [serviceDate] = useState(() => {
     return new Date().toLocaleDateString('en-US', {
       month: 'short',

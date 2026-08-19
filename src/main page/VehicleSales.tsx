@@ -708,7 +708,23 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
       finalStatus = 'DELIVERED';
     }
 
-    const newInvoice = editingSale ? editingSale.invoiceNo : `#INV-2023-${Math.floor(1000 + Math.random() * 9000)}`;
+    const currentYear = new Date().getFullYear();
+    let maxInvSeq = 1233;
+    if (sales && sales.length > 0) {
+      sales.forEach(s => {
+        if (s.invoiceNo) {
+          const match = s.invoiceNo.match(new RegExp(`#?INV-${currentYear}-(\\d{4})$`, 'i'));
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num >= 1234 && num < 9999) {
+              if (num > maxInvSeq) maxInvSeq = num;
+            }
+          }
+        }
+      });
+    }
+    const generatedInvoiceNo = `#INV-${currentYear}-${maxInvSeq + 1}`;
+    const newInvoice = editingSale ? editingSale.invoiceNo : generatedInvoiceNo;
     const salePayload: any = {
       invoiceNo: newInvoice,
       customerName: regFullName,

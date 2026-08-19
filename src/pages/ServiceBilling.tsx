@@ -84,6 +84,24 @@ export interface ServiceBillingProps {
 export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings }) => {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
+  const currentYear = new Date().getFullYear();
+
+  const getNextServiceBillNo = (bills: ServiceBillRecord[], drafts: ServiceBillRecord[]) => {
+    let maxSeq = 6000;
+    [...bills, ...drafts].forEach(b => {
+      if (b.billNo) {
+        const match = b.billNo.match(new RegExp(`SB-${currentYear}-(6\\d{3})$`, 'i'));
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num >= 6001 && num < 7000) {
+            if (num > maxSeq) maxSeq = num;
+          }
+        }
+      }
+    });
+    return `SB-${currentYear}-${maxSeq + 1}`;
+  };
+
   // Header info
   const [billNo, setBillNo] = useState('');
 
@@ -144,7 +162,10 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
 
   useEffect(() => {
     localStorage.setItem('dms_service_bills', JSON.stringify(totalBillsList));
-  }, [totalBillsList]);
+    if (!billNo) {
+      setBillNo(getNextServiceBillNo(totalBillsList, draftBillsList));
+    }
+  }, [totalBillsList, draftBillsList]);
 
   useEffect(() => {
     localStorage.setItem('dms_service_drafts', JSON.stringify(draftBillsList));
@@ -604,8 +625,7 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
       }
 
       // Auto-increment bill number only when a new bill is created
-      const currentNum = parseInt(billNo.replace(/[^0-9]/g, ''), 10) || 45;
-      const nextBillNo = `SB-2023-00${currentNum + 1}`;
+      const nextBillNo = getNextServiceBillNo([...totalBillsList, newBill], draftBillsList);
       setBillNo(nextBillNo);
 
       handleClearForm();

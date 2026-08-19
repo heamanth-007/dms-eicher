@@ -363,7 +363,20 @@ export const SpareParts: React.FC = () => {
       return;
     }
 
-    const randomNum = `SP-${Math.floor(10000 + Math.random() * 90000)}`;
+    let maxPartSeq = 3000;
+    const currentInv = getStoredInventory();
+    currentInv.forEach(p => {
+      if (p.partNumber) {
+        const match = p.partNumber.match(/SP-(3\d{3})/i);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num >= 3001 && num < 4000) {
+            if (num > maxPartSeq) maxPartSeq = num;
+          }
+        }
+      }
+    });
+    const randomNum = `SP-${maxPartSeq + 1}`;
     const parsedStock = parseInt(stockEl?.value || '0', 10);
     // Low Stock condition: Qty < 12 is Low Stock!
     const stockStatusVal: 'normal' | 'low' | 'out' = parsedStock === 0 ? 'out' : parsedStock < 12 ? 'low' : 'normal';
@@ -381,7 +394,6 @@ export const SpareParts: React.FC = () => {
       stockStatus: stockStatusVal
     };
 
-    const currentInv = getStoredInventory();
     const updatedInv = [newPart, ...currentInv.filter(p => p.partNumber !== newPart.partNumber)];
     saveStoredInventory(updatedInv);
     setParts(updatedInv);
@@ -504,7 +516,7 @@ export const SpareParts: React.FC = () => {
               Cancel
             </button>
             <button
-              onClick={handleDeletePart}
+              onClick={() => handleDeletePart(editingPart || undefined, currentEditingPartObj?.partName)}
               className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-red-50 border border-red-200 text-[#dc2626] font-bold rounded-lg text-[13.5px] cursor-pointer transition-colors shadow-sm"
             >
               <Trash2 size={16} />
