@@ -26,471 +26,33 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Seeding function if DB is empty
+// Seeding function (Disabled - No sample data populated)
 const seedDatabase = async () => {
-  try {
-    const customerCount = await Customer.countDocuments();
-    if (customerCount === 0) {
-      console.log('Seeding Customers...');
-      await Customer.insertMany([
-        {
-          id: '#CUST-8291',
-          name: 'John Deere Farms Inc.',
-          avatar: 'JD',
-          avatarBg: 'bg-blue-100 text-blue-600',
-          phone: '+1 (555) 012-3456',
-          district: 'Central Valley',
-          vehicles: 12,
-          lastService: 'Oct 12, 2023',
-          outstanding: '₹4,250.00',
-          status: 'ACTIVE'
-        },
-        {
-          id: '#CUST-7742',
-          name: 'Miller & Sons Agri',
-          avatar: 'MS',
-          avatarBg: 'bg-orange-100 text-orange-600',
-          phone: '+1 (555) 012-9876',
-          district: 'Northern Hills',
-          vehicles: 5,
-          lastService: 'Sep 28, 2023',
-          outstanding: '₹0.00',
-          status: 'ACTIVE'
-        },
-        {
-          id: '#CUST-4410',
-          name: 'Blue Trucking Corp',
-          avatar: 'BT',
-          avatarBg: 'bg-indigo-100 text-indigo-600',
-          phone: '+1 (555) 012-1122',
-          district: 'Coastal Plains',
-          vehicles: 28,
-          lastService: 'Aug 15, 2023',
-          outstanding: '₹12,840.00',
-          status: 'INACTIVE'
-        },
-        {
-          id: '#CUST-9103',
-          name: 'Riverside Excavation',
-          avatar: 'RE',
-          avatarBg: 'bg-slate-100 text-slate-600',
-          phone: '+1 (555) 012-3344',
-          district: 'Northern Hills',
-          vehicles: 7,
-          lastService: 'Oct 05, 2023',
-          outstanding: '₹1,200.00',
-          status: 'ACTIVE'
-        }
-      ]);
-      console.log('Customers seeded successfully!');
-    }
-
-    const mechanicCount = await Mechanic.countDocuments();
-    if (mechanicCount === 0) {
-      console.log('Seeding Mechanics...');
-      await Mechanic.insertMany([
-        { id: 'MEC-8201', name: 'Mark Benson', phone: '+91 98765 43210', initials: 'MB', avatarBg: 'bg-blue-100 text-blue-600', experience: 'Senior', status: 'Busy', jobs: 2 },
-        { id: 'MEC-8202', name: 'John Harrison', phone: '+91 98765 43211', initials: 'JH', avatarBg: 'bg-indigo-50 text-indigo-600', experience: 'Mid', status: 'Available', jobs: 0 },
-        { id: 'MEC-8203', name: 'Andre Lopez', phone: '+91 98765 43212', initials: 'AL', avatarBg: 'bg-emerald-50 text-emerald-600', experience: 'Expert', status: 'Available', jobs: 0 },
-        { id: 'MEC-8204', name: 'Laura Chen', phone: '+91 98765 43213', initials: 'LC', avatarBg: 'bg-purple-100 text-purple-650', experience: 'Mid', status: 'Busy', jobs: 1 },
-        { id: 'MEC-8205', name: 'David Jones', phone: '+91 98765 43214', initials: 'DJ', avatarBg: 'bg-rose-100 text-rose-600', experience: 'Junior', status: 'Inactive', jobs: 0 }
-      ]);
-      console.log('Mechanics seeded successfully!');
-    }
-
-    const rajesh = await Customer.findOne({ id: 'CUST-1024' });
-    if (!rajesh) {
-      console.log('Adding Rajesh Kumar seed customer...');
-      await Customer.create({
-        id: 'CUST-1024',
-        name: 'Rajesh Kumar',
-        avatar: 'RK',
-        avatarBg: 'bg-blue-100 text-blue-600',
-        phone: '+91 98765 43210',
-        district: 'Pune',
-        vehicles: 3,
-        lastService: 'Jul 14, 2026',
-        outstanding: '₹4,500.00',
-        status: 'ACTIVE'
-      });
-    }
-
-    const transactionCount = await Transaction.countDocuments();
-    if (transactionCount === 0) {
-      console.log('Seeding Transactions...');
-      await Transaction.insertMany([
-        {
-          refId: 'TRX-10294',
-          payeeName: 'Metro Logistics',
-          method: 'RTGS/Bank',
-          vehicleJob: 'Eicher Pro 2055',
-          date: 'Oct 14, 2023',
-          amount: '₹1,45,000',
-          status: 'Paid'
-        },
-        {
-          refId: 'TRX-10295',
-          payeeName: 'Kishan Singh',
-          method: 'UPI/QR',
-          vehicleJob: 'Eicher Skyline',
-          date: 'Oct 14, 2023',
-          amount: '₹12,400',
-          status: 'Partially Paid'
-        }
-      ]);
-      console.log('Transactions seeded successfully!');
-    }
-
-    const vehicleCount = await Vehicle.countDocuments();
-    if (vehicleCount === 0) {
-      console.log('Seeding Vehicles...');
-      await Vehicle.insertMany([
-        {
-          id: '#VEH-8921',
-          modelName: 'Eicher Pro 6028',
-          type: 'Heavy Duty Truck',
-          condition: 'Brand New',
-          engineNo: 'E694-TIC-12',
-          chassisNo: 'MC26028X1Y0034',
-          colorName: 'Arctic White',
-          colorHex: '#ffffff',
-          price: 42500,
-          sellPrice: 48200,
-          status: 'Available',
-          imageUrl: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=400'
-        },
-        {
-          id: '#VEH-7742',
-          modelName: 'Volvo 9400 B11R',
-          type: 'Coach Bus',
-          condition: 'Pre-booked',
-          engineNo: 'D11C-410-EU5',
-          chassisNo: 'VLB11R4X2Y8822',
-          colorName: 'Midnight Blue',
-          colorHex: '#1d4ed8',
-          price: 185000,
-          sellPrice: 210000,
-          status: 'Reserved',
-          imageUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&q=80&w=400'
-        },
-        {
-          id: '#VEH-4410',
-          modelName: 'Eicher Pro 2049',
-          type: 'LCV',
-          condition: 'Service Mode',
-          engineNo: 'E366-2L-BS6',
-          chassisNo: 'EC2049L3M9102',
-          colorName: 'Silver Metallic',
-          colorHex: '#94a3b8',
-          price: 22400,
-          sellPrice: 26100,
-          status: 'In Service',
-          imageUrl: 'https://images.unsplash.com/photo-1516576885230-101c434d6849?auto=format&fit=crop&q=80&w=400'
-        },
-        {
-          id: '#VEH-1109',
-          modelName: 'Eicher Pro 8031XM',
-          type: 'Tipper Truck',
-          condition: 'Sold Out',
-          engineNo: 'VEDX8-BS6-350',
-          chassisNo: 'T8031XM9Z2200',
-          colorName: 'Traffic Yellow',
-          colorHex: '#eab308',
-          price: 98000,
-          sellPrice: 112000,
-          status: 'Sold',
-          imageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=400'
-        }
-      ]);
-      console.log('Vehicles seeded successfully!');
-    }
-
-    const supplierCount = await Supplier.countDocuments();
-    if (supplierCount === 0) {
-      console.log('Seeding Suppliers...');
-      await Supplier.insertMany([
-        {
-          id: 'SUP-9821',
-          name: 'AutoParts Direct Ltd.',
-          gstNumber: '27AADCA1234F1Z1',
-          phone: '+1 202-555-0156',
-          email: 'orders@autoparts.com',
-          outstanding: '$12,450.00',
-          isOutstandingPositive: true,
-          status: 'ACTIVE'
-        },
-        {
-          id: 'SUP-7742',
-          name: 'Global Engine Spares',
-          gstNumber: '19BBEDA4432A1Z9',
-          phone: '+1 555-0198-2210',
-          email: 'billing@globalspares.co',
-          outstanding: '$0.00',
-          isOutstandingPositive: false,
-          status: 'ACTIVE'
-        },
-        {
-          id: 'SUP-3321',
-          name: 'Premium Lubricants Int.',
-          gstNumber: '33CCDFA5567G2Z0',
-          phone: '+1 212-701-0099',
-          email: 'contact@premiumlubes.com',
-          outstanding: '$4,200.00',
-          isOutstandingPositive: true,
-          status: 'INACTIVE'
-        },
-        {
-          id: 'SUP-1102',
-          name: 'Zenith Tire Solutions',
-          gstNumber: '07AABBA9999K3Z2',
-          phone: '+1 415-888-0123',
-          email: 'zenith@tires.co',
-          outstanding: '$26,200.00',
-          isOutstandingPositive: true,
-          status: 'ACTIVE'
-        }
-      ]);
-      console.log('Suppliers seeded successfully!');
-    }
-
-    const partCount = await Part.countDocuments();
-    if (partCount === 0) {
-      console.log('Seeding Parts...');
-      await Part.insertMany([
-        {
-          partNumber: 'SP-99231-A',
-          partName: 'Oil Filter Premium',
-          category: 'Consumables',
-          brand: 'Bosch',
-          hsnCode: '842123',
-          gstPercent: '18%',
-          purchasePrice: '$12.50',
-          salePrice: '$24.99',
-          stock: '1,240',
-          stockStatus: 'normal'
-        },
-        {
-          partNumber: 'BR-44102-X',
-          partName: 'Ceramic Brake Pads Rear',
-          category: 'Braking System',
-          brand: 'Brembo',
-          hsnCode: '870830',
-          gstPercent: '12%',
-          purchasePrice: '$85.00',
-          salePrice: '$149.00',
-          stock: '12',
-          stockStatus: 'low'
-        },
-        {
-          partNumber: 'EL-10552-C',
-          partName: 'Iridium Spark Plug (Set of 4)',
-          category: 'Electrical',
-          brand: 'NGK',
-          hsnCode: '851110',
-          gstPercent: '18%',
-          purchasePrice: '$42.20',
-          salePrice: '$78.50',
-          stock: '0',
-          stockStatus: 'out'
-        },
-        {
-          partNumber: 'SU-77021-M',
-          partName: 'Front Shock Absorber',
-          category: 'Suspension',
-          brand: 'Monroe',
-          hsnCode: '870880',
-          gstPercent: '18%',
-          purchasePrice: '$115.00',
-          salePrice: '$195.00',
-          stock: '45',
-          stockStatus: 'normal'
-        }
-      ]);
-      console.log('Parts seeded successfully!');
-    }
-
-
-    const saleCount = await Sale.countDocuments();
-    if (saleCount === 0) {
-      console.log('Seeding Sales...');
-      await Sale.insertMany([
-        {
-          invoiceNo: '#INV-2023-0182',
-          customerName: 'Aditya Khanna',
-          vehicleModel: 'Eicher Pro 2049',
-          status: 'DELIVERED',
-          grandTotal: '₹17,43,450',
-          district: 'Central Valley',
-          deliveryDate: '24 Oct 2023',
-          salesExecutive: 'Vikram Singh'
-        },
-        {
-          invoiceNo: '#INV-2023-0180',
-          customerName: 'Karthik Reddy',
-          vehicleModel: 'Eicher Pro 3019',
-          status: 'DELIVERED',
-          grandTotal: '₹33,95,000',
-          district: 'Coastal Plains',
-          deliveryDate: '20 Oct 2023',
-          salesExecutive: 'Vikram Singh'
-        },
-        {
-          invoiceNo: '#INV-2023-0178',
-          customerName: 'Omkar Logistics Ltd',
-          vehicleModel: 'Eicher Pro 6028',
-          status: 'DELIVERED',
-          grandTotal: '₹54,25,000',
-          district: 'Northern Hills',
-          deliveryDate: '22 Oct 2023',
-          salesExecutive: 'Rajesh Kumar'
-        },
-        {
-          invoiceNo: '#INV-2023-0174',
-          customerName: 'Tejas Transports',
-          vehicleModel: 'Eicher Pro 6028',
-          status: 'PENDING',
-          grandTotal: '₹54,25,000',
-          district: 'Central Valley',
-          deliveryDate: 'Scheduled: 30 Oct 2023',
-          salesExecutive: 'Amit Gupta'
-        }
-      ]);
-      console.log('Sales seeded successfully!');
-    }
-
-    const mechanicCount2 = await Mechanic.countDocuments();
-    if (mechanicCount2 === 0) {
-      console.log('Seeding Mechanics...');
-      await Mechanic.insertMany([
-        {
-          id: 'MEC-1001',
-          name: 'Amit Singh',
-          phone: '+91 98765 43210',
-          initials: 'AS',
-          avatarBg: 'bg-blue-100 text-blue-600',
-          experience: '8 Years',
-          status: 'Available',
-          jobs: 24
-        },
-        {
-          id: 'MEC-1002',
-          name: 'Suresh Gupta',
-          phone: '+91 87654 32109',
-          initials: 'SG',
-          avatarBg: 'bg-emerald-100 text-emerald-600',
-          experience: '12 Years',
-          status: 'Busy',
-          jobs: 38
-        },
-        {
-          id: 'MEC-1003',
-          name: 'Abdul Rahman',
-          phone: '+91 76543 21098',
-          initials: 'AR',
-          avatarBg: 'bg-orange-100 text-orange-600',
-          experience: '5 Years',
-          status: 'Available',
-          jobs: 15
-        },
-        {
-          id: 'MEC-1004',
-          name: 'Vikram Sharma',
-          phone: '+91 65432 10987',
-          initials: 'VS',
-          avatarBg: 'bg-rose-100 text-rose-600',
-          experience: '10 Years',
-          status: 'Busy',
-          jobs: 31
-        },
-        {
-          id: 'MEC-1005',
-          name: 'Ravi Kumar',
-          phone: '+91 54321 09876',
-          initials: 'RK',
-          avatarBg: 'bg-indigo-100 text-indigo-600',
-          experience: '3 Years',
-          status: 'Available',
-          jobs: 8
-        }
-      ]);
-      console.log('Mechanics seeded successfully!');
-    }
-
-    const jobCardCount = await JobCard.countDocuments();
-    if (jobCardCount === 0) {
-      console.log('Seeding Job Cards...');
-      await JobCard.insertMany([
-        {
-          jcNumber: 'JC-2023-8841',
-          inTime: '09:15 AM',
-          customerName: 'Mohan Logistics',
-          vehicleModel: 'Eicher Pro 3015',
-          vehicleReg: 'MH-12-PQ-9042',
-          complaintSummary: 'Brake liner replacement & general inspection',
-          mechanicName: 'Amit S.',
-          mechanicInitials: 'AM',
-          status: 'WORKING',
-          expectedDelivery: 'Today, 04:30 PM',
-          isDelayed: false,
-          readyForPickup: false,
-          amount: 8500
-        },
-        {
-          jcNumber: 'JC-2023-8845',
-          inTime: '10:30 AM',
-          customerName: 'Raj Express',
-          vehicleModel: 'Eicher Pro 2049',
-          vehicleReg: 'DL-1C-AA-5582',
-          complaintSummary: 'Periodic Maintenance Service (PMS-40k)',
-          mechanicName: 'Suresh G.',
-          mechanicInitials: 'SG',
-          status: 'WAITING PARTS',
-          expectedDelivery: 'Delayed: Oct 25',
-          isDelayed: true,
-          readyForPickup: false,
-          amount: 12400
-        },
-        {
-          jcNumber: 'JC-2023-8848',
-          inTime: '11:15 AM',
-          customerName: 'Pooja Transports',
-          vehicleModel: 'Eicher Skyline Pro',
-          vehicleReg: 'UP-16-BT-0021',
-          complaintSummary: 'Suspension noise & Steering alignment check',
-          mechanicName: 'Abdul R.',
-          mechanicInitials: 'AR',
-          status: 'ASSIGNED',
-          expectedDelivery: 'Oct 26, 11:00 AM',
-          isDelayed: false,
-          readyForPickup: false,
-          amount: 5200
-        },
-        {
-          jcNumber: 'JC-2023-8839',
-          inTime: '08:00 AM',
-          customerName: 'Shiva Carriers',
-          vehicleModel: 'Eicher Pro 6028',
-          vehicleReg: 'KA-01-EE-1234',
-          complaintSummary: 'Air conditioning service & cabin filter swap',
-          mechanicName: 'Vikram S.',
-          mechanicInitials: 'VS',
-          status: 'COMPLETED',
-          expectedDelivery: 'Today, 02:00 PM',
-          isDelayed: false,
-          readyForPickup: true,
-          amount: 15800
-        }
-      ]);
-      console.log('Job cards seeded successfully!');
-    }
-  } catch (error) {
-    console.error('Error seeding database:', error);
-  }
+  // Database seed functionality disabled to keep database clean of sample data
 };
 
 // Connect to Database
 connectDB(MONGO_URI).then(() => {
   seedDatabase();
+});
+
+// Endpoint to clear sample/all database records
+app.post('/api/clear-sample-data', async (req, res) => {
+  try {
+    await Promise.all([
+      Customer.deleteMany({}),
+      Transaction.deleteMany({}),
+      Vehicle.deleteMany({}),
+      Supplier.deleteMany({}),
+      Part.deleteMany({}),
+      Mechanic.deleteMany({}),
+      Sale.deleteMany({}),
+      JobCard.deleteMany({})
+    ]);
+    res.json({ success: true, message: 'All database records cleared successfully.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error clearing database', error: err.message });
+  }
 });
 
 // API Routes
@@ -595,7 +157,7 @@ app.post('/api/transactions', async (req, res) => {
 
 app.post('/api/vehicles', async (req, res) => {
   try {
-    const { modelName, type, condition, engineNo, chassisNo, colorName, colorHex, price, sellPrice, status, imageUrl, stock } = req.body;
+    const { modelName, type, condition, engineNo, chassisNo, colorName, colorHex, price, sellPrice, status, imageUrl, stock, accessoriesKit, accessoriesTotal } = req.body;
     const randomId = `#VEH-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const newVehicle = new Vehicle({
@@ -611,7 +173,9 @@ app.post('/api/vehicles', async (req, res) => {
       sellPrice: Number(sellPrice) || 0,
       status: status || 'Available',
       stock: Number(stock) || 1,
-      imageUrl: imageUrl || 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=400'
+      imageUrl: imageUrl || 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=400',
+      accessoriesKit: Array.isArray(accessoriesKit) ? accessoriesKit : [],
+      accessoriesTotal: Number(accessoriesTotal) || 0
     });
 
     const savedVehicle = await newVehicle.save();
@@ -795,8 +359,7 @@ app.get('/api/sales', async (req, res) => {
 
 app.post('/api/sales', async (req, res) => {
   try {
-    const { customerPhone, customerDistrict, customerEmail, ...saleData } = req.body;
-    const newSale = new Sale(saleData);
+    const newSale = new Sale(req.body);
     const saved = await newSale.save();
 
     // Sync Customer

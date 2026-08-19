@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { INDIAN_STATES_DISTRICTS, getDistrictsForState, formatPhone10Digits } from '../utils/indianStatesDistricts';
 import { 
   ArrowLeft, 
   User, 
@@ -36,8 +37,8 @@ export const EditCustomer: React.FC<EditCustomerProps> = ({ customer, onBack, on
 
   // Address states
   const [streetAddress, setStreetAddress] = useState('');
-  const [district, setDistrict] = useState(customer.district || '');
-  const [state, setState] = useState('');
+  const [state, setState] = useState('Tamil Nadu');
+  const [district, setDistrict] = useState(customer.district || INDIAN_STATES_DISTRICTS[0].districts[0]);
   const [pincode, setPincode] = useState('');
   const [landmark, setLandmark] = useState('');
 
@@ -181,8 +182,9 @@ export const EditCustomer: React.FC<EditCustomerProps> = ({ customer, onBack, on
                   </select>
                   <input 
                     type="text" 
+                    maxLength={10}
                     value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                    onChange={(e) => setPhoneNumber(formatPhone10Digits(e.target.value))}
                     required
                     placeholder="9876543210"
                     className="flex-1 border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700"
@@ -245,32 +247,36 @@ export const EditCustomer: React.FC<EditCustomerProps> = ({ customer, onBack, on
                 />
               </div>
 
-              {/* District */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">District</label>
-                <input 
-                  type="text" 
-                  value={district}
-                  onChange={(e) => setDistrict(e.target.value)}
-                  required
-                  placeholder="Jaipur"
-                  className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700"
-                />
-              </div>
-
               {/* State */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">State</label>
                 <select 
                   value={state}
-                  onChange={(e) => setState(e.target.value)}
-                  className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700 w-full"
+                  onChange={(e) => {
+                    const selState = e.target.value;
+                    setState(selState);
+                    const dists = getDistrictsForState(selState);
+                    setDistrict(dists[0] || '');
+                  }}
+                  className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-semibold text-slate-700 w-full cursor-pointer"
                 >
-                  <option value="Rajasthan">Rajasthan</option>
-                  <option value="Maharashtra">Maharashtra</option>
-                  <option value="California">California</option>
-                  <option value="Texas">Texas</option>
-                  <option value="New York">New York</option>
+                  {INDIAN_STATES_DISTRICTS.map(st => (
+                    <option key={st.state} value={st.state}>{st.state}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* District */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">District</label>
+                <select 
+                  value={district}
+                  onChange={(e) => setDistrict(e.target.value)}
+                  className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-semibold text-slate-700 w-full cursor-pointer"
+                >
+                  {getDistrictsForState(state).map(dist => (
+                    <option key={dist} value={dist}>{dist}</option>
+                  ))}
                 </select>
               </div>
 
@@ -279,10 +285,11 @@ export const EditCustomer: React.FC<EditCustomerProps> = ({ customer, onBack, on
                 <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Pincode</label>
                 <input 
                   type="text" 
+                  maxLength={6}
                   value={pincode}
-                  onChange={(e) => setPincode(e.target.value)}
+                  onChange={(e) => setPincode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
                   required
-                  placeholder="302022"
+                  placeholder="6-digit Pincode"
                   className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700"
                 />
               </div>

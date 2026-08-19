@@ -48,7 +48,7 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
     });
   });
   
-  const [intakeStatus, setIntakeStatus] = useState('WORKING');
+  const [intakeStatus, setIntakeStatus] = useState('WAITING TO ASSIGN');
 
   // Customer State
   const [fullName, setFullName] = useState('');
@@ -134,6 +134,7 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
               onChange={(e) => setIntakeStatus(e.target.value)}
               className="appearance-none bg-[#f1f4fd] border-none text-[#184edb] font-bold text-xs rounded-lg py-2 pl-4 pr-10 cursor-pointer focus:outline-none"
             >
+              <option value="WAITING TO ASSIGN">WAITING TO ASSIGN</option>
               <option value="WORKING">IN-PROGRESS</option>
               <option value="ASSIGNED">ASSIGNED</option>
               <option value="WAITING PARTS">WAITING PARTS</option>
@@ -186,9 +187,10 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mobile Number</label>
                 <input 
                   type="text" 
-                  placeholder="+91 98765 43210"
+                  maxLength={10}
+                  placeholder="10-digit mobile number"
                   value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                  onChange={(e) => setMobileNumber(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
                   className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none focus:border-[#184edb] text-slate-700 bg-slate-50/50 font-medium"
                 />
               </div>
@@ -232,11 +234,6 @@ export const AddJobCard: React.FC<AddJobCardProps> = ({ onBack, onSave }) => {
                     {vehicles.map(v => (
                       <option key={v.id || v._id} value={v.modelName}>{v.modelName}</option>
                     ))}
-                    {/* Fallbacks if DB is empty */}
-                    <option value="Eicher Pro 2049">Eicher Pro 2049</option>
-                    <option value="Eicher Pro 3015">Eicher Pro 3015</option>
-                    <option value="Eicher Skyline Pro">Eicher Skyline Pro</option>
-                    <option value="Eicher Pro 6028">Eicher Pro 6028</option>
                   </select>
                   <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#184edb] pointer-events-none">
                     <ChevronDown size={14} />

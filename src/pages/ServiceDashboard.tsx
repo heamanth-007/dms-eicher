@@ -15,11 +15,10 @@ import {
   Users,
   ChevronDown,
   Plus,
-  Download,
   RefreshCw,
   Eye,
   Edit,
-  Filter
+  Trash2
 } from 'lucide-react';
 
 interface JobCard {
@@ -87,7 +86,15 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
   }, []);
 
   const filteredJobCards = jobCards.filter(jc => {
-    if (statusFilter !== 'All' && jc.status !== statusFilter) return false;
+    if (statusFilter !== 'All') {
+      if (statusFilter === 'WAITING TO ASSIGN') {
+        if (jc.status !== 'WAITING TO ASSIGN' && jc.status !== 'UNASSIGNED' && jc.status !== 'OPEN' && jc.status !== 'OPENING' && jc.mechanicName && jc.mechanicName !== 'Unassigned') {
+          return false;
+        }
+      } else if (jc.status !== statusFilter) {
+        return false;
+      }
+    }
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       return (
@@ -203,6 +210,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
     );
   }
   // Live KPI counts from database
+  const unassignedCount = jobCards.filter(jc => jc.status === 'WAITING TO ASSIGN' || jc.status === 'UNASSIGNED' || jc.status === 'OPEN' || jc.status === 'OPENING' || !jc.mechanicName || jc.mechanicName === 'Unassigned').length;
   const openJobsCount = jobCards.filter(jc => jc.status !== 'COMPLETED').length;
   const assignedJobsCount = jobCards.filter(jc => jc.status === 'ASSIGNED').length;
   const underServiceCount = jobCards.filter(jc => jc.status === 'WORKING').length;
@@ -216,10 +224,25 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
   const activeMechanicsCount = mechanics.filter(m => m.status === 'Available' || m.status === 'Busy').length;
 
   const totalJobs = jobCards.length;
-  const completedPct = totalJobs ? (completedCount / totalJobs) * 100 : 0;
+  const unassignedPct = totalJobs ? (unassignedCount / totalJobs) * 100 : 0;
   const workingPct = totalJobs ? (underServiceCount / totalJobs) * 100 : 0;
   const assignedPct = totalJobs ? (assignedJobsCount / totalJobs) * 100 : 0;
   const waitingPct = totalJobs ? (waitingPartsCount / totalJobs) * 100 : 0;
+  const completedPct = totalJobs ? (completedCount / totalJobs) * 100 : 0;
+
+  // Arc math for Donut Chart
+  const circumference = 377;
+  const unassignedDash = (unassignedPct / 100) * circumference;
+  const workingDash = (workingPct / 100) * circumference;
+  const assignedDash = (assignedPct / 100) * circumference;
+  const waitingDash = (waitingPct / 100) * circumference;
+  const completedDash = (completedPct / 100) * circumference;
+
+  const unassignedOffset = 0;
+  const workingOffset = unassignedDash;
+  const assignedOffset = unassignedDash + workingDash;
+  const waitingOffset = unassignedDash + workingDash + assignedDash;
+  const completedOffset = unassignedDash + workingDash + assignedDash + waitingDash;
 
   const serviceRevenue = jobCards
     .filter(jc => jc.status === 'COMPLETED')
@@ -267,21 +290,6 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
         </div>
         <div className="flex items-center gap-2.5">
           <button
-            onClick={() => setShowLiveTable(!showLiveTable)}
-            className={`flex items-center gap-1.5 px-3 py-2 border font-bold rounded-lg text-xs cursor-pointer transition-colors shadow-xs ${
-              showLiveTable
-                ? 'bg-[#184edb] text-white border-[#184edb] hover:bg-[#143eb3]'
-                : 'bg-white text-slate-650 border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <span>{showLiveTable ? 'Hide Live Job Cards' : 'Show Live Job Cards'}</span>
-          </button>
-
-          <button className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-650 font-bold rounded-lg text-xs cursor-pointer transition-colors bg-white shadow-xs">
-            <Filter size={14} />
-            <span>Filters</span>
-          </button>
-          <button
             onClick={() => setIsCreatingJobCard(true)}
             className="flex items-center gap-1.5 px-4 py-2 bg-[#184edb] hover:bg-[#143eb3] text-white font-bold rounded-lg text-xs cursor-pointer transition-colors border-none shadow-md"
           >
@@ -316,7 +324,10 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
         </div>
 
         {/* Card 2: Assigned Jobs */}
-        <div className="bg-white rounded-xl p-5 shadow-xs border border-slate-100/70 flex items-center justify-between min-h-[100px] box-border relative">
+        <div
+          onClick={() => { setStatusFilter('ASSIGNED'); const el = document.getElementById('live-job-cards-table'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}
+          className="bg-white rounded-xl p-5 shadow-xs border border-slate-100/70 flex items-center justify-between min-h-[100px] box-border relative cursor-pointer hover:border-[#184edb] transition-all"
+        >
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned Jobs</span>
             <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">
@@ -329,7 +340,10 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
         </div>
 
         {/* Card 3: Under Service */}
-        <div className="bg-white rounded-xl p-5 shadow-xs border border-slate-100/70 flex items-center justify-between min-h-[100px] box-border relative">
+        <div
+          onClick={() => { setStatusFilter('WORKING'); const el = document.getElementById('live-job-cards-table'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}
+          className="bg-white rounded-xl p-5 shadow-xs border border-slate-100/70 flex items-center justify-between min-h-[100px] box-border relative cursor-pointer hover:border-amber-400 transition-all"
+        >
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Under Service</span>
             <span className="text-3xl font-extrabold text-slate-800 tracking-tight mt-1 font-heading">
@@ -365,7 +379,10 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 w-full box-border">
 
         {/* Waiting Parts */}
-        <div className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/60 flex items-center gap-3">
+        <div
+          onClick={() => { setStatusFilter('WAITING PARTS'); const el = document.getElementById('live-job-cards-table'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}
+          className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/60 flex items-center gap-3 cursor-pointer hover:border-red-400 transition-all"
+        >
           <div className="bg-red-50 text-red-600 p-2 rounded-lg flex items-center justify-center">
             <Clock size={16} />
           </div>
@@ -390,7 +407,10 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
         </div>
 
         {/* Delivered Today */}
-        <div className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/60 flex items-center gap-3">
+        <div
+          onClick={() => { setStatusFilter('COMPLETED'); const el = document.getElementById('live-job-cards-table'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}
+          className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/60 flex items-center gap-3 cursor-pointer hover:border-blue-400 transition-all"
+        >
           <div className="bg-blue-50 text-blue-600 p-2 rounded-lg flex items-center justify-center">
             <ShoppingCart size={16} />
           </div>
@@ -401,7 +421,10 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
         </div>
 
         {/* Pending Delivery */}
-        <div className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/60 flex items-center gap-3">
+        <div
+          onClick={() => { setStatusFilter('ASSIGNED'); const el = document.getElementById('live-job-cards-table'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}
+          className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/60 flex items-center gap-3 cursor-pointer hover:border-amber-400 transition-all"
+        >
           <div className="bg-amber-50 text-amber-600 p-2 rounded-lg flex items-center justify-center">
             <Clock size={16} />
           </div>
@@ -412,7 +435,10 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
         </div>
 
         {/* Active Mechanics */}
-        <div className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/60 flex items-center gap-3">
+        <div
+          onClick={() => { if (onNavigateToMechanics) onNavigateToMechanics(); else setSubTab('mechanics'); }}
+          className="bg-white rounded-xl p-4 shadow-xs border border-slate-100/60 flex items-center gap-3 cursor-pointer hover:border-blue-400 transition-all"
+        >
           <div className="bg-blue-50 text-[#184edb] p-2 rounded-lg flex items-center justify-center">
             <Users size={16} />
           </div>
@@ -423,136 +449,90 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
         </div>
       </div>
 
-      {/* Chart Section Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full box-border">
+      {/* 2-Column Section: Status Distribution & Mechanic Efficiency */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full box-border">
 
-        {/* Monthly Service Revenue Trend (Takes 2/3 cols) */}
-        <div className="lg:col-span-2 bg-white rounded-xl p-6 border border-slate-100 shadow-xs flex flex-col gap-6">
-          <div className="flex justify-between items-center">
-            <h3 className="text-sm font-extrabold text-slate-800 m-0 tracking-tight font-heading">
-              Monthly Service Revenue Trend
-            </h3>
-            <button className="flex items-center gap-1.5 px-3 py-1 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold rounded-lg text-[10.5px] cursor-pointer bg-white">
-              <span>Last 6 Months</span>
-              <ChevronDown size={12} />
-            </button>
-          </div>
-
-          {/* Bar Chart */}
-          <div className="flex flex-col justify-between h-56 w-full mt-4">
-            <div className="flex items-end justify-between h-48 px-4 gap-6">
-              {/* May */}
-              <div className="flex flex-col items-center flex-1 h-full justify-end">
-                <div className="w-10 hover:opacity-90 transition-opacity flex flex-col justify-end h-[50%]">
-                  <div className="bg-blue-100 rounded-t-sm h-[40%]" />
-                  <div className="bg-[#184edb] h-[60%]" />
-                </div>
-                <span className="text-[10px] font-bold text-slate-400 mt-2">May</span>
-              </div>
-
-              {/* Jun */}
-              <div className="flex flex-col items-center flex-1 h-full justify-end">
-                <div className="w-10 hover:opacity-90 transition-opacity flex flex-col justify-end h-[68%]">
-                  <div className="bg-blue-100 rounded-t-sm h-[35%]" />
-                  <div className="bg-[#184edb] h-[65%]" />
-                </div>
-                <span className="text-[10px] font-bold text-slate-400 mt-2">Jun</span>
-              </div>
-
-              {/* Jul */}
-              <div className="flex flex-col items-center flex-1 h-full justify-end">
-                <div className="w-10 hover:opacity-90 transition-opacity flex flex-col justify-end h-[42%]">
-                  <div className="bg-blue-100 rounded-t-sm h-[50%]" />
-                  <div className="bg-[#184edb] h-[50%]" />
-                </div>
-                <span className="text-[10px] font-bold text-slate-400 mt-2">Jul</span>
-              </div>
-
-              {/* Aug */}
-              <div className="flex flex-col items-center flex-1 h-full justify-end">
-                <div className="w-10 hover:opacity-90 transition-opacity flex flex-col justify-end h-[82%]">
-                  <div className="bg-blue-100 rounded-t-sm h-[20%]" />
-                  <div className="bg-[#184edb] h-[80%]" />
-                </div>
-                <span className="text-[10px] font-bold text-slate-400 mt-2">Aug</span>
-              </div>
-
-              {/* Sep */}
-              <div className="flex flex-col items-center flex-1 h-full justify-end">
-                <div className="w-10 hover:opacity-90 transition-opacity flex flex-col justify-end h-[96%]">
-                  <div className="bg-blue-100 rounded-t-sm h-[15%]" />
-                  <div className="bg-[#184edb] h-[85%]" />
-                </div>
-                <span className="text-[10px] font-bold text-slate-400 mt-2">Sep</span>
-              </div>
-
-              {/* Oct */}
-              <div className="flex flex-col items-center flex-1 h-full justify-end">
-                <div className="w-10 hover:opacity-90 transition-opacity flex flex-col justify-end h-[60%]">
-                  <div className="bg-blue-100 rounded-t-sm h-[40%]" />
-                  <div className="bg-[#184edb] h-[60%]" />
-                </div>
-                <span className="text-[10px] font-bold text-slate-400 mt-2">Oct</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Status Distribution (Takes 1/3 col) */}
+        {/* Status Distribution */}
         <div className="bg-white rounded-xl p-6 border border-slate-100 shadow-xs flex flex-col gap-6">
           <h3 className="text-sm font-extrabold text-slate-800 m-0 tracking-tight font-heading">
             Status Distribution
           </h3>
 
-          <div className="flex flex-col md:flex-row items-center gap-6 justify-center h-full">
+          <div className="flex flex-col sm:flex-row items-center gap-6 justify-center h-full">
             {/* SVG Donut Chart */}
             <div className="relative w-36 h-36 flex items-center justify-center">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 160 160">
                 <circle cx="80" cy="80" r="60" fill="transparent" stroke="#f1f5f9" strokeWidth="16" />
-                {/* Completed (green) */}
-                <circle
-                  cx="80"
-                  cy="80"
-                  r="60"
-                  fill="transparent"
-                  stroke="#10b981"
-                  strokeWidth="16"
-                  strokeDasharray={`${(completedPct / 100) * 377} 377`}
-                  strokeDashoffset="0"
-                />
-                {/* Working (green/blue) */}
-                <circle
-                  cx="80"
-                  cy="80"
-                  r="60"
-                  fill="transparent"
-                  stroke="#06b6d4"
-                  strokeWidth="16"
-                  strokeDasharray={`${(workingPct / 100) * 377} 377`}
-                  strokeDashoffset={`-${(completedPct / 100) * 377}`}
-                />
-                {/* Assigned (dark blue) */}
-                <circle
-                  cx="80"
-                  cy="80"
-                  r="60"
-                  fill="transparent"
-                  stroke="#184edb"
-                  strokeWidth="16"
-                  strokeDasharray={`${(assignedPct / 100) * 377} 377`}
-                  strokeDashoffset={`-${((completedPct + workingPct) / 100) * 377}`}
-                />
-                {/* Waiting Parts (red) */}
-                <circle
-                  cx="80"
-                  cy="80"
-                  r="60"
-                  fill="transparent"
-                  stroke="#ef4444"
-                  strokeWidth="16"
-                  strokeDasharray={`${(waitingPct / 100) * 377} 377`}
-                  strokeDashoffset={`-${((completedPct + workingPct + assignedPct) / 100) * 377}`}
-                />
+                
+                {/* Unassigned (Amber/Orange) */}
+                {unassignedPct > 0 && (
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="60"
+                    fill="transparent"
+                    stroke="#f59e0b"
+                    strokeWidth="16"
+                    strokeDasharray={`${unassignedDash} ${circumference}`}
+                    strokeDashoffset={`-${unassignedOffset}`}
+                  />
+                )}
+
+                {/* Working (Cyan) */}
+                {workingPct > 0 && (
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="60"
+                    fill="transparent"
+                    stroke="#06b6d4"
+                    strokeWidth="16"
+                    strokeDasharray={`${workingDash} ${circumference}`}
+                    strokeDashoffset={`-${workingOffset}`}
+                  />
+                )}
+
+                {/* Assigned (Dark Blue) */}
+                {assignedPct > 0 && (
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="60"
+                    fill="transparent"
+                    stroke="#184edb"
+                    strokeWidth="16"
+                    strokeDasharray={`${assignedDash} ${circumference}`}
+                    strokeDashoffset={`-${assignedOffset}`}
+                  />
+                )}
+
+                {/* Waiting Parts (Red) */}
+                {waitingPct > 0 && (
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="60"
+                    fill="transparent"
+                    stroke="#ef4444"
+                    strokeWidth="16"
+                    strokeDasharray={`${waitingDash} ${circumference}`}
+                    strokeDashoffset={`-${waitingOffset}`}
+                  />
+                )}
+
+                {/* Completed (Emerald Green) */}
+                {completedPct > 0 && (
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="60"
+                    fill="transparent"
+                    stroke="#10b981"
+                    strokeWidth="16"
+                    strokeDasharray={`${completedDash} ${circumference}`}
+                    strokeDashoffset={`-${completedOffset}`}
+                  />
+                )}
               </svg>
               <div className="absolute flex flex-col items-center justify-center text-center">
                 <span className="text-2xl font-extrabold text-slate-800 font-heading leading-none">{totalJobs}</span>
@@ -561,62 +541,97 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
             </div>
 
             {/* Donut Legend */}
-            <div className="flex flex-col gap-2.5 justify-center">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 justify-center">
+              {/* Unassigned */}
+              <div
+                onClick={() => { setStatusFilter('WAITING TO ASSIGN'); const el = document.getElementById('live-job-cards-table'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}
+                className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-1 rounded-md transition-colors"
+                title="Click to filter Unassigned Job Cards"
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />
+                <span className="text-[11.5px] font-semibold text-slate-600 w-24">Unassigned</span>
+                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">{unassignedCount} ({Math.round(unassignedPct)}%)</span>
+              </div>
+
+              {/* Working */}
+              <div
+                onClick={() => { setStatusFilter('WORKING'); const el = document.getElementById('live-job-cards-table'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}
+                className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-1 rounded-md transition-colors"
+                title="Click to filter Working Job Cards"
+              >
                 <span className="w-2.5 h-2.5 rounded-full bg-[#06b6d4]" />
-                <span className="text-[11.5px] font-semibold text-slate-500 w-16">Working</span>
-                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">{Math.round(workingPct)}%</span>
+                <span className="text-[11.5px] font-semibold text-slate-600 w-24">Working</span>
+                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">{underServiceCount} ({Math.round(workingPct)}%)</span>
               </div>
-              <div className="flex items-center gap-2">
+
+              {/* Assigned */}
+              <div
+                onClick={() => { setStatusFilter('ASSIGNED'); const el = document.getElementById('live-job-cards-table'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}
+                className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-1 rounded-md transition-colors"
+                title="Click to filter Assigned Job Cards"
+              >
                 <span className="w-2.5 h-2.5 rounded-full bg-[#184edb]" />
-                <span className="text-[11.5px] font-semibold text-slate-500 w-16">Assigned</span>
-                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">{Math.round(assignedPct)}%</span>
+                <span className="text-[11.5px] font-semibold text-slate-600 w-24">Assigned</span>
+                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">{assignedJobsCount} ({Math.round(assignedPct)}%)</span>
               </div>
-              <div className="flex items-center gap-2">
+
+              {/* Waiting Parts */}
+              <div
+                onClick={() => { setStatusFilter('WAITING PARTS'); const el = document.getElementById('live-job-cards-table'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}
+                className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-1 rounded-md transition-colors"
+                title="Click to filter Waiting Parts Job Cards"
+              >
                 <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]" />
-                <span className="text-[11.5px] font-semibold text-slate-500 w-16">Waiting Parts</span>
-                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">{Math.round(waitingPct)}%</span>
+                <span className="text-[11.5px] font-semibold text-slate-600 w-24">Waiting Parts</span>
+                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">{waitingPartsCount} ({Math.round(waitingPct)}%)</span>
               </div>
-              <div className="flex items-center gap-2">
+
+              {/* Completed */}
+              <div
+                onClick={() => { setStatusFilter('COMPLETED'); const el = document.getElementById('live-job-cards-table'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}
+                className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-1 rounded-md transition-colors"
+                title="Click to filter Completed Job Cards"
+              >
                 <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
-                <span className="text-[11.5px] font-semibold text-slate-500 w-16">Completed</span>
-                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">{Math.round(completedPct)}%</span>
+                <span className="text-[11.5px] font-semibold text-slate-600 w-24">Completed</span>
+                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">{completedCount} ({Math.round(completedPct)}%)</span>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Mechanic Efficiency Section */}
-      <div className="bg-white rounded-xl p-6 border border-slate-100 shadow-xs flex flex-col gap-5 w-full box-border">
-        <h3 className="text-sm font-extrabold text-slate-800 m-0 tracking-tight font-heading">
-          Mechanic Efficiency (Jobs Completed)
-        </h3>
+        {/* Mechanic Efficiency Section */}
+        <div className="bg-white rounded-xl p-6 border border-slate-100 shadow-xs flex flex-col gap-5 justify-between box-border">
+          <h3 className="text-sm font-extrabold text-slate-800 m-0 tracking-tight font-heading">
+            Mechanic Efficiency (Jobs Completed)
+          </h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-1 w-full box-border">
-          {topMechanics.length > 0 ? topMechanics.map((mech, index) => {
-            const color = colors[index % colors.length];
-            const width = Math.max((mech.jobs / maxJobs) * 100, 5); // At least 5% to show bar
-            return (
-              <div key={mech.name} className="flex flex-col gap-2">
-                <div className="flex justify-between items-center text-[12px]">
-                  <span className="font-bold text-slate-700">{mech.name}</span>
-                  <span className={`font-extrabold ${color.text}`}>{mech.jobs} Jobs</span>
+          <div className="flex flex-col gap-3 py-1 w-full box-border">
+            {topMechanics.length > 0 ? topMechanics.map((mech, index) => {
+              const color = colors[index % colors.length];
+              const width = Math.max((mech.jobs / maxJobs) * 100, 5);
+              return (
+                <div key={mech.name} className="flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center text-[12px]">
+                    <span className="font-bold text-slate-700">{mech.name}</span>
+                    <span className={`font-extrabold ${color.text}`}>{mech.jobs} Jobs</span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                    <div className={`${color.bg} h-full rounded-full transition-all duration-500`} style={{ width: `${width}%` }} />
+                  </div>
                 </div>
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className={`${color.bg} h-full rounded-full transition-all duration-500`} style={{ width: `${width}%` }} />
-                </div>
-              </div>
-            );
-          }) : (
-            <div className="col-span-4 text-slate-400 text-sm font-semibold">No completed jobs yet.</div>
-          )}
+              );
+            }) : (
+              <div className="text-slate-400 text-xs font-semibold py-6 text-center">No completed jobs recorded yet.</div>
+            )}
+          </div>
         </div>
+
       </div>
 
       {/* Live Job Cards Table Card */}
       {showLiveTable && (
-        <div className="bg-white rounded-xl shadow-xs border border-slate-100 overflow-hidden w-full flex flex-col box-border">
+        <div id="live-job-cards-table" className="bg-white rounded-xl shadow-xs border border-slate-100 overflow-hidden w-full flex flex-col box-border">
         {/* Table Header Row */}
         <div className="p-5 px-6 border-b border-slate-100 bg-slate-50/15 flex items-center justify-between flex-wrap gap-4">
           <div>
@@ -636,15 +651,13 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
               className="border border-slate-200 rounded-md py-1.5 px-3 text-xs outline-none bg-white text-slate-700 font-medium cursor-pointer focus:border-[#184edb]"
             >
               <option value="All">All Statuses</option>
+              <option value="WAITING TO ASSIGN">Unassigned</option>
               <option value="WORKING">Working</option>
               <option value="WAITING PARTS">Waiting Parts</option>
               <option value="ASSIGNED">Assigned</option>
               <option value="COMPLETED">Completed</option>
             </select>
 
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 hover:bg-slate-50 text-slate-500 cursor-pointer bg-white transition-colors">
-              <Download size={14} />
-            </button>
             <button
               onClick={handleRefresh}
               className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 hover:bg-slate-50 text-slate-500 cursor-pointer bg-white transition-colors"
@@ -766,7 +779,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
                         title="Delete Job Card"
                         className="p-1.5 bg-red-50 border border-red-100 rounded-md text-red-600 hover:bg-red-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"
                       >
-                        <Edit size={13} className="rotate-45" /> {/* Small trick to show delete/action or we can just import other icons */}
+                        <Trash2 size={13} />
                       </button>
                     </div>
                   </td>

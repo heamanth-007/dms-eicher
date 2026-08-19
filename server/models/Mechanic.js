@@ -11,6 +11,7 @@ const mechanicSchema = new mongoose.Schema({
   specialization: { type: String, required: false },
   annualSalary: { type: String, required: false },
   joiningDate: { type: String, required: false },
+  photo: { type: String, required: false },
   status: { type: String, required: true, enum: ['Available', 'Busy', 'Inactive'] },
   jobs: { type: Number, required: true }
 }, { timestamps: true });

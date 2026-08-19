@@ -13,7 +13,9 @@ const vehicleSchema = new mongoose.Schema({
   sellPrice: { type: Number, required: true },
   status: { type: String, required: true },
   stock: { type: Number, default: 0 },
-  imageUrl: { type: String, required: true }
+  imageUrl: { type: String, required: true },
+  accessoriesKit: { type: Array, default: [] },
+  accessoriesTotal: { type: Number, default: 0 }
 }, { timestamps: true });
 
 export default mongoose.model('Vehicle', vehicleSchema);

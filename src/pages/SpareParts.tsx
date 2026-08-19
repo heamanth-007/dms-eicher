@@ -19,12 +19,14 @@ import {
   Save,
   PlusCircle,
   Trash2,
+  Edit,
   Car,
   Download,
   X,
-  Search
+  Search,
+  ShoppingBag
 } from 'lucide-react';
-import { getStoredInventory, saveStoredInventory, type PartType } from '../utils/inventory';
+import { getStoredInventory, saveStoredInventory, getPendingPurchasedParts, approvePendingPurchasedPart, type PartType, type PendingPurchasedPart } from '../utils/inventory';
 
 interface SearchableDropdownInputProps {
   id: string;
@@ -142,13 +144,18 @@ export const SpareParts: React.FC = () => {
 
   const fetchParts = () => {
     const stored = getStoredInventory();
-    setParts(stored);
+    if (stored.length > 0) {
+      setParts([...stored]);
+    }
     fetch(`${API_URL}/api/parts`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
-          setParts(data);
-          saveStoredInventory(data);
+          const currentLocal = getStoredInventory();
+          if (currentLocal.length === 0) {
+            setParts(data);
+            saveStoredInventory(data);
+          }
         }
       })
       .catch(err => console.error('Error fetching parts:', err));
@@ -180,30 +187,17 @@ export const SpareParts: React.FC = () => {
   const [showValuationModal, setShowValuationModal] = useState(false);
   const [showTxnsModal, setShowTxnsModal] = useState(false);
   const [activeKpiFilter, setActiveKpiFilter] = useState<'total' | 'low' | 'out' | null>(null);
-  // Default Initial Stock History Seed Data
-  const defaultMockTransactions = [
-    { id: 'txn-101', date: 'Jul 30, 2026', time: '09:15 AM', partName: 'Ceramic Brake Pads', partNumber: 'SP-10921', category: 'Brake System', type: 'SALE', qtyIn: '-', qtyOut: 2, balance: 48, reference: '#INV-88291', updatedBy: 'J. Carter', department: 'STOREFRONT' },
-    { id: 'txn-102', date: 'Jul 30, 2026', time: '08:00 AM', partName: 'Synthetic Oil 5W-30 (1L)', partNumber: 'SP-22019', category: 'Lubricants & Fluids', type: 'PURCHASE', qtyIn: 120, qtyOut: '-', balance: 340, reference: '#PO-22105', updatedBy: 'A. Chen', department: 'WAREHOUSE' },
-    { id: 'txn-103', date: 'Jul 29, 2026', time: '04:45 PM', partName: 'NGK Platinum Spark Plug', partNumber: 'SP-44910', category: 'Electrical', type: 'ADJUSTMENT', qtyIn: '-', qtyOut: 4, balance: 86, reference: '#ADJ-901', updatedBy: 'M. Rodriguez', department: 'QC AUDIT' },
-    { id: 'txn-104', date: 'Jul 29, 2026', time: '11:20 AM', partName: 'Heavy Duty Oil Filter', partNumber: 'SP-33821', category: 'Consumables', type: 'JOB CARD', qtyIn: '-', qtyOut: 3, balance: 8, reference: '#JC-4401', updatedBy: 'R. Kumar', department: 'SERVICE BAY' },
-    { id: 'txn-105', date: 'Jul 28, 2026', time: '02:15 PM', partName: 'Commercial Truck Air Filter', partNumber: 'SP-55012', category: 'Consumables', type: 'RETURN', qtyIn: 1, qtyOut: '-', balance: 4, reference: '#RET-102', updatedBy: 'S. Sharma', department: 'RETURNS DEPT' },
-    { id: 'txn-106', date: 'Jul 28, 2026', time: '10:30 AM', partName: 'Heavy Duty Clutch Plate 380mm', partNumber: 'SP-77235', category: 'Transmission & Clutch', type: 'SALE', qtyIn: '-', qtyOut: 1, balance: 11, reference: '#INV-88285', updatedBy: 'J. Carter', department: 'STOREFRONT' },
-    { id: 'txn-107', date: 'Jul 27, 2026', time: '03:50 PM', partName: 'Front Wheel Hub Bearing', partNumber: 'SP-88346', category: 'Suspension & Steering', type: 'JOB CARD', qtyIn: '-', qtyOut: 2, balance: 0, reference: '#JC-4395', updatedBy: 'K. Singh', department: 'SERVICE BAY' },
-    { id: 'txn-108', date: 'Jul 27, 2026', time: '09:10 AM', partName: 'Halogen Headlight Bulb H4 12V', partNumber: 'SP-99457', category: 'Electrical', type: 'PURCHASE', qtyIn: 50, qtyOut: '-', balance: 150, reference: '#PO-22098', updatedBy: 'A. Chen', department: 'WAREHOUSE' }
-  ];
+  // Stock History Data
 
   const [transactionsList, setTransactionsList] = useState<any[]>(() => {
     try {
       const saved = localStorage.getItem('dms_spare_parts_transactions');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {}
-    try {
-      localStorage.setItem('dms_spare_parts_transactions', JSON.stringify(defaultMockTransactions));
-    } catch {}
-    return defaultMockTransactions;
+    return [];
   });
 
   useEffect(() => {
@@ -215,6 +209,58 @@ export const SpareParts: React.FC = () => {
     };
     window.addEventListener('dms_inventory_updated', handleTxnsUpdate);
     return () => window.removeEventListener('dms_inventory_updated', handleTxnsUpdate);
+  }, []);
+
+  // Pending Purchases Modal state
+  const [showPurchasesModal, setShowPurchasesModal] = useState(false);
+  const [pendingPurchases, setPendingPurchases] = useState<PendingPurchasedPart[]>(() => getPendingPurchasedParts());
+  const [purchasePricesInput, setPurchasePricesInput] = useState<{ [key: string]: { purchase: string; sale: string; gst: string } }>({});
+
+  const handleApproveAllPricedParts = () => {
+    if (pendingPurchases.length === 0) return;
+
+    let approvedCount = 0;
+    let skippedCount = 0;
+
+    pendingPurchases.forEach((item) => {
+      const inputState = purchasePricesInput[item.id] || { purchase: '', sale: '', gst: '18%' };
+      const purPrice = parseFloat(inputState.purchase) || 0;
+      const salePrice = parseFloat(inputState.sale) || 0;
+
+      // BOTH Purchase Price AND Sale Price are STRICTLY MANDATORY!
+      if (purPrice > 0 && salePrice > 0) {
+        approvePendingPurchasedPart(item.id, purPrice, salePrice, inputState.gst || '18%');
+        approvedCount++;
+      } else {
+        skippedCount++;
+      }
+    });
+
+    if (approvedCount > 0) {
+      const freshInv = getStoredInventory();
+      setParts([...freshInv]);
+      setPendingPurchases(getPendingPurchasedParts());
+      if (skippedCount > 0) {
+        alert(`Successfully approved ${approvedCount} purchased items into Spare Parts stock!\n\n${skippedCount} item(s) skipped because either Purchase Price or Sale Price was left empty.`);
+      } else {
+        alert(`Successfully approved all ${approvedCount} purchased items into Spare Parts stock!`);
+      }
+    } else {
+      alert('Both Purchase Price and Sale Price are MANDATORY!\nPlease enter valid values for both Purchase Price and Sale Price for the items you want to approve.');
+    }
+  };
+
+  useEffect(() => {
+    const syncPending = () => {
+      setPendingPurchases(getPendingPurchasedParts());
+    };
+    syncPending();
+    window.addEventListener('dms_pending_purchases_updated', syncPending);
+    window.addEventListener('dms_inventory_updated', syncPending);
+    return () => {
+      window.removeEventListener('dms_pending_purchases_updated', syncPending);
+      window.removeEventListener('dms_inventory_updated', syncPending);
+    };
   }, []);
 
   // History Tab Filter & Detail States
@@ -230,30 +276,7 @@ export const SpareParts: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  const defaultMockParts: PartType[] = [
-    { partNumber: 'SP-10921', partName: 'Ceramic Brake Pads', category: 'Brake System', brand: 'Bosch', hsnCode: '870830', gstPercent: '18%', purchasePrice: '₹450.00', salePrice: '₹680.00', stock: '48', stockStatus: 'normal' },
-    { partNumber: 'SP-22019', partName: 'Synthetic Oil 5W-30 (1L)', category: 'Lubricants & Fluids', brand: 'Castrol', hsnCode: '271019', gstPercent: '18%', purchasePrice: '₹320.00', salePrice: '₹490.00', stock: '340', stockStatus: 'normal' },
-    { partNumber: 'SP-33821', partName: 'Heavy Duty Oil Filter', category: 'Consumables', brand: 'Eicher Genuine', hsnCode: '842123', gstPercent: '18%', purchasePrice: '₹140.00', salePrice: '₹220.00', stock: '8', stockStatus: 'low' },
-    { partNumber: 'SP-44910', partName: 'NGK Platinum Spark Plug', category: 'Electrical', brand: 'NGK', hsnCode: '851110', gstPercent: '18%', purchasePrice: '₹180.00', salePrice: '₹290.00', stock: '86', stockStatus: 'normal' },
-    { partNumber: 'SP-55012', partName: 'Commercial Truck Air Filter', category: 'Consumables', brand: 'Mann Filter', hsnCode: '842131', gstPercent: '18%', purchasePrice: '₹550.00', salePrice: '₹890.00', stock: '4', stockStatus: 'low' },
-    { partNumber: 'SP-66124', partName: 'Eicher Diesel Fuel Injector Assembly', category: 'Engine Components', brand: 'Bosch', hsnCode: '841330', gstPercent: '28%', purchasePrice: '₹4,800.00', salePrice: '₹6,900.00', stock: '0', stockStatus: 'out' },
-    { partNumber: 'SP-77235', partName: 'Heavy Duty Clutch Plate 380mm', category: 'Transmission & Clutch', brand: 'Valeo', hsnCode: '870893', gstPercent: '28%', purchasePrice: '₹3,400.00', salePrice: '₹5,200.00', stock: '11', stockStatus: 'low' },
-    { partNumber: 'SP-88346', partName: 'Front Wheel Hub Bearing', category: 'Suspension & Steering', brand: 'SKF', hsnCode: '848210', gstPercent: '18%', purchasePrice: '₹1,250.00', salePrice: '₹1,950.00', stock: '0', stockStatus: 'out' },
-    { partNumber: 'SP-99457', partName: 'Halogen Headlight Bulb H4 12V', category: 'Electrical', brand: 'Philips', hsnCode: '853921', gstPercent: '18%', purchasePrice: '₹95.00', salePrice: '₹160.00', stock: '150', stockStatus: 'normal' },
-    { partNumber: 'SP-10568', partName: 'Hydraulic Steering Fluid 1L', category: 'Lubricants & Fluids', brand: 'Mobil', hsnCode: '271019', gstPercent: '18%', purchasePrice: '₹280.00', salePrice: '₹420.00', stock: '65', stockStatus: 'normal' },
-    { partNumber: 'SP-11679', partName: 'Radiator Coolant Premix Green', category: 'Lubricants & Fluids', brand: 'Eicher Genuine', hsnCode: '382000', gstPercent: '18%', purchasePrice: '₹210.00', salePrice: '₹340.00', stock: '3', stockStatus: 'low' },
-    { partNumber: 'SP-12780', partName: 'Front Brake Disc Rotor', category: 'Brake System', brand: 'TVS Girling', hsnCode: '870830', gstPercent: '18%', purchasePrice: '₹1,850.00', salePrice: '₹2,800.00', stock: '0', stockStatus: 'out' },
-    { partNumber: 'SP-13891', partName: 'Heavy Duty Starter Motor 24V', category: 'Electrical', brand: 'Lucas TVS', hsnCode: '851140', gstPercent: '18%', purchasePrice: '₹3,200.00', salePrice: '₹4,600.00', stock: '5', stockStatus: 'low' },
-    { partNumber: 'SP-14902', partName: 'Alternator Belt Heavy Duty', category: 'Consumables', brand: 'Gates', hsnCode: '401031', gstPercent: '18%', purchasePrice: '₹380.00', salePrice: '₹590.00', stock: '45', stockStatus: 'normal' },
-    { partNumber: 'SP-15013', partName: 'Fuel Filter Water Separator', category: 'Consumables', brand: 'Fleetguard', hsnCode: '842123', gstPercent: '18%', purchasePrice: '₹420.00', salePrice: '₹650.00', stock: '10', stockStatus: 'low' },
-    { partNumber: 'SP-16124', partName: 'Rear Shock Absorber Heavy Duty', category: 'Suspension & Steering', brand: 'Gabriel', hsnCode: '870880', gstPercent: '18%', purchasePrice: '₹1,450.00', salePrice: '₹2,200.00', stock: '18', stockStatus: 'normal' },
-    { partNumber: 'SP-17235', partName: 'Wheel Cylinder Assembly', category: 'Brake System', brand: 'TVS Girling', hsnCode: '870830', gstPercent: '18%', purchasePrice: '₹520.00', salePrice: '₹780.00', stock: '7', stockStatus: 'low' },
-    { partNumber: 'SP-18346', partName: 'Power Steering Pump Assembly', category: 'Suspension & Steering', brand: 'ZF Lenksysteme', hsnCode: '841360', gstPercent: '18%', purchasePrice: '₹4,100.00', salePrice: '₹5,900.00', stock: '2', stockStatus: 'low' },
-    { partNumber: 'SP-19457', partName: 'Turbocharger Hose Pipe', category: 'Engine Components', brand: 'Eicher Genuine', hsnCode: '400931', gstPercent: '18%', purchasePrice: '₹680.00', salePrice: '₹1,050.00', stock: '0', stockStatus: 'out' },
-    { partNumber: 'SP-20568', partName: 'Brake Drum Rear Heavy Duty', category: 'Brake System', brand: 'Knorr-Bremse', hsnCode: '870830', gstPercent: '18%', purchasePrice: '₹2,650.00', salePrice: '₹3,900.00', stock: '14', stockStatus: 'normal' }
-  ];
-
-  const displayParts = parts.length > 0 ? parts : defaultMockParts;
+  const displayParts = parts;
 
   // Auto-derived stock status helper: Qty < 12 is Low Stock!
   const getDerivedStatus = (p: PartType): 'normal' | 'low' | 'out' => {
@@ -429,16 +452,18 @@ export const SpareParts: React.FC = () => {
       });
   };
 
-  const handleDeletePart = () => {
-    if (!editingPart) return;
-    if (window.confirm(`Are you sure you want to delete spare part ${editingPart}?`)) {
+  const handleDeletePart = (pNum?: string, pName?: string) => {
+    const targetNum = pNum || editingPart;
+    if (!targetNum) return;
+    const labelName = pName ? `"${pName}" (${targetNum})` : targetNum;
+    if (window.confirm(`Are you sure you want to delete spare part ${labelName}?`)) {
       const currentInv = getStoredInventory();
-      const updatedInv = currentInv.filter(p => p.partNumber !== editingPart);
+      const updatedInv = currentInv.filter(p => p.partNumber !== targetNum);
       saveStoredInventory(updatedInv);
       setParts(updatedInv);
-      setEditingPart(null);
+      if (editingPart === targetNum) setEditingPart(null);
 
-      fetch(`${API_URL}/api/parts/${editingPart}`, {
+      fetch(`${API_URL}/api/parts/${targetNum}`, {
         method: 'DELETE'
       })
         .then(() => {
@@ -1593,6 +1618,19 @@ export const SpareParts: React.FC = () => {
                 <span>Export Excel</span>
               </button>
               <button
+                type="button"
+                onClick={() => setShowPurchasesModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-[13.5px] border-none shadow-sm cursor-pointer transition-colors relative"
+              >
+                <ShoppingBag size={16} />
+                <span>Purchases</span>
+                {pendingPurchases.length > 0 && (
+                  <span className="bg-rose-600 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full ml-1 animate-pulse">
+                    {pendingPurchases.length}
+                  </span>
+                )}
+              </button>
+              <button
                 onClick={() => setIsAdding(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-[#184edb] hover:bg-[#143eb3] text-white font-bold rounded-lg text-[13.5px] border-none shadow-sm cursor-pointer transition-colors"
               >
@@ -1644,12 +1682,13 @@ export const SpareParts: React.FC = () => {
                     <th className="py-4.5 px-5 select-none font-bold">PURCHASE PRICE</th>
                     <th className="py-4.5 px-5 select-none font-bold">SALE PRICE</th>
                     <th className="py-4.5 px-6 select-none font-bold">STOCK</th>
+                    <th className="py-4.5 px-6 select-none font-bold text-center">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-[14px]">
                   {paginatedParts.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-slate-400 font-semibold bg-white">
+                      <td colSpan={9} className="py-12 text-center text-slate-400 font-semibold bg-white">
                         No spare parts found matching the selected status or brand filters.
                       </td>
                     </tr>
@@ -1709,6 +1748,28 @@ export const SpareParts: React.FC = () => {
                             >
                               {part.stock} Units {effectiveStatus === 'low' ? '(Low Stock)' : effectiveStatus === 'out' ? '(Out of Stock)' : ''}
                             </span>
+                          </td>
+
+                          {/* Actions: Edit & Delete */}
+                          <td className="py-4.5 px-6 whitespace-nowrap text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setEditingPart(part.partNumber)}
+                                title="Edit Spare Part"
+                                className="p-1.5 hover:bg-blue-50 text-[#184edb] rounded-lg border border-blue-100 transition-colors cursor-pointer"
+                              >
+                                <Edit size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeletePart(part.partNumber, part.partName)}
+                                title="Delete Spare Part"
+                                className="p-1.5 hover:bg-rose-50 text-rose-600 rounded-lg border border-rose-100 transition-colors cursor-pointer"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -2069,6 +2130,140 @@ export const SpareParts: React.FC = () => {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* PURCHASES PRICE ENTRY & APPROVAL MODAL */}
+      {showPurchasesModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn text-left">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden shadow-2xl flex flex-col border border-slate-100">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div>
+                <h2 className="text-lg font-extrabold text-slate-800 m-0 flex items-center gap-2">
+                  <ShoppingBag className="text-amber-500" size={20} />
+                  Purchased Products - Price Entry & Approval
+                </h2>
+                <span className="text-xs text-slate-400 font-semibold">
+                  {pendingPurchases.length} Purchased items waiting for price approval to be added into Spare Parts stock
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                {pendingPurchases.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleApproveAllPricedParts}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer border-none shadow-sm flex items-center gap-1.5"
+                  >
+                    <span>Approve All (Priced Only)</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowPurchasesModal(false)}
+                  className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:text-slate-800 cursor-pointer transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-5 overflow-y-auto flex-1">
+              {pendingPurchases.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 font-semibold flex flex-col items-center gap-2">
+                  <ShoppingBag size={32} className="text-slate-300" />
+                  <span>No pending purchased products waiting for price entry.</span>
+                  <span className="text-xs text-slate-400 font-normal">
+                    When you purchase new stock in the Purchase page, items will appear here for price set.
+                  </span>
+                </div>
+              ) : (
+                <table className="w-full border-collapse text-left text-xs">
+                  <thead>
+                    <tr className="bg-slate-100/70 text-slate-500 font-extrabold uppercase text-[10.5px] border-b border-slate-200">
+                      <th className="py-3 px-3">PO Ref</th>
+                      <th className="py-3 px-3">Part Name & Code</th>
+                      <th className="py-3 px-3 text-center">Purchased Qty</th>
+                      <th className="py-3 px-3">Purchase Price (₹) <span className="text-rose-500 font-bold">*</span></th>
+                      <th className="py-3 px-3">Sale Price (₹) <span className="text-rose-500 font-bold">*</span></th>
+                      <th className="py-3 px-3 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {pendingPurchases.map((item) => {
+                      const inputState = purchasePricesInput[item.id] || { purchase: '', sale: '', gst: '18%' };
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-3.5 px-3 font-bold text-amber-600 whitespace-nowrap">
+                            #{item.poRef}
+                            <span className="block text-[10px] text-slate-400 font-normal">{item.date}</span>
+                          </td>
+                          <td className="py-3.5 px-3 font-bold text-slate-800">
+                            {item.partName}
+                            <span className="block text-[11px] font-mono text-slate-400 font-normal">{item.partNumber}</span>
+                          </td>
+                          <td className="py-3.5 px-3 text-center font-extrabold text-blue-600 text-sm whitespace-nowrap">
+                            +{item.qty} Units
+                          </td>
+                          <td className="py-3.5 px-3">
+                            <input
+                              type="text"
+                              placeholder="Purchase ₹"
+                              value={inputState.purchase}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[^0-9.]/g, '');
+                                setPurchasePricesInput(prev => ({
+                                  ...prev,
+                                  [item.id]: { ...inputState, purchase: val }
+                                }));
+                              }}
+                              className="w-28 px-2.5 py-1.5 border border-slate-200 rounded-md text-xs font-semibold text-slate-800 outline-none focus:border-[#184edb]"
+                            />
+                          </td>
+                          <td className="py-3.5 px-3">
+                            <input
+                              type="text"
+                              placeholder="Sale ₹"
+                              value={inputState.sale}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[^0-9.]/g, '');
+                                setPurchasePricesInput(prev => ({
+                                  ...prev,
+                                  [item.id]: { ...inputState, sale: val }
+                                }));
+                              }}
+                              className="w-28 px-2.5 py-1.5 border border-slate-200 rounded-md text-xs font-semibold text-slate-800 outline-none focus:border-[#184edb]"
+                            />
+                          </td>
+                          <td className="py-3.5 px-3 text-center whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const purPrice = parseFloat(inputState.purchase) || 0;
+                                const salePrice = parseFloat(inputState.sale) || 0;
+                                if (purPrice <= 0 || salePrice <= 0) {
+                                  alert('Both Purchase Price (₹) and Sale Price (₹) are MANDATORY!\nPlease enter valid values for BOTH prices before approving into stock.');
+                                  return;
+                                }
+                                approvePendingPurchasedPart(item.id, purPrice, salePrice, inputState.gst || '18%');
+                                const freshInv = getStoredInventory();
+                                setParts([...freshInv]);
+                                setPendingPurchases(getPendingPurchasedParts());
+                                alert(`Purchased item "${item.partName}" (Purchase: ₹${purPrice.toFixed(2)}, Sale: ₹${salePrice.toFixed(2)}) approved into Spare Parts inventory!`);
+                              }}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer border-none shadow-sm"
+                            >
+                              Approve & Add to Stock
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>

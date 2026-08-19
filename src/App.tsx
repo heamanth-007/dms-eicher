@@ -100,41 +100,18 @@ function App() {
       const saved = localStorage.getItem('dms_suppliers_list');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
     } catch (e) { }
-    return [
-      {
-        id: 'SUP-6496',
-        name: 'sheasan',
-        gstNumber: '87DD4AD',
-        phone: '8895484621',
-        email: 'HDJNSUjd@ygd.com',
-        outstanding: '₹85,548.00',
-        isOutstandingPositive: true,
-        status: 'ACTIVE'
-      },
-      {
-        id: 'SUP-6212',
-        name: 'vj enterprises',
-        gstNumber: 'sds87s54d8sd',
-        phone: '5498549858',
-        email: 'hsdgfv@tyfgd.com',
-        outstanding: '₹7,845.00',
-        isOutstandingPositive: true,
-        status: 'ACTIVE'
-      }
-    ];
+    return [];
   });
 
   // Automatically sync suppliersList to localStorage
   useEffect(() => {
     try {
-      if (suppliersList && suppliersList.length > 0) {
-        localStorage.setItem('dms_suppliers_list', JSON.stringify(suppliersList));
-      }
+      localStorage.setItem('dms_suppliers_list', JSON.stringify(suppliersList));
     } catch (e) { }
   }, [suppliersList]);
 
@@ -276,6 +253,7 @@ function App() {
               sales={salesRecords}
               setSales={setSalesRecords}
               onCustomerClick={navigateToCustomer}
+              companySettings={companySettings}
             />
           ) : activeTab === 'service' ? (
             <ServiceDashboard

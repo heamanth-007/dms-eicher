@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { INDIAN_STATES_DISTRICTS, getDistrictsForState, formatPhone10Digits } from '../utils/indianStatesDistricts';
 import {
   Building2,
   MapPin,
@@ -352,22 +353,33 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onSettingsUpdated })
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-bold text-[#475569]">City</label>
-            <input
-              type="text"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              className="w-full px-4 py-2.5 bg-white border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] font-medium focus:outline-none focus:border-[#184edb]"
-            />
+            <label className="text-[12px] font-bold text-[#475569]">State</label>
+            <select
+              value={stateName}
+              onChange={(e) => {
+                const selState = e.target.value;
+                setStateName(selState);
+                const dists = getDistrictsForState(selState);
+                setCity(dists[0] || '');
+              }}
+              className="w-full px-4 py-2.5 bg-white border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] font-medium focus:outline-none focus:border-[#184edb] cursor-pointer"
+            >
+              {INDIAN_STATES_DISTRICTS.map(st => (
+                <option key={st.state} value={st.state}>{st.state}</option>
+              ))}
+            </select>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-bold text-[#475569]">State</label>
-            <input
-              type="text"
-              value={stateName}
-              onChange={(e) => setStateName(e.target.value)}
-              className="w-full px-4 py-2.5 bg-white border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] font-medium focus:outline-none focus:border-[#184edb]"
-            />
+            <label className="text-[12px] font-bold text-[#475569]">City / District</label>
+            <select
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              className="w-full px-4 py-2.5 bg-white border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] font-medium focus:outline-none focus:border-[#184edb] cursor-pointer"
+            >
+              {getDistrictsForState(stateName).map(dist => (
+                <option key={dist} value={dist}>{dist}</option>
+              ))}
+            </select>
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-[12px] font-bold text-[#475569]">PIN Code</label>
@@ -393,8 +405,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onSettingsUpdated })
             <label className="text-[12px] font-bold text-[#475569]">Mobile Number</label>
             <input
               type="text"
+              maxLength={10}
               value={mobileNumber}
-              onChange={(e) => setMobileNumber(e.target.value.replace(/[^0-9]/g, ''))}
+              onChange={(e) => setMobileNumber(formatPhone10Digits(e.target.value))}
+              placeholder="10-digit mobile number"
               className="w-full px-4 py-2.5 bg-white border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] font-medium focus:outline-none focus:border-[#184edb]"
             />
           </div>
@@ -402,8 +416,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onSettingsUpdated })
             <label className="text-[12px] font-bold text-[#475569]">Phone Number</label>
             <input
               type="text"
+              maxLength={10}
               value={phoneNum}
-              onChange={(e) => setPhoneNum(e.target.value.replace(/[^0-9]/g, ''))}
+              onChange={(e) => setPhoneNum(formatPhone10Digits(e.target.value))}
+              placeholder="10-digit phone number"
               className="w-full px-4 py-2.5 bg-white border border-[#cbd5e1] rounded-lg text-[13.5px] text-[#0f172a] font-medium focus:outline-none focus:border-[#184edb]"
             />
           </div>

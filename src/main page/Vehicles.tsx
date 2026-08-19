@@ -60,7 +60,7 @@ export const Vehicles: React.FC = () => {
     fetch(`${API_URL}/api/vehicles`)
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           setVehicles(data);
         } else {
           setFallbackVehicles();
@@ -74,64 +74,7 @@ export const Vehicles: React.FC = () => {
   }, []);
 
   const setFallbackVehicles = () => {
-    setVehicles([
-      {
-        id: '#VEH-8921',
-        modelName: 'Eicher Pro 6028',
-        type: 'Heavy Duty Truck',
-        condition: 'Brand New',
-        engineNo: 'E694-TIC-12',
-        chassisNo: 'MC26028X1Y0034',
-        colorName: 'Arctic White',
-        colorHex: '#ffffff',
-        price: 42500,
-        sellPrice: 48200,
-        status: 'Available',
-        imageUrl: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=400'
-      },
-      {
-        id: '#VEH-7742',
-        modelName: 'Volvo 9400 B11R',
-        type: 'Coach Bus',
-        condition: 'Pre-booked',
-        engineNo: 'D11C-410-EU5',
-        chassisNo: 'VLB11R4X2Y8822',
-        colorName: 'Midnight Blue',
-        colorHex: '#1d4ed8',
-        price: 185000,
-        sellPrice: 210000,
-        status: 'Reserved',
-        imageUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&q=80&w=400'
-      },
-      {
-        id: '#VEH-4410',
-        modelName: 'Eicher Pro 2049',
-        type: 'LCV',
-        condition: 'Service Mode',
-        engineNo: 'E366-2L-BS6',
-        chassisNo: 'EC2049L3M9102',
-        colorName: 'Silver Metallic',
-        colorHex: '#94a3b8',
-        price: 22400,
-        sellPrice: 26100,
-        status: 'In Service',
-        imageUrl: 'https://images.unsplash.com/photo-1516576885230-101c434d6849?auto=format&fit=crop&q=80&w=400'
-      },
-      {
-        id: '#VEH-1109',
-        modelName: 'Eicher Pro 8031XM',
-        type: 'Tipper Truck',
-        condition: 'Sold Out',
-        engineNo: 'VEDX8-BS6-350',
-        chassisNo: 'T8031XM9Z2200',
-        colorName: 'Traffic Yellow',
-        colorHex: '#eab308',
-        price: 98000,
-        sellPrice: 112000,
-        status: 'Sold',
-        imageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=400'
-      }
-    ]);
+    setVehicles([]);
   };
 
   const handleAddVehicle = (e: React.FormEvent) => {

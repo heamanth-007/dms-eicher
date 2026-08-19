@@ -9,7 +9,7 @@ const jobCardSchema = new mongoose.Schema({
   complaintSummary: { type: String, required: true },
   mechanicName: { type: String, required: false },
   mechanicInitials: { type: String, required: false },
-  status: { type: String, required: true, enum: ['WORKING', 'WAITING PARTS', 'ASSIGNED', 'COMPLETED'] },
+  status: { type: String, required: true, default: 'OPEN' },
   expectedDelivery: { type: String, required: true },
   isDelayed: { type: Boolean, default: false },
   readyForPickup: { type: Boolean, default: false },

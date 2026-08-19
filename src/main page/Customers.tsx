@@ -57,14 +57,14 @@ export const Customers: React.FC<CustomersProps> = ({ selectedCustomerName, clea
         setIsAddingCustomer(false);
       } else {
         const tempCustomer: CustomerType = {
-          id: '#CUST-9921',
+          id: `#CUST-${Math.floor(1000 + Math.random() * 9000)}`,
           name: selectedCustomerName,
           avatar: selectedCustomerName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
           avatarBg: 'bg-indigo-100 text-indigo-600',
-          phone: '+91 98765 43210',
-          district: 'Central Valley',
-          vehicles: 1,
-          lastService: 'Oct 24, 2023',
+          phone: '',
+          district: 'N/A',
+          vehicles: 0,
+          lastService: 'None',
           outstanding: '₹0.00',
           status: 'ACTIVE'
         };

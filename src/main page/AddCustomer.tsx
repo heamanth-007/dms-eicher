@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { INDIAN_STATES_DISTRICTS, getDistrictsForState, formatPhone10Digits } from '../utils/indianStatesDistricts';
 import { 
   User, 
   MapPin, 
@@ -41,8 +42,8 @@ export const AddCustomer: React.FC<AddCustomerProps> = ({ customers = [], onBack
 
   // Section 2: Address Information
   const [streetAddress, setStreetAddress] = useState('');
-  const [district, setDistrict] = useState('');
-  const [state, setState] = useState('');
+  const [state, setState] = useState('Tamil Nadu');
+  const [district, setDistrict] = useState(INDIAN_STATES_DISTRICTS[0].districts[0]);
   const [pincode, setPincode] = useState('');
 
 
@@ -161,10 +162,11 @@ export const AddCustomer: React.FC<AddCustomerProps> = ({ customers = [], onBack
                 <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Phone Number*</label>
                 <input 
                   type="text" 
+                  maxLength={10}
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                  onChange={(e) => setPhoneNumber(formatPhone10Digits(e.target.value))}
                   required
-                  placeholder="XXXXXXXXXX"
+                  placeholder="10-digit mobile number"
                   className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700 placeholder-slate-400"
                 />
               </div>
@@ -173,9 +175,10 @@ export const AddCustomer: React.FC<AddCustomerProps> = ({ customers = [], onBack
                 <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Alternate Phone Number</label>
                 <input 
                   type="text" 
+                  maxLength={10}
                   value={alternatePhone}
-                  onChange={(e) => setAlternatePhone(e.target.value.replace(/[^0-9]/g, ''))}
-                  placeholder="XXXXXXXXXX"
+                  onChange={(e) => setAlternatePhone(formatPhone10Digits(e.target.value))}
+                  placeholder="10-digit mobile number"
                   className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700 placeholder-slate-400"
                 />
               </div>
@@ -206,9 +209,10 @@ export const AddCustomer: React.FC<AddCustomerProps> = ({ customers = [], onBack
                 <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Aadhaar Number (Optional)</label>
                 <input 
                   type="text" 
+                  maxLength={12}
                   value={aadhaarNumber}
-                  onChange={(e) => setAadhaarNumber(e.target.value)}
-                  placeholder="0000 0000 0000"
+                  onChange={(e) => setAadhaarNumber(e.target.value.replace(/[^0-9]/g, '').slice(0, 12))}
+                  placeholder="12-digit Aadhaar number"
                   className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700 placeholder-slate-400 font-mono"
                 />
               </div>
@@ -237,29 +241,33 @@ export const AddCustomer: React.FC<AddCustomerProps> = ({ customers = [], onBack
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">District</label>
-                <input 
-                  type="text" 
-                  value={district}
-                  onChange={(e) => setDistrict(e.target.value)}
-                  placeholder="District"
-                  className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700 placeholder-slate-400"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">State</label>
                 <select 
                   value={state}
-                  onChange={(e) => setState(e.target.value)}
-                  className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-semibold text-slate-700 w-full"
+                  onChange={(e) => {
+                    const selState = e.target.value;
+                    setState(selState);
+                    const dists = getDistrictsForState(selState);
+                    setDistrict(dists[0] || '');
+                  }}
+                  className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-semibold text-slate-700 w-full cursor-pointer"
                 >
-                  <option value="">Select State</option>
-                  <option value="Rajasthan">Rajasthan</option>
-                  <option value="Maharashtra">Maharashtra</option>
-                  <option value="Karnataka">Karnataka</option>
-                  <option value="Delhi">Delhi</option>
-                  <option value="Tamil Nadu">Tamil Nadu</option>
+                  {INDIAN_STATES_DISTRICTS.map(st => (
+                    <option key={st.state} value={st.state}>{st.state}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">District</label>
+                <select 
+                  value={district}
+                  onChange={(e) => setDistrict(e.target.value)}
+                  className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-semibold text-slate-700 w-full cursor-pointer"
+                >
+                  {getDistrictsForState(state).map(dist => (
+                    <option key={dist} value={dist}>{dist}</option>
+                  ))}
                 </select>
               </div>
 
@@ -267,9 +275,10 @@ export const AddCustomer: React.FC<AddCustomerProps> = ({ customers = [], onBack
                 <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Pincode</label>
                 <input 
                   type="text" 
+                  maxLength={6}
                   value={pincode}
-                  onChange={(e) => setPincode(e.target.value)}
-                  placeholder="400001"
+                  onChange={(e) => setPincode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                  placeholder="6-digit Pincode"
                   className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700 placeholder-slate-400"
                 />
               </div>

@@ -57,7 +57,7 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
   suppliersList,
   onBack
 }) => {
-  const [ledgerSupplier, setLedgerSupplier] = useState('Global Parts Corp.');
+  const [ledgerSupplier, setLedgerSupplier] = useState('');
   const [ledgerDateRange, setLedgerDateRange] = useState('');
   const [ledgerTxType, setLedgerTxType] = useState('All Transactions');
 
@@ -74,56 +74,7 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
   // Selected Reference No Modal State
   const [selectedLedgerRef, setSelectedLedgerRef] = useState<LedgerTransaction | null>(null);
 
-  const [transactions] = useState<LedgerTransaction[]>([
-    {
-      id: 'tx-1',
-      date: '01/10/2023',
-      referenceNo: '-',
-      type: 'BALANCE',
-      description: 'Opening Balance Forwarded',
-      debit: 0,
-      credit: 0,
-      balance: 15400,
-      paymentMode: '-',
-      remarks: 'Forwarded from FY22'
-    },
-    {
-      id: 'tx-2',
-      date: '05/10/2023',
-      referenceNo: 'PUR-2023-0982',
-      type: 'PURCHASE',
-      description: 'Engine Spares & Gaskets Set (50 units)',
-      debit: 8500,
-      credit: 0,
-      balance: 23900,
-      paymentMode: 'Credit Account',
-      remarks: 'Due in 30 days'
-    },
-    {
-      id: 'tx-3',
-      date: '10/10/2023',
-      referenceNo: 'PAY-9921-X',
-      type: 'PAYMENT',
-      description: 'Partial Settlement against INV-8821',
-      debit: 0,
-      credit: 10000,
-      balance: 13900,
-      paymentMode: 'Bank Transfer',
-      remarks: 'Reference: TXN0021'
-    },
-    {
-      id: 'tx-4',
-      date: '15/10/2023',
-      referenceNo: 'CN-2023-014',
-      type: 'CREDIT NOTE',
-      description: 'Damaged Filters Return Credit',
-      debit: 0,
-      credit: 1500,
-      balance: 12400,
-      paymentMode: 'Adjustment',
-      remarks: 'Approved by Manager'
-    }
-  ]);
+  const [transactions] = useState<LedgerTransaction[]>([]);
 
   useEffect(() => {
     if (selectedSupplier) {
@@ -528,33 +479,7 @@ export const SupplierLedger: React.FC<SupplierLedgerProps> = ({
           </table>
         </div>
 
-        {/* Date & Payment Summary Note Bar */}
-        <div className="bg-slate-50 border border-slate-200/90 rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-slate-700 my-2">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Transaction Date:</span>
-            <span className="font-extrabold text-slate-800">{po.date || 'N/A'}</span>
-          </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Amount Paid ({po.paymentMode || 'Cash'}):</span>
-            <span className="font-extrabold text-emerald-700">₹{paidVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Balance Remaining:</span>
-            <span className="font-extrabold text-rose-600">₹{balanceVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-          </div>
-
-          <span className={`text-[10.5px] font-extrabold px-2.5 py-0.5 rounded-full uppercase ${
-            statusTag === 'PAID'
-              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-              : statusTag === 'PARTIAL'
-              ? 'bg-amber-100 text-amber-800 border border-amber-200'
-              : 'bg-rose-100 text-rose-800 border border-rose-200'
-          }`}>
-            Status: {statusTag}
-          </span>
-        </div>
 
         {/* Bottom Instructions and Totals */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start mt-1">

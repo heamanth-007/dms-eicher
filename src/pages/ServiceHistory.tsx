@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, 
   Printer, 
@@ -38,8 +38,21 @@ interface HistoryRecord {
 }
 
 export const ServiceHistory: React.FC<ServiceHistoryProps> = ({ onBack, searchTerm, jobCards: propJobCards, onDeleteJc }) => {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const [timeFilter, setTimeFilter] = useState('Last 30 Days');
   const [mechanicFilter, setMechanicFilter] = useState('All Mechanics');
+  const [mechanicsList, setMechanicsList] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/mechanics`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setMechanicsList(data);
+        }
+      })
+      .catch(err => console.error('Error fetching mechanics in ServiceHistory:', err));
+  }, [API_URL]);
 
   const historyList: HistoryRecord[] = (propJobCards && propJobCards.length > 0)
     ? propJobCards.filter(jc => jc.status === 'COMPLETED').map(jc => ({
@@ -208,10 +221,17 @@ export const ServiceHistory: React.FC<ServiceHistoryProps> = ({ onBack, searchTe
               onChange={(e) => setMechanicFilter(e.target.value)}
               className="appearance-none bg-slate-50 border border-slate-200 rounded-lg py-2 pl-4 pr-10 text-xs text-slate-650 font-bold cursor-pointer outline-none focus:border-[#184edb]"
             >
-              <option>All Mechanics</option>
-              <option>Suresh Raina</option>
-              <option>Amit Mishra</option>
-              <option>Vikram Singh</option>
+              <option value="All Mechanics">All Mechanics</option>
+              {mechanicsList.map(m => (
+                <option key={m.id || m._id} value={m.name}>{m.name}</option>
+              ))}
+              {mechanicsList.length === 0 && (
+                <>
+                  <option value="Suresh Raina">Suresh Raina</option>
+                  <option value="Amit Mishra">Amit Mishra</option>
+                  <option value="Vikram Singh">Vikram Singh</option>
+                </>
+              )}
             </select>
             <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 pointer-events-none">
               <ChevronDown size={12} />
