@@ -34,7 +34,8 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
   onNewJobCard,
   onViewJcDetails,
   searchTerm,
-  jobCards: propJobCards
+  jobCards: propJobCards,
+  onHandoffComplete
 }) => {
   const [showTable, setShowTable] = useState(true);
   const [addingPartsJc, setAddingPartsJc] = useState<any>(null);
@@ -369,7 +370,7 @@ export const OpenJobCards: React.FC<OpenJobCardsProps> = ({
                         onClick={() => {
                           setAssigningJc(jc);
                           setSelectedMechanicId('');
-                          setExpectedDeliveryDate(jc.expectedDelivery || 'Today, 05:00 PM');
+                          setExpectedDeliveryDate((jc as any).expectedDelivery || 'Today, 05:00 PM');
                         }}
                         title="Assign Mechanic"
                         className="p-1.5 bg-cyan-50 border border-cyan-100 rounded-md text-cyan-600 hover:bg-cyan-100 cursor-pointer flex items-center justify-center transition-colors shadow-xs"

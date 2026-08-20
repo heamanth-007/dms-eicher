@@ -40,7 +40,6 @@ export const AddCustomer: React.FC<AddCustomerProps> = ({ customers = [], onBack
   const [phoneNumber, setPhoneNumber] = useState('');
   const [alternatePhone, setAlternatePhone] = useState('');
   const [emailAddress, setEmailAddress] = useState('');
-  const [gstNumber, setGstNumber] = useState('');
   const [aadhaarNumber, setAadhaarNumber] = useState('');
 
   // Section 2: Address Information
@@ -68,7 +67,15 @@ export const AddCustomer: React.FC<AddCustomerProps> = ({ customers = [], onBack
       avatar: fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
       avatarBg: 'bg-blue-100 text-blue-600',
       phone: phoneNumber,
+      alternatePhone: alternatePhone || '',
+      email: emailAddress || '',
+      emailAddress: emailAddress || '',
+      aadhaarNumber: aadhaarNumber || '',
+      streetAddress: streetAddress || '',
+      address: streetAddress || '',
+      state: state || 'Tamil Nadu',
       district: district || 'Main District',
+      pincode: pincode || '',
       vehicles: 0,
       lastService: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       outstanding: '₹0.00',
@@ -197,18 +204,7 @@ export const AddCustomer: React.FC<AddCustomerProps> = ({ customers = [], onBack
                 />
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">GST Number</label>
-                <input 
-                  type="text" 
-                  value={gstNumber}
-                  onChange={(e) => setGstNumber(e.target.value)}
-                  placeholder="22AAAAA0000A1Z5"
-                  className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700 placeholder-slate-400 font-mono"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5 md:col-span-2">
                 <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Aadhaar Number (Optional)</label>
                 <input 
                   type="text" 

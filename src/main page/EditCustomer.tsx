@@ -57,7 +57,13 @@ export const EditCustomer: React.FC<EditCustomerProps> = ({ customer, onBack, on
       ...customer,
       name: fullName,
       phone: updatedPhone,
+      email: emailAddress,
+      emailAddress: emailAddress,
+      streetAddress: streetAddress,
+      address: streetAddress,
+      state: state,
       district: district,
+      pincode: pincode,
       status: lifecycleState
     };
 

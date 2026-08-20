@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getStoredInventory, deductInventoryStock, type PartType } from '../utils/inventory';
 import {
   Search,
   Plus,
@@ -31,8 +32,8 @@ import {
 export interface AccessoryItem {
   id: string;
   name: string;
-  qty: number;
-  price: number;
+  qty: number | string;
+  price: number | string;
   total: number;
 }
 
@@ -56,7 +57,140 @@ interface VehicleType {
   accessoriesTotal?: number;
 }
 
+interface AccessoryInputCellProps {
+  id?: string;
+  value: string;
+  onChange: (val: string) => void;
+  onSelectPart: (part: PartType) => void;
+  onEnterNext?: () => void;
+  inventoryParts: PartType[];
+}
+
+const AccessoryInputCell: React.FC<AccessoryInputCellProps> = ({
+  id,
+  value,
+  onChange,
+  onSelectPart,
+  onEnterNext,
+  inventoryParts
+}) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [highlightedIndex, setHighlightedIndex] = React.useState(0);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const query = value.trim().toLowerCase();
+
+  const matchingParts = query
+    ? inventoryParts.filter(p => {
+        const pName = p.partName.toLowerCase();
+        const pNum = p.partNumber.toLowerCase();
+        return pName.startsWith(query) || pNum.startsWith(query) || pName.includes(query) || pNum.includes(query);
+      }).sort((a, b) => {
+        const aName = a.partName.toLowerCase();
+        const bName = b.partName.toLowerCase();
+        const aStarts = aName.startsWith(query);
+        const bStarts = bName.startsWith(query);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+        return 0;
+      })
+    : [];
+
+  return (
+    <div className="relative w-full text-left" ref={containerRef}>
+      <input
+        id={id}
+        type="text"
+        placeholder="Type spare part name..."
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setIsOpen(true);
+          setHighlightedIndex(0);
+        }}
+        onFocus={() => {
+          if (value.trim()) {
+            setIsOpen(true);
+            setHighlightedIndex(0);
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlightedIndex(prev => (matchingParts.length > 0 ? (prev + 1) % matchingParts.length : 0));
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightedIndex(prev => (matchingParts.length > 0 ? (prev - 1 + matchingParts.length) % matchingParts.length : 0));
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (isOpen && matchingParts.length > 0) {
+              const selected = matchingParts[highlightedIndex] || matchingParts[0];
+              onSelectPart(selected);
+              setIsOpen(false);
+            } else if (onEnterNext) {
+              onEnterNext();
+            }
+          } else if (e.key === 'Escape') {
+            setIsOpen(false);
+          }
+        }}
+        className="w-full px-3 py-1.5 text-[13px] bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb]"
+        autoComplete="off"
+      />
+
+      {isOpen && query && matchingParts.length > 0 && (
+        <div className="absolute top-[100%] left-0 right-0 mt-1 bg-white border border-blue-200 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto box-border p-1 divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-100">
+          {matchingParts.map((p, idx) => {
+            const isHighlighted = idx === highlightedIndex;
+            return (
+              <div
+                key={p.partNumber}
+                onClick={() => {
+                  onSelectPart(p);
+                  setIsOpen(false);
+                }}
+                onMouseEnter={() => setHighlightedIndex(idx)}
+                className={`p-2.5 cursor-pointer text-xs flex justify-between items-center transition-colors rounded-md ${
+                  isHighlighted ? 'bg-[#184edb] text-white' : 'hover:bg-blue-50 text-slate-800'
+                }`}
+              >
+                <div className="flex flex-col text-left">
+                  <span className={`font-bold ${isHighlighted ? 'text-white' : 'text-slate-800'}`}>{p.partName}</span>
+                  <span className={`text-[10.5px] font-semibold ${isHighlighted ? 'text-blue-100' : 'text-slate-500'}`}>
+                    Part No: {p.partNumber}
+                  </span>
+                </div>
+                <span className={`font-extrabold px-2 py-1 rounded border whitespace-nowrap ${
+                  isHighlighted ? 'bg-blue-600 text-white border-blue-400' : 'bg-blue-50 text-[#184edb] border-blue-100'
+                }`}>{p.salePrice}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const VehicleInventory: React.FC = () => {
+  const [inventoryParts, setInventoryParts] = useState<PartType[]>(() => getStoredInventory());
+
+  useEffect(() => {
+    const handleInvUpdate = () => setInventoryParts(getStoredInventory());
+    window.addEventListener('dms_inventory_updated', handleInvUpdate);
+    return () => window.removeEventListener('dms_inventory_updated', handleInvUpdate);
+  }, []);
+
   const [isEditing, setIsEditing] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [viewingDetails, setViewingDetails] = useState(false);
@@ -84,17 +218,26 @@ export const VehicleInventory: React.FC = () => {
 
   const editAccessoriesTotal = editAccessories.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
 
-  const handleAddEditAccessory = () => {
+  const handleAddEditAccessory = (customId?: string) => {
+    const newId = customId || Date.now().toString();
     setEditAccessories(prev => [
       ...prev,
-      { id: Date.now().toString(), name: '', qty: 1, price: 0, total: 0 }
+      { id: newId, name: '', qty: 1, price: 0, total: 0 }
     ]);
+    return newId;
   };
 
   const handleUpdateEditAccessory = (id: string, field: 'name' | 'qty' | 'price', value: any) => {
     setEditAccessories(prev => prev.map(item => {
       if (item.id === id) {
         const updated = { ...item, [field]: value };
+        if (field === 'name') {
+          const match = inventoryParts.find(p => p.partName.toLowerCase() === String(value).toLowerCase() || p.partNumber.toLowerCase() === String(value).toLowerCase());
+          if (match) {
+            const parsedPrice = parseFloat(match.salePrice.replace(/[^0-9.]/g, '')) || 0;
+            updated.price = parsedPrice;
+          }
+        }
         const qty = Number(updated.qty) || 0;
         const price = Number(updated.price) || 0;
         updated.total = qty * price;
@@ -119,27 +262,32 @@ export const VehicleInventory: React.FC = () => {
   const [regSellingPrice, setRegSellingPrice] = useState('');
   const [regStock, setRegStock] = useState('1');
 
-  // Standard Accessories Kit state
-  const DEFAULT_ACCESSORIES_KIT: AccessoryItem[] = [
-    { id: '1', name: 'Mats', qty: 1, price: 3760, total: 3760 },
-    { id: '2', name: 'Mud Flaps', qty: 1, price: 4000, total: 4000 },
-    { id: '3', name: 'Basic Toolkit', qty: 1, price: 30000, total: 30000 },
-  ];
+  // Standard Accessories Kit state - initially empty
+  const DEFAULT_ACCESSORIES_KIT: AccessoryItem[] = [];
   const [regAccessories, setRegAccessories] = useState<AccessoryItem[]>(DEFAULT_ACCESSORIES_KIT);
 
   const regAccessoriesTotal = regAccessories.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
 
-  const handleAddAccessory = () => {
+  const handleAddAccessory = (customId?: string) => {
+    const newId = customId || Date.now().toString();
     setRegAccessories(prev => [
       ...prev,
-      { id: Date.now().toString(), name: '', qty: 1, price: 0, total: 0 }
+      { id: newId, name: '', qty: 1, price: 0, total: 0 }
     ]);
+    return newId;
   };
 
   const handleUpdateAccessory = (id: string, field: 'name' | 'qty' | 'price', value: any) => {
     setRegAccessories(prev => prev.map(item => {
       if (item.id === id) {
         const updated = { ...item, [field]: value };
+        if (field === 'name') {
+          const match = inventoryParts.find(p => p.partName.toLowerCase() === String(value).toLowerCase() || p.partNumber.toLowerCase() === String(value).toLowerCase());
+          if (match) {
+            const parsedPrice = parseFloat(match.salePrice.replace(/[^0-9.]/g, '')) || 0;
+            updated.price = parsedPrice;
+          }
+        }
         const qty = Number(updated.qty) || 0;
         const price = Number(updated.price) || 0;
         updated.total = qty * price;
@@ -306,6 +454,20 @@ export const VehicleInventory: React.FC = () => {
       accessoriesTotal: regAccessoriesTotal
     };
 
+    // Deduct accessory spare parts stock from inventory
+    if (regAccessories && regAccessories.length > 0) {
+      const itemsToDeduct = regAccessories
+        .filter(acc => acc.name && acc.name.trim() && Number(acc.qty) > 0)
+        .map(acc => ({
+          name: acc.name,
+          qty: Number(acc.qty) || 1,
+          price: Number(acc.price) || 0
+        }));
+      if (itemsToDeduct.length > 0) {
+        deductInventoryStock(itemsToDeduct, regModel || 'VEH', 'Vehicle Inventory');
+      }
+    }
+
     fetch(`${API_URL}/api/vehicles`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -324,7 +486,7 @@ export const VehicleInventory: React.FC = () => {
         setRegSellingPrice('');
         setRegStock('1');
         setRegImage(null);
-        setRegAccessories(DEFAULT_ACCESSORIES_KIT);
+        setRegAccessories([]);
       })
       .catch(err => console.error(err));
   };
@@ -344,7 +506,7 @@ export const VehicleInventory: React.FC = () => {
     setEditAccessories(
       v.accessoriesKit && v.accessoriesKit.length > 0
         ? v.accessoriesKit
-        : DEFAULT_ACCESSORIES_KIT
+        : []
     );
     setPreviousView(from);
     setIsEditing(true);
@@ -383,6 +545,20 @@ export const VehicleInventory: React.FC = () => {
       accessoriesKit: editAccessories,
       accessoriesTotal: editAccessoriesTotal
     };
+
+    // Deduct accessory spare parts stock from inventory
+    if (editAccessories && editAccessories.length > 0) {
+      const itemsToDeduct = editAccessories
+        .filter(acc => acc.name && acc.name.trim() && Number(acc.qty) > 0)
+        .map(acc => ({
+          name: acc.name,
+          qty: Number(acc.qty) || 1,
+          price: Number(acc.price) || 0
+        }));
+      if (itemsToDeduct.length > 0) {
+        deductInventoryStock(itemsToDeduct, editModel || 'VEH', 'Vehicle Inventory');
+      }
+    }
 
     fetch(`${API_URL}/api/vehicles/${encodeURIComponent(editingVehicleId)}`, {
       method: 'PUT',
@@ -765,7 +941,7 @@ export const VehicleInventory: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={handleAddAccessory}
+                  onClick={() => handleAddAccessory()}
                   className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#184edb] hover:bg-[#143eb3] text-white font-semibold rounded-lg text-[13px] cursor-pointer transition-colors border-none shadow-sm"
                 >
                   <Plus size={15} />
@@ -797,30 +973,67 @@ export const VehicleInventory: React.FC = () => {
                         <tr key={item.id} className="border-b border-slate-100 font-semibold text-slate-700 hover:bg-slate-50/50">
                           <td className="p-3 px-4 text-center font-bold text-slate-400">{idx + 1}</td>
                           <td className="p-3 px-4">
-                            <input
-                              type="text"
-                              placeholder="e.g. Mats, Mud Flaps, Toolkit"
+                            <AccessoryInputCell
+                              id={`reg-acc-name-${item.id}`}
                               value={item.name}
-                              onChange={(e) => handleUpdateAccessory(item.id, 'name', e.target.value)}
-                              className="w-full px-3 py-1.5 text-[13px] bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb]"
+                              onChange={(val) => handleUpdateAccessory(item.id, 'name', val)}
+                              onSelectPart={(p) => {
+                                const parsedPrice = parseFloat(p.salePrice.replace(/[^0-9.]/g, '')) || 0;
+                                handleUpdateAccessory(item.id, 'name', p.partName);
+                                handleUpdateAccessory(item.id, 'price', parsedPrice);
+                                setTimeout(() => {
+                                  document.getElementById(`reg-acc-qty-${item.id}`)?.focus();
+                                }, 50);
+                              }}
+                              onEnterNext={() => {
+                                setTimeout(() => {
+                                  document.getElementById(`reg-acc-qty-${item.id}`)?.focus();
+                                }, 50);
+                              }}
+                              inventoryParts={inventoryParts}
                             />
                           </td>
                           <td className="p-3 px-4 text-center">
                             <input
+                              id={`reg-acc-qty-${item.id}`}
                               type="number"
                               min="1"
-                              value={item.qty}
-                              onChange={(e) => handleUpdateAccessory(item.id, 'qty', parseInt(e.target.value) || 1)}
+                              value={item.qty === 0 ? '' : item.qty}
+                              onChange={(e) => handleUpdateAccessory(item.id, 'qty', e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
+                              onFocus={(e) => e.target.select()}
+                              onBlur={() => {
+                                if (!item.qty || Number(item.qty) <= 0) {
+                                  handleUpdateAccessory(item.id, 'qty', 1);
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  document.getElementById(`reg-acc-price-${item.id}`)?.focus();
+                                }
+                              }}
                               className="w-20 px-2 py-1.5 text-[13px] text-center bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb]"
                             />
                           </td>
                           <td className="p-3 px-4 text-right">
                             <input
+                              id={`reg-acc-price-${item.id}`}
                               type="number"
                               min="0"
                               placeholder="0"
-                              value={item.price || ''}
-                              onChange={(e) => handleUpdateAccessory(item.id, 'price', parseFloat(e.target.value) || 0)}
+                              value={item.price === 0 || item.price === '' ? '' : item.price}
+                              onChange={(e) => handleUpdateAccessory(item.id, 'price', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                              onFocus={(e) => e.target.select()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const newId = Date.now().toString();
+                                  handleAddAccessory(newId);
+                                  setTimeout(() => {
+                                    document.getElementById(`reg-acc-name-${newId}`)?.focus();
+                                  }, 50);
+                                }
+                              }}
                               className="w-32 px-3 py-1.5 text-[13px] text-right bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb]"
                             />
                           </td>
@@ -1166,7 +1379,7 @@ export const VehicleInventory: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={handleAddEditAccessory}
+                  onClick={() => handleAddEditAccessory()}
                   className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#184edb] hover:bg-[#143eb3] text-white font-semibold rounded-lg text-[13px] cursor-pointer transition-colors border-none shadow-sm"
                 >
                   <Plus size={15} />
@@ -1198,30 +1411,67 @@ export const VehicleInventory: React.FC = () => {
                         <tr key={item.id} className="border-b border-slate-100 font-semibold text-slate-700 hover:bg-slate-50/50">
                           <td className="p-3 px-4 text-center font-bold text-slate-400">{idx + 1}</td>
                           <td className="p-3 px-4">
-                            <input
-                              type="text"
-                              placeholder="e.g. Mats, Mud Flaps, Toolkit"
+                            <AccessoryInputCell
+                              id={`edit-acc-name-${item.id}`}
                               value={item.name}
-                              onChange={(e) => handleUpdateEditAccessory(item.id, 'name', e.target.value)}
-                              className="w-full px-3 py-1.5 text-[13px] bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb]"
+                              onChange={(val) => handleUpdateEditAccessory(item.id, 'name', val)}
+                              onSelectPart={(p) => {
+                                const parsedPrice = parseFloat(p.salePrice.replace(/[^0-9.]/g, '')) || 0;
+                                handleUpdateEditAccessory(item.id, 'name', p.partName);
+                                handleUpdateEditAccessory(item.id, 'price', parsedPrice);
+                                setTimeout(() => {
+                                  document.getElementById(`edit-acc-qty-${item.id}`)?.focus();
+                                }, 50);
+                              }}
+                              onEnterNext={() => {
+                                setTimeout(() => {
+                                  document.getElementById(`edit-acc-qty-${item.id}`)?.focus();
+                                }, 50);
+                              }}
+                              inventoryParts={inventoryParts}
                             />
                           </td>
                           <td className="p-3 px-4 text-center">
                             <input
+                              id={`edit-acc-qty-${item.id}`}
                               type="number"
                               min="1"
-                              value={item.qty}
-                              onChange={(e) => handleUpdateEditAccessory(item.id, 'qty', parseInt(e.target.value) || 1)}
+                              value={item.qty === 0 ? '' : item.qty}
+                              onChange={(e) => handleUpdateEditAccessory(item.id, 'qty', e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
+                              onFocus={(e) => e.target.select()}
+                              onBlur={() => {
+                                if (!item.qty || Number(item.qty) <= 0) {
+                                  handleUpdateEditAccessory(item.id, 'qty', 1);
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  document.getElementById(`edit-acc-price-${item.id}`)?.focus();
+                                }
+                              }}
                               className="w-20 px-2 py-1.5 text-[13px] text-center bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb]"
                             />
                           </td>
                           <td className="p-3 px-4 text-right">
                             <input
+                              id={`edit-acc-price-${item.id}`}
                               type="number"
                               min="0"
                               placeholder="0"
-                              value={item.price || ''}
-                              onChange={(e) => handleUpdateEditAccessory(item.id, 'price', parseFloat(e.target.value) || 0)}
+                              value={item.price === 0 || item.price === '' ? '' : item.price}
+                              onChange={(e) => handleUpdateEditAccessory(item.id, 'price', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                              onFocus={(e) => e.target.select()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const newId = Date.now().toString();
+                                  handleAddEditAccessory(newId);
+                                  setTimeout(() => {
+                                    document.getElementById(`edit-acc-name-${newId}`)?.focus();
+                                  }, 50);
+                                }
+                              }}
                               className="w-32 px-3 py-1.5 text-[13px] text-right bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#184edb]"
                             />
                           </td>

@@ -90,44 +90,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
         console.error('Error parsing dms_counter_sales_bills:', e);
       }
     }
-    return [
-      {
-        id: 'cs-101',
-        billNo: 'INV-2023-8841',
-        customerName: 'Sri Balaji Logistics',
-        customerType: 'Commercial',
-        mobileNumber: '+91 98765 11223',
-        date: 'Oct 23, 2023',
-        billItems: [
-          { id: 'bi-1', name: 'Synthetic Engine Oil (5W-40)', code: 'AC-OIL-772', qty: 2, unitPrice: 850, discountPercent: 5, gstPercent: 18 }
-        ],
-        subtotal: 1700,
-        discount: 85,
-        gst: 290.7,
-        grandTotal: 1905.7,
-        remarks: 'Paid via Cash',
-        status: 'PAID',
-        createdAt: 'Oct 23, 2023'
-      },
-      {
-        id: 'cs-102',
-        billNo: 'INV-2023-8840',
-        customerName: 'Ramu Transport',
-        customerType: 'Retail',
-        mobileNumber: '+91 94433 88776',
-        date: 'Oct 22, 2023',
-        billItems: [
-          { id: 'bi-2', name: 'High-Flow Air Filter', code: 'AF-K7-001', qty: 1, unitPrice: 2400, discountPercent: 5, gstPercent: 28 }
-        ],
-        subtotal: 2400,
-        discount: 120,
-        gst: 638.4,
-        grandTotal: 2918.4,
-        remarks: 'UPI Payment',
-        status: 'PAID',
-        createdAt: 'Oct 22, 2023'
-      }
-    ];
+    return [];
   });
 
   const [draftBillsList, setDraftBillsList] = useState<CounterSalesRecord[]>(() => {
@@ -139,26 +102,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
         console.error('Error parsing dms_counter_sales_drafts:', e);
       }
     }
-    return [
-      {
-        id: 'cs-draft-1',
-        billNo: 'INV-2023-8843-DRAFT',
-        customerName: 'City Motors Garage',
-        customerType: 'Commercial',
-        mobileNumber: '+91 99880 44556',
-        date: 'Oct 24, 2023',
-        billItems: [
-          { id: 'bi-3', name: 'Brake Pad Set - Front Performance', code: 'BP-992-FR', qty: 4, unitPrice: 120, discountPercent: 10, gstPercent: 18 }
-        ],
-        subtotal: 480,
-        discount: 48,
-        gst: 77.76,
-        grandTotal: 509.76,
-        remarks: 'Customer will confirm stock in 1 hour',
-        status: 'DRAFT',
-        createdAt: 'Oct 24, 2023'
-      }
-    ];
+    return [];
   });
 
   useEffect(() => {
@@ -210,19 +154,14 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
     return Math.max(0, (product.stock || 0) - addedQty);
   };
 
+  const productSearchContainerRef = useRef<HTMLDivElement>(null);
+
   const loadCatalog = () => {
     const defaultDisc = getDefaultDiscountFromSettings();
-    const defaultCatalogMock = [
-      { name: 'Synthetic Engine Oil (5W-40) | Part No: AC-OIL-772', code: 'AC-OIL-772', price: 850, stock: 45, discount: defaultDisc, gst: 18, hsn: '2710' },
-      { name: 'High-Flow Air Filter | Part No: AF-K7-001', code: 'AF-K7-001', price: 2400, stock: 18, discount: defaultDisc, gst: 28, hsn: '8421' },
-      { name: 'Brake Pad Set - Front Performance | Part No: BP-992-FR', code: 'BP-992-FR', price: 120, stock: 30, discount: defaultDisc, gst: 18, hsn: '8708' },
-      { name: 'Heavy-Duty Oil Filter | Part No: OF-E5-901', code: 'OF-E5-901', price: 450, stock: 25, discount: defaultDisc, gst: 18, hsn: '8421' },
-      { name: 'Hydraulics Control Valve | Part No: HV-C8-112', code: 'HV-C8-112', price: 5800, stock: 8, discount: defaultDisc, gst: 18, hsn: '8481' }
-    ];
-
     const stored = getStoredInventory();
+    let mappedStored: any[] = [];
     if (stored && stored.length > 0) {
-      const mappedStored = stored.map((item: PartType) => ({
+      mappedStored = stored.map((item: PartType) => ({
         name: `${item.partName} | Part No: ${item.partNumber}`,
         code: item.partNumber,
         price: parseFloat(item.salePrice.replace(/[^0-9.]/g, '')) || 0,
@@ -233,16 +172,13 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
       }));
       setCatalog(mappedStored);
       setSelectedProduct(mappedStored[0]);
-    } else {
-      setCatalog(defaultCatalogMock);
-      setSelectedProduct(defaultCatalogMock[0]);
     }
 
     fetch(`${API_URL}/api/parts`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
-          const mapped = data.map((item: any) => ({
+          const apiMapped = data.map((item: any) => ({
             name: `${item.partName} | Part No: ${item.partNumber}`,
             code: item.partNumber,
             price: parseFloat(item.salePrice.replace(/[^0-9.]/g, '')) || 0,
@@ -251,8 +187,16 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
             gst: parseInt(item.gstPercent?.replace(/[^0-9]/g, '') || '18', 10) || 18,
             hsn: item.hsnCode
           }));
-          setCatalog(mapped);
-          setSelectedProduct(mapped[0]);
+          const combinedMap = new Map();
+          mappedStored.forEach(p => combinedMap.set(p.code, p));
+          apiMapped.forEach(p => {
+            if (!combinedMap.has(p.code)) {
+              combinedMap.set(p.code, p);
+            }
+          });
+          const merged = Array.from(combinedMap.values());
+          setCatalog(merged);
+          if (merged.length > 0) setSelectedProduct(merged[0]);
         }
       })
       .catch(err => {
@@ -267,11 +211,19 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
       loadCatalog();
     };
 
+    const handleClickOutside = (event: MouseEvent) => {
+      if (productSearchContainerRef.current && !productSearchContainerRef.current.contains(event.target as Node)) {
+        setShowProductDropdown(false);
+      }
+    };
+
     window.addEventListener('dms_inventory_updated', handleInvUpdate);
     window.addEventListener('dms_settings_updated', handleInvUpdate);
+    document.addEventListener('mousedown', handleClickOutside);
     return () => {
       window.removeEventListener('dms_inventory_updated', handleInvUpdate);
       window.removeEventListener('dms_settings_updated', handleInvUpdate);
+      document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
 
@@ -1249,7 +1201,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
                 {/* Search Product (Name or Code) */}
-                <div className="flex flex-col gap-1.5 sm:col-span-2 relative">
+                <div className="flex flex-col gap-1.5 sm:col-span-2 relative" ref={productSearchContainerRef}>
                   <label className="text-[11.5px] font-bold text-slate-400 uppercase tracking-wide font-sans">
                     Search Product (Name or Code)
                   </label>
@@ -1291,7 +1243,7 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
                   </div>
 
                   {/* Dropdown Match Results */}
-                  {showProductDropdown && searchQuery && (
+                  {showProductDropdown && (
                     <div className="absolute top-[56px] left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg z-30 max-h-48 overflow-y-auto box-border p-1 flex flex-col gap-0.5">
                       {filteredCatalog.map((product, index) => {
                         const effStock = getEffectiveStock(product);
@@ -1591,7 +1543,6 @@ export const CounterSales: React.FC<CounterSalesProps> = ({ companySettings }) =
                 ₹{calculatedGrandTotal.toFixed(2)}
               </span>
             </div>
-
             {/* Print/Save Buttons */}
             <div className="flex flex-col gap-2">
               <button 

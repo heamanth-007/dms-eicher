@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   TrendingUp,
   DollarSign,
@@ -70,7 +70,7 @@ interface PrintModalProps {
 const PrintInvoiceModal: React.FC<PrintModalProps> = ({ printingSale, setPrintingSale, companySettings, dbVehicles = [] }) => {
   const gstRate = printingSale.gstRate || parseFloat((companySettings?.defaultGstPercent || '18').toString().replace(/[^\d.]/g, '')) || 18;
   const discountRate = parseFloat((companySettings?.defaultDiscountPercent || '5').toString().replace(/[^\d.]/g, '')) || 0;
-  const grandTotalNum = Number(printingSale.grandTotal.toString().replace(/[^\d.]/g, '')) || 0;
+  const grandTotalNum = Number((printingSale?.grandTotal ? String(printingSale.grandTotal) : '0').replace(/[^\d.]/g, '')) || 0;
   
   const matchedVehicle = dbVehicles.find((v: any) => v.modelName === printingSale.vehicleModel);
 
@@ -197,7 +197,7 @@ const PrintInvoiceModal: React.FC<PrintModalProps> = ({ printingSale, setPrintin
                 <h1 className="text-xl font-extrabold text-blue-600 tracking-tight font-heading m-0 uppercase">TAX INVOICE</h1>
                 <div className="text-xs font-semibold text-slate-500 mt-2 flex flex-col items-end gap-0.5">
                   <span>Invoice Number: <span className="font-bold text-slate-800">{printingSale.invoiceNo}</span></span>
-                  <span>Invoice Date: <span className="font-bold text-slate-800">{printingSale.deliveryDate.replace('Scheduled: ', '')}</span></span>
+                  <span>Invoice Date: <span className="font-bold text-slate-800">{(printingSale?.deliveryDate ? String(printingSale.deliveryDate) : '').replace('Scheduled: ', '')}</span></span>
                   <span>Job Card: <span className="font-bold text-slate-800">JC/8892/23</span></span>
                 </div>
                 <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-3 py-0.5 rounded text-[10px] font-extrabold mt-1">
@@ -382,6 +382,137 @@ const PrintInvoiceModal: React.FC<PrintModalProps> = ({ printingSale, setPrintin
   );
 };
 
+interface CustomerSearchInputProps {
+  value: string;
+  onChange: (val: string) => void;
+  onSelectCustomer: (cust: any) => void;
+  customers: any[];
+}
+
+const CustomerSearchInput: React.FC<CustomerSearchInputProps> = ({
+  value,
+  onChange,
+  onSelectCustomer,
+  customers
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const query = value.trim().toLowerCase();
+
+  const matchingCustomers = query
+    ? customers.filter(c => {
+        const cName = (c.name || '').toLowerCase();
+        const cPhone = (c.phone || c.phoneNumber || '').toLowerCase();
+        return cName.startsWith(query) || cPhone.includes(query) || cName.includes(query);
+      }).sort((a, b) => {
+        const aName = (a.name || '').toLowerCase();
+        const bName = (b.name || '').toLowerCase();
+        const aStarts = aName.startsWith(query);
+        const bStarts = bName.startsWith(query);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+        return 0;
+      })
+    : [];
+
+  return (
+    <div className="relative w-full text-left" ref={containerRef}>
+      <input
+        type="text"
+        placeholder="Enter customer's full name"
+        value={value}
+        onChange={(e) => {
+          const val = e.target.value;
+          onChange(val);
+          setIsOpen(true);
+          setHighlightedIndex(0);
+
+          const exact = customers.find(c => (c.name || '').toLowerCase() === val.trim().toLowerCase());
+          if (exact) {
+            onSelectCustomer(exact);
+          }
+        }}
+        onFocus={() => {
+          if (value.trim()) {
+            setIsOpen(true);
+            setHighlightedIndex(0);
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlightedIndex(prev => (matchingCustomers.length > 0 ? (prev + 1) % matchingCustomers.length : 0));
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightedIndex(prev => (matchingCustomers.length > 0 ? (prev - 1 + matchingCustomers.length) % matchingCustomers.length : 0));
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (isOpen && matchingCustomers.length > 0) {
+              const selected = matchingCustomers[highlightedIndex] || matchingCustomers[0];
+              onSelectCustomer(selected);
+              setIsOpen(false);
+            } else {
+              const match = matchingCustomers[0] || customers.find(c => (c.name || '').toLowerCase().includes(query));
+              if (match) {
+                onSelectCustomer(match);
+                setIsOpen(false);
+              }
+            }
+          } else if (e.key === 'Escape') {
+            setIsOpen(false);
+          }
+        }}
+        required
+        className="w-full border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700 placeholder-slate-400"
+        autoComplete="off"
+      />
+
+      {isOpen && query && matchingCustomers.length > 0 && (
+        <div className="absolute top-[100%] left-0 right-0 mt-1 bg-white border border-blue-200 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto box-border p-1 divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-100">
+          {matchingCustomers.map((cust, idx) => {
+            const isHighlighted = idx === highlightedIndex;
+            return (
+              <div
+                key={cust.id || idx}
+                onClick={() => {
+                  onSelectCustomer(cust);
+                  setIsOpen(false);
+                }}
+                onMouseEnter={() => setHighlightedIndex(idx)}
+                className={`p-2.5 cursor-pointer text-xs flex justify-between items-center transition-colors rounded-md ${
+                  isHighlighted ? 'bg-[#184edb] text-white' : 'hover:bg-blue-50 text-slate-800'
+                }`}
+              >
+                <div className="flex flex-col text-left">
+                  <span className={`font-bold ${isHighlighted ? 'text-white' : 'text-slate-800'}`}>{cust.name}</span>
+                  <span className={`text-[10.5px] font-semibold ${isHighlighted ? 'text-blue-100' : 'text-slate-500'}`}>
+                    Phone: {cust.phone || cust.phoneNumber || 'N/A'} | {cust.district || cust.state || ''}
+                  </span>
+                </div>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${isHighlighted ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                  {cust.id || 'CUSTOMER'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 interface VehicleSalesProps {
   sales: SaleRecord[];
   setSales: React.Dispatch<React.SetStateAction<SaleRecord[]>>;
@@ -405,14 +536,37 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
       })
       .catch(err => console.error('Error fetching vehicles for sales:', err));
 
-    fetch(`${API_URL}/api/customers`)
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setDbCustomers(data);
-        }
-      })
-      .catch(err => console.error('Error fetching customers for sales:', err));
+    const loadCustomers = () => {
+      let combined: any[] = [];
+      const stored = localStorage.getItem('dms_customers');
+      if (stored) {
+        try { combined = JSON.parse(stored); } catch (e) {}
+      }
+      fetch(`${API_URL}/api/customers`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            const map = new Map();
+            combined.forEach((c: any) => {
+              if (c.name) map.set(c.name.toLowerCase(), c);
+            });
+            data.forEach((c: any) => {
+              if (c.name) {
+                const existing = map.get(c.name.toLowerCase()) || {};
+                map.set(c.name.toLowerCase(), { ...existing, ...c });
+              }
+            });
+            setDbCustomers(Array.from(map.values()));
+          } else {
+            setDbCustomers(combined);
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching customers for sales:', err);
+          setDbCustomers(combined);
+        });
+    };
+    loadCustomers();
   }, []);
 
   // Available stock items mapped with exact inventory selling price & accessories total
@@ -444,15 +598,33 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
   const [regEmail, setRegEmail] = useState('');
   const [regSelectedStock, setRegSelectedStock] = useState('');
 
-  const handleCustomerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setRegFullName(val);
-    const existingCust = dbCustomers.find(c => c.name.toLowerCase() === val.toLowerCase());
-    if (existingCust) {
-      if (existingCust.phone) setRegMobile(existingCust.phone);
-      if (existingCust.district) setRegAddress(existingCust.district);
-      if (existingCust.email) setRegEmail(existingCust.email);
-    }
+  const autoFillCustomerDetails = (c: any) => {
+    if (!c) return;
+    setRegFullName(c.name || '');
+
+    // Mobile number
+    const rawPhone = c.phone || c.phoneNumber || c.mobile || c.alternatePhone || '';
+    const digits = rawPhone.replace(/[^\d]/g, '');
+    const cleanPhone = digits.length >= 10 ? digits.slice(-10) : digits;
+    setRegMobile(cleanPhone);
+
+    // Full Address
+    const addressParts = [
+      c.streetAddress || c.address,
+      c.district,
+      c.state,
+      c.pincode
+    ].filter(Boolean);
+    const fullAddr = addressParts.length > 0 ? addressParts.join(', ') : (c.district || '');
+    setRegAddress(fullAddr);
+
+    // Aadhaar / Identity Number
+    const aadhaarVal = c.aadhaarNumber || c.aadhaar || c.gst || '';
+    setRegGst(aadhaarVal);
+
+    // Email Address
+    const emailVal = c.email || c.emailAddress || '';
+    setRegEmail(emailVal);
   };
 
   useEffect(() => {
@@ -473,7 +645,7 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
   const [regPaymentMode, setRegPaymentMode] = useState('Cash/Bank Transfer');
   const [regFinanceProvider, setRegFinanceProvider] = useState('');
   const [regAdvancePaid, setRegAdvancePaid] = useState('0');
-  const [regDiscount, setRegDiscount] = useState('0');
+  const [regDeliveryStatus, setRegDeliveryStatus] = useState<'PENDING' | 'DELIVERED' | 'CANCELLED'>('PENDING');
 
   // Filter & Search states for Sales Ledger
   const [searchTerm, setSearchTerm] = useState('');
@@ -622,7 +794,7 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
     setRegPaymentMode(sale.paymentMode || 'Cash/Bank Transfer');
     setRegFinanceProvider(sale.financeProvider || '');
     setRegAdvancePaid(sale.advancePaid ? sale.advancePaid.replace(/[^\d.]/g, '') : '0');
-    setRegDiscount(sale.discountAmount !== undefined ? sale.discountAmount.toString() : '0');
+    setRegDeliveryStatus((sale.status as any) || 'PENDING');
 
     // Match vehicle in stock
     const matchedStock = stocks.find(s => s.model === sale.vehicleModel);
@@ -651,9 +823,8 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
     window.print();
   };
 
-  // GST percentage & Discount percentage from Settings
+  // GST percentage from Settings
   const gstRate = parseFloat((companySettings?.defaultGstPercent || '18').toString().replace(/[^\d.]/g, '')) || 18;
-  const discountRate = parseFloat((companySettings?.defaultDiscountPercent || '5').toString().replace(/[^\d.]/g, '')) || 0;
 
   // Calculate prices dynamically for active stock item
   const selectedStockItem = stocks.find(s => s.id === regSelectedStock) || stocks[0];
@@ -672,12 +843,11 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
   // Pre-discount total = Subtotal + Insurance
   const preDiscountTotal = subTotalNum + calculatedInsuranceCost;
 
-  // Discount calculation: user custom input if > 0, else Settings discount %
-  const userEnteredDiscount = parseFloat(regDiscount || '0');
-  const calculatedDiscount = userEnteredDiscount > 0 ? userEnteredDiscount : Math.round(preDiscountTotal * (discountRate / 100));
+  // Dealer Discount removed
+  const calculatedDiscount = 0;
 
   // Taxable Value
-  const taxableNum = Math.max(0, preDiscountTotal - calculatedDiscount);
+  const taxableNum = preDiscountTotal;
 
   // GST Amount
   const calculatedTaxes = Math.round(taxableNum * (gstRate / 100));
@@ -690,8 +860,7 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
   const balancePayable = Math.max(0, grandTotalPayable - advancePaidNum);
   const financialProgress = grandTotalPayable > 0 ? (advancePaidNum / grandTotalPayable) * 100 : 0;
 
-  // Handle Sale Registration / Edit Form Submit
-  const handleRegisterSale = (e: React.FormEvent, forceStatus: 'DELIVERED' | 'PENDING' = 'PENDING') => {
+  const handleRegisterSale = (e: React.FormEvent, overrideStatus?: 'DELIVERED' | 'PENDING') => {
     e.preventDefault();
     if (!regFullName || !regMobile) {
       alert('Please fill out Customer Full Name and Mobile Number.');
@@ -703,10 +872,7 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
       return;
     }
 
-    let finalStatus = forceStatus;
-    if (advancePaidNum >= grandTotalPayable && grandTotalPayable > 0) {
-      finalStatus = 'DELIVERED';
-    }
+    let finalStatus = overrideStatus || regDeliveryStatus;
 
     const currentYear = new Date().getFullYear();
     let maxInvSeq = 1233;
@@ -773,22 +939,33 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
     })
       .then(res => res.json())
       .then(data => {
-        if (isEdit) {
-          setSales(sales.map(s => s.invoiceNo === editingSale.invoiceNo ? data : s));
+        if (!data || data.message || !data.invoiceNo) {
+          console.error('Error response from server:', data);
+          // If server failed, fall back to salePayload as local object
+          const savedData = (data && data.invoiceNo) ? data : salePayload;
+          if (isEdit) {
+            setSales(sales.map(s => s.invoiceNo === editingSale.invoiceNo ? savedData : s));
+          } else {
+            setSales([savedData, ...sales]);
+          }
         } else {
-          setSales([data, ...sales]);
+          if (isEdit) {
+            setSales(sales.map(s => s.invoiceNo === editingSale.invoiceNo ? data : s));
+          } else {
+            setSales([data, ...sales]);
 
-          // Update vehicle stock only on new sale creation
-          if (selectedStockItem && selectedStockItem.id) {
-            const newStock = Math.max(0, selectedStockItem.stock - 1);
-            const newStatus = newStock === 0 ? 'Out of Stock' : 'Available';
+            // Update vehicle stock only on new sale creation
+            if (selectedStockItem && selectedStockItem.id) {
+              const newStock = Math.max(0, selectedStockItem.stock - 1);
+              const newStatus = newStock === 0 ? 'Out of Stock' : 'Available';
 
-            fetch(`${API_URL}/api/vehicles/${encodeURIComponent(selectedStockItem.id)}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status: newStatus, stock: newStock })
-            })
-              .catch(err => console.error('Error updating vehicle status on sale:', err));
+              fetch(`${API_URL}/api/vehicles/${encodeURIComponent(selectedStockItem.id)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus, stock: newStock })
+              })
+                .catch(err => console.error('Error updating vehicle status on sale:', err));
+            }
           }
         }
 
@@ -804,9 +981,19 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
         setRegDeliveryDate('');
         setRegInternalNotes('');
         setRegAdvancePaid('0');
-        setRegDiscount('0');
+        setRegDeliveryStatus('PENDING');
       })
-      .catch(err => console.error('Error saving sale:', err));
+      .catch(err => {
+        console.error('Error saving sale:', err);
+        // Fallback save locally if network fails
+        if (isEdit) {
+          setSales(sales.map(s => s.invoiceNo === editingSale.invoiceNo ? salePayload : s));
+        } else {
+          setSales([salePayload, ...sales]);
+        }
+        setIsRegisteringSale(false);
+        setEditingSale(null);
+      });
   };
 
   // 1. View state switcher: New Sale Registration
@@ -829,30 +1016,6 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
               {editingSale ? 'Update customer details, insurance, accessories, and financial payment terms for this invoice.' : 'Register a primary vehicle sale, assign accessories, and generate the commercial invoice.'}
             </p>
           </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => { setIsRegisteringSale(false); setEditingSale(null); }}
-              className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-605 font-bold text-xs py-2.5 px-6 rounded-md cursor-pointer transition-colors shadow-xs"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={(e) => handleRegisterSale(e, 'PENDING')}
-              className="bg-white border border-[#184edb] hover:bg-blue-50/50 text-[#184edb] font-bold text-xs py-2.5 px-5 rounded-md cursor-pointer transition-colors shadow-xs flex items-center gap-1.5"
-            >
-              <Save size={13} /> Save Sale
-            </button>
-            <button
-              type="button"
-              onClick={(e) => handleRegisterSale(e, 'DELIVERED')}
-              className="bg-[#184edb] hover:bg-blue-800 text-white font-bold text-xs py-2.5 px-6 border-none rounded-md cursor-pointer transition-colors shadow-md flex items-center gap-1.5"
-            >
-              <FileText size={13} /> Generate Invoice
-            </button>
-          </div>
         </div>
 
         {/* 2-Column form widgets */}
@@ -871,20 +1034,16 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-semibold text-slate-500">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Full Name</label>
-                  <input
-                    type="text"
-                    list="customer-list"
-                    placeholder="Enter customer's full name"
+                  <CustomerSearchInput
                     value={regFullName}
-                    onChange={handleCustomerChange}
-                    required
-                    className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-slate-50 focus:border-blue-400 focus:bg-white transition-all font-medium text-slate-700 placeholder-slate-400"
+                    onChange={(val) => {
+                      setRegFullName(val);
+                      const match = dbCustomers.find(c => (c.name || '').toLowerCase() === val.trim().toLowerCase());
+                      if (match) autoFillCustomerDetails(match);
+                    }}
+                    onSelectCustomer={autoFillCustomerDetails}
+                    customers={dbCustomers}
                   />
-                  <datalist id="customer-list">
-                    {dbCustomers.map((cust, idx) => (
-                      <option key={idx} value={cust.name} />
-                    ))}
-                  </datalist>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -1204,11 +1363,24 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
               <CreditCard size={15} className="text-blue-600" />
               <h3 className="text-xs font-extrabold text-slate-800 m-0 uppercase tracking-wider font-heading">Billing & Payment Settlement</h3>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-slate-400">Payment Status:</span>
-              <span className="bg-red-50 text-red-600 border border-red-100 px-2 py-0.5 rounded text-[9.5px] font-extrabold tracking-wider uppercase">
-                PENDING
-              </span>
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-slate-400">Payment Status:</span>
+                <span className={`px-2 py-0.5 rounded text-[9.5px] font-extrabold tracking-wider uppercase ${
+                  advancePaidNum >= grandTotalPayable && grandTotalPayable > 0
+                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                    : 'bg-amber-50 text-amber-600 border border-amber-100'
+                }`}>
+                  {advancePaidNum >= grandTotalPayable && grandTotalPayable > 0 ? 'PAID / CLEARED' : 'PENDING'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-slate-400">Delivery Status:</span>
+                <span className="bg-amber-50 text-amber-600 border border-amber-100 px-2 py-0.5 rounded text-[9.5px] font-extrabold tracking-wider uppercase flex items-center gap-1">
+                  <Clock size={11} /> DELIVERY PENDING
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1236,11 +1408,6 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
                 <div className="flex justify-between p-3.5 px-5 font-medium">
                   <span className="text-slate-500">Taxes (GST 18%)</span>
                   <span className="text-slate-805 font-bold">₹ {calculatedTaxes.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                </div>
-
-                <div className="flex justify-between p-3.5 px-5 font-medium">
-                  <span className="text-red-500 font-bold">Dealer Discount</span>
-                  <span className="text-red-650 font-extrabold">- ₹ {calculatedDiscount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                 </div>
 
                 <div className="flex justify-between p-4 px-5 bg-blue-55/10 font-extrabold text-sm text-[#184edb]">
@@ -1305,6 +1472,20 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
                 </div>
               </div>
 
+              {/* Delivery Status selection */}
+              <div className="flex flex-col gap-1.5 mt-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase">Delivery Status</label>
+                <select
+                  value={regDeliveryStatus}
+                  onChange={(e) => setRegDeliveryStatus(e.target.value as any)}
+                  className="border border-slate-200 rounded-md py-2 px-3 text-xs outline-none bg-amber-50/60 focus:bg-white text-slate-800 font-bold focus:border-amber-400 cursor-pointer transition-colors"
+                >
+                  <option value="PENDING">PENDING (Delivery Pending)</option>
+                  <option value="DELIVERED">DELIVERED (Vehicle Delivered)</option>
+                  <option value="CANCELLED">CANCELLED (Sale Cancelled)</option>
+                </select>
+              </div>
+
               {/* Financial Progress card */}
               <div className="bg-blue-50/30 rounded-xl p-4 border border-blue-100/40 mt-1 flex flex-col gap-2.5">
                 <div className="flex items-center justify-between text-[11px] font-bold text-[#184edb]">
@@ -1330,6 +1511,27 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
           </div>
         </div>
 
+        {/* Bottom Action Footer Bar */}
+        <div className="bg-white rounded-xl border border-[#eef2f6] shadow-sm p-4 px-6 flex flex-col sm:flex-row items-center justify-between gap-4 mt-2 w-full box-border">
+          <button
+            type="button"
+            onClick={() => { setIsRegisteringSale(false); setEditingSale(null); }}
+            className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs py-2.5 px-6 rounded-md cursor-pointer transition-colors shadow-xs"
+          >
+            Cancel
+          </button>
+
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            <button
+              type="button"
+              onClick={(e) => handleRegisterSale(e, 'PENDING')}
+              className="bg-[#184edb] hover:bg-blue-800 text-white font-bold text-xs py-2.5 px-6 border-none rounded-md cursor-pointer transition-colors shadow-md flex items-center gap-1.5"
+            >
+              <Save size={14} /> Save Sale
+            </button>
+          </div>
+        </div>
+
       </div>
     );
   }
@@ -1338,7 +1540,7 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
   if (viewingSale) {
     const gstRate = viewingSale.gstRate || parseFloat((companySettings?.defaultGstPercent || '18').toString().replace(/[^\d.]/g, '')) || 18;
     const discountRate = parseFloat((companySettings?.defaultDiscountPercent || '5').toString().replace(/[^\d.]/g, '')) || 0;
-    const grandTotalNum = Number(viewingSale.grandTotal.toString().replace(/[^\d.]/g, '')) || 0;
+    const grandTotalNum = Number((viewingSale?.grandTotal ? String(viewingSale.grandTotal) : '0').replace(/[^\d.]/g, '')) || 0;
     
     const matchedVehicle = dbVehicles.find(v => v.modelName === viewingSale.vehicleModel);
 
@@ -1418,9 +1620,6 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
             >
               <Download size={13} /> PDF
             </button>
-            <button className="bg-[#184edb] hover:bg-blue-800 text-white font-bold text-xs py-2.5 px-5 border-none rounded-md cursor-pointer transition-colors shadow-md flex items-center gap-1.5">
-              <FileText size={13} /> Send to Customer
-            </button>
           </div>
         </div>
 
@@ -1470,7 +1669,7 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
               <h1 className="text-xl font-extrabold text-blue-600 tracking-tight font-heading m-0 uppercase">TAX INVOICE</h1>
               <div className="text-xs font-semibold text-slate-500 mt-2 flex flex-col items-end gap-0.5">
                 <span>Invoice Number: <span className="font-bold text-slate-800">{viewingSale.invoiceNo}</span></span>
-                <span>Invoice Date: <span className="font-bold text-slate-800">{viewingSale.deliveryDate.replace('Scheduled: ', '')}</span></span>
+                <span>Invoice Date: <span className="font-bold text-slate-800">{(viewingSale?.deliveryDate ? String(viewingSale.deliveryDate) : '').replace('Scheduled: ', '')}</span></span>
                 <span>Job Card: <span className="font-bold text-slate-800">JC/8892/23</span></span>
               </div>
               <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-3 py-0.5 rounded text-[10px] font-extrabold mt-1">
@@ -1495,11 +1694,11 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-[9px] font-bold text-slate-400 uppercase">Contact</span>
-                  <span className="text-slate-850 font-semibold">+91 98765 43210</span>
+                  <span className="text-slate-850 font-semibold">{viewingSale.customerPhone || '+91 98765 43210'}</span>
                 </div>
                 <div className="flex flex-col gap-0.5 col-span-2">
                   <span className="text-[9px] font-bold text-slate-400 uppercase">Billing Address</span>
-                  <span className="text-slate-700 font-semibold">12B, Skyview Towers, Sector 56, Gurugram, 122011</span>
+                  <span className="text-slate-700 font-semibold">{viewingSale.customerDistrict || viewingSale.district || '12B, Skyview Towers, Sector 56, Gurugram, 122011'}</span>
                 </div>
               </div>
             </div>
@@ -1681,8 +1880,9 @@ export const VehicleSales: React.FC<VehicleSalesProps> = ({ sales, setSales, onC
 
   // --- Dynamic KPI Calculations ---
   const totalSalesAmount = sales.reduce((acc, sale) => {
-    if (sale.status !== 'CANCELLED') {
-      const num = Number(sale.grandTotal.toString().replace(/[^\d.]/g, ''));
+    if (sale && sale.status !== 'CANCELLED') {
+      const grandTotalStr = sale.grandTotal ? String(sale.grandTotal) : '0';
+      const num = Number(grandTotalStr.replace(/[^\d.]/g, ''));
       return acc + (isNaN(num) ? 0 : num);
     }
     return acc;

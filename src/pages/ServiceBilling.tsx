@@ -239,17 +239,35 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
   const [partStockInput, setPartStockInput] = useState<'Available' | 'Low Stock' | 'Out of Stock'>('Available');
 
   const [inventoryParts, setInventoryParts] = useState<PartType[]>(() => getStoredInventory());
+  const [showPartNoSuggestions, setShowPartNoSuggestions] = useState(false);
+  const [showPartNameSuggestions, setShowPartNameSuggestions] = useState(false);
+  const partNoContainerRef = useRef<HTMLDivElement>(null);
+  const partNameContainerRef = useRef<HTMLDivElement>(null);
 
   const loadInventoryParts = () => {
     const stored = getStoredInventory();
-    if (stored && stored.length > 0) setInventoryParts(stored);
 
     fetch(`${API_URL}/api/parts`)
       .then(res => res.json())
       .then(data => {
-        if (Array.isArray(data) && data.length > 0) setInventoryParts(data);
+        if (Array.isArray(data) && data.length > 0) {
+          const map = new Map<string, PartType>();
+          stored.forEach(p => map.set(p.partNumber, p));
+          data.forEach((p: PartType) => {
+            if (p.partNumber && !map.has(p.partNumber)) {
+              map.set(p.partNumber, p);
+            }
+          });
+          const merged = Array.from(map.values());
+          setInventoryParts(merged);
+        } else {
+          setInventoryParts(stored);
+        }
       })
-      .catch(err => console.error('Error fetching inventory parts:', err));
+      .catch(err => {
+        console.error('Error fetching inventory parts:', err);
+        setInventoryParts(stored);
+      });
   };
 
   useEffect(() => {
@@ -259,8 +277,21 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
       loadInventoryParts();
     };
 
+    const handleClickOutside = (e: MouseEvent) => {
+      if (partNoContainerRef.current && !partNoContainerRef.current.contains(e.target as Node)) {
+        setShowPartNoSuggestions(false);
+      }
+      if (partNameContainerRef.current && !partNameContainerRef.current.contains(e.target as Node)) {
+        setShowPartNameSuggestions(false);
+      }
+    };
+
     window.addEventListener('dms_inventory_updated', handleInvUpdate);
-    return () => window.removeEventListener('dms_inventory_updated', handleInvUpdate);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      window.removeEventListener('dms_inventory_updated', handleInvUpdate);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   const handleSelectInventoryPart = (part: PartType) => {
@@ -1477,35 +1508,55 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1.5 relative" ref={partNoContainerRef}>
                   <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Part Number</label>
                   <input
                     ref={partNoRef}
                     type="text"
-                    list="inventory-partnos-datalist"
                     placeholder="e.g. SP-10921"
                     value={partNoInput}
+                    onFocus={() => setShowPartNoSuggestions(true)}
                     onChange={(e) => {
                       const val = e.target.value;
                       setPartNoInput(val);
+                      setShowPartNoSuggestions(true);
                       const match = inventoryParts.find(p => p.partNumber.toLowerCase() === val.toLowerCase() || p.partName.toLowerCase() === val.toLowerCase());
                       if (match) handleSelectInventoryPart(match);
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
+                        setShowPartNoSuggestions(false);
                         partStockRef.current?.focus();
                       }
                     }}
                     className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] focus:outline-none focus:border-[#184edb] font-semibold"
                   />
-                  <datalist id="inventory-partnos-datalist">
-                    {inventoryParts.map(p => (
-                      <option key={p.partNumber} value={p.partNumber}>
-                        {p.partName} ({p.salePrice})
-                      </option>
-                    ))}
-                  </datalist>
+                  {showPartNoSuggestions && (
+                    <div className="absolute top-[100%] left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 max-h-40 overflow-y-auto box-border p-1 divide-y divide-slate-100">
+                      {inventoryParts
+                        .filter(p => !partNoInput || p.partNumber.toLowerCase().includes(partNoInput.toLowerCase()) || p.partName.toLowerCase().includes(partNoInput.toLowerCase()))
+                        .map(p => (
+                          <div
+                            key={p.partNumber}
+                            onClick={() => {
+                              handleSelectInventoryPart(p);
+                              setShowPartNoSuggestions(false);
+                            }}
+                            className="p-2 hover:bg-blue-50 cursor-pointer text-xs flex justify-between items-center"
+                          >
+                            <div>
+                              <span className="font-bold text-slate-800 block">{p.partNumber}</span>
+                              <span className="text-[11px] text-slate-500">{p.partName}</span>
+                            </div>
+                            <span className="font-bold text-[#184edb]">{p.salePrice}</span>
+                          </div>
+                        ))}
+                      {inventoryParts.filter(p => !partNoInput || p.partNumber.toLowerCase().includes(partNoInput.toLowerCase()) || p.partName.toLowerCase().includes(partNoInput.toLowerCase())).length === 0 && (
+                        <div className="p-2 text-xs text-slate-400 italic text-center">No matching parts</div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Stock Status</label>
@@ -1528,36 +1579,56 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5 relative" ref={partNameContainerRef}>
                 <label className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Part Name</label>
                 <input
                   ref={partNameRef}
                   type="text"
-                  list="inventory-parts-datalist"
                   placeholder="e.g. Ceramic Brake Pads"
                   value={partNameInput}
+                  onFocus={() => setShowPartNameSuggestions(true)}
                   onChange={(e) => {
                     const val = e.target.value;
                     setPartNameInput(val);
+                    setShowPartNameSuggestions(true);
                     const match = inventoryParts.find(p => p.partName.toLowerCase() === val.toLowerCase() || p.partNumber.toLowerCase() === val.toLowerCase());
                     if (match) handleSelectInventoryPart(match);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
+                      setShowPartNameSuggestions(false);
                       partQtyRef.current?.focus();
                     }
                   }}
                   className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] focus:outline-none focus:border-[#184edb] font-semibold"
                   required
                 />
-                <datalist id="inventory-parts-datalist">
-                  {inventoryParts.map(p => (
-                    <option key={p.partNumber} value={p.partName}>
-                      {p.partNumber} - {p.salePrice}
-                    </option>
-                  ))}
-                </datalist>
+                {showPartNameSuggestions && (
+                  <div className="absolute top-[100%] left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 max-h-40 overflow-y-auto box-border p-1 divide-y divide-slate-100">
+                    {inventoryParts
+                      .filter(p => !partNameInput || p.partName.toLowerCase().includes(partNameInput.toLowerCase()) || p.partNumber.toLowerCase().includes(partNameInput.toLowerCase()))
+                      .map(p => (
+                        <div
+                          key={p.partNumber}
+                          onClick={() => {
+                            handleSelectInventoryPart(p);
+                            setShowPartNameSuggestions(false);
+                          }}
+                          className="p-2 hover:bg-blue-50 cursor-pointer text-xs flex justify-between items-center"
+                        >
+                          <div>
+                            <span className="font-bold text-slate-800 block">{p.partName}</span>
+                            <span className="text-[11px] text-slate-500">Part No: {p.partNumber}</span>
+                          </div>
+                          <span className="font-bold text-[#184edb]">{p.salePrice}</span>
+                        </div>
+                      ))}
+                    {inventoryParts.filter(p => !partNameInput || p.partName.toLowerCase().includes(partNameInput.toLowerCase()) || p.partNumber.toLowerCase().includes(partNameInput.toLowerCase())).length === 0 && (
+                      <div className="p-2 text-xs text-slate-400 italic text-center">No matching parts</div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-3">

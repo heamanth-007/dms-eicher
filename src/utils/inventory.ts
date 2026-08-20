@@ -45,7 +45,7 @@ export function saveStoredInventory(inventory: PartType[]) {
 export function deductInventoryStock(
   items: Array<{ name: string; code?: string; partNo?: string; qty: number; unitPrice?: number; price?: number }>,
   referenceNo: string,
-  sourceType: 'Counter Sales' | 'Service Billing'
+  sourceType: 'Counter Sales' | 'Service Billing' | 'Vehicle Inventory' | string
 ) {
   try {
     let inventory = getStoredInventory();

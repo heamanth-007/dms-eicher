@@ -67,9 +67,7 @@ app.get('/api/customers', async (req, res) => {
 
 app.post('/api/customers', async (req, res) => {
   try {
-    const { name, phone, district, vehicles, lastService, outstanding, status } = req.body;
-    
-    // Sequential Customer ID starting from #CUST-3011
+    const body = req.body;
     const existingCustomers = await Customer.find({});
     let maxCustSeq = 3010;
     existingCustomers.forEach(c => {
@@ -83,24 +81,25 @@ app.post('/api/customers', async (req, res) => {
         }
       }
     });
-    const customerId = `#CUST-${maxCustSeq + 1}`;
-    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    const customerId = body.id || `#CUST-${maxCustSeq + 1}`;
+    const nameStr = body.name || 'Customer';
+    const initials = nameStr.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
-    // Choose a random color for avatar
     const colors = ['bg-blue-100 text-blue-600', 'bg-orange-100 text-orange-600', 'bg-indigo-100 text-indigo-600', 'bg-slate-100 text-slate-600'];
     const avatarBg = colors[Math.floor(Math.random() * colors.length)];
 
     const newCustomer = new Customer({
+      ...body,
       id: customerId,
-      name,
-      avatar: initials,
-      avatarBg,
-      phone,
-      district,
-      vehicles: Number(vehicles) || 0,
-      lastService: lastService || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      outstanding: outstanding ? `₹${outstanding}` : '₹0.00',
-      status: status || 'ACTIVE'
+      name: nameStr,
+      avatar: body.avatar || initials,
+      avatarBg: body.avatarBg || avatarBg,
+      phone: body.phone || body.phoneNumber || '',
+      district: body.district || 'Main District',
+      vehicles: Number(body.vehicles) || 0,
+      lastService: body.lastService || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      outstanding: body.outstanding ? (String(body.outstanding).includes('₹') ? body.outstanding : `₹${body.outstanding}`) : '₹0.00',
+      status: body.status || 'ACTIVE'
     });
 
     const savedCustomer = await newCustomer.save();
@@ -112,10 +111,9 @@ app.post('/api/customers', async (req, res) => {
 
 app.put('/api/customers/:id', async (req, res) => {
   try {
-    const { name, phone, district, vehicles, lastService, outstanding, status } = req.body;
     const updatedCustomer = await Customer.findOneAndUpdate(
       { id: req.params.id },
-      { name, phone, district, vehicles: Number(vehicles), lastService, outstanding, status },
+      { ...req.body },
       { new: true }
     );
     if (!updatedCustomer) {
@@ -389,7 +387,8 @@ app.get('/api/sales', async (req, res) => {
 
 app.post('/api/sales', async (req, res) => {
   try {
-    const newSale = new Sale(req.body);
+    const saleData = req.body;
+    const newSale = new Sale(saleData);
     const saved = await newSale.save();
 
     // Sync Customer
@@ -424,8 +423,8 @@ app.post('/api/sales', async (req, res) => {
           name: customerName,
           avatar: initials,
           avatarBg,
-          phone: customerPhone || '',
-          district: customerDistrict || '',
+          phone: saleData.customerPhone || '',
+          district: saleData.customerDistrict || '',
           vehicles: 1,
           lastService: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
           outstanding: '₹0.00',
@@ -436,6 +435,7 @@ app.post('/api/sales', async (req, res) => {
 
     res.status(201).json(saved);
   } catch (error) {
+    console.error('Error creating sale:', error);
     res.status(500).json({ message: 'Server Error creating sale', error: error.message });
   }
 });
