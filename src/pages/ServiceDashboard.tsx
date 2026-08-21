@@ -209,25 +209,47 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
     );
   }
   // Live KPI counts from database
-  const unassignedCount = jobCards.filter(jc => jc.status === 'WAITING TO ASSIGN' || jc.status === 'UNASSIGNED' || jc.status === 'OPEN' || jc.status === 'OPENING' || !jc.mechanicName || jc.mechanicName === 'Unassigned').length;
-  const openJobsCount = jobCards.filter(jc => jc.status !== 'COMPLETED').length;
-  const assignedJobsCount = jobCards.filter(jc => jc.status === 'ASSIGNED').length;
-  const underServiceCount = jobCards.filter(jc => jc.status === 'WORKING').length;
-  const waitingPartsCount = jobCards.filter(jc => jc.status === 'WAITING PARTS').length;
-  const completedCount = jobCards.filter(jc => jc.status === 'COMPLETED').length;
+  const unassignedCount = jobCards.filter(jc => {
+    const s = (jc.status || '').toUpperCase();
+    return s === 'WAITING TO ASSIGN' || s === 'UNASSIGNED' || s === 'OPEN' || s === 'OPENING' || s === 'PENDING' || !jc.mechanicName || jc.mechanicName === 'Unassigned';
+  }).length;
+
+  const underServiceCount = jobCards.filter(jc => {
+    const s = (jc.status || '').toUpperCase();
+    return s === 'WORKING' || s === 'IN PROGRESS' || s === 'IN_PROGRESS';
+  }).length;
+
+  const assignedJobsCount = jobCards.filter(jc => {
+    const s = (jc.status || '').toUpperCase();
+    return s === 'ASSIGNED';
+  }).length;
+
+  const waitingPartsCount = jobCards.filter(jc => {
+    const s = (jc.status || '').toUpperCase();
+    return s === 'WAITING PARTS' || s === 'WAITING_PARTS' || s === 'WAITING FOR PARTS';
+  }).length;
+
+  const completedCount = jobCards.filter(jc => {
+    const s = (jc.status || '').toUpperCase();
+    return s === 'COMPLETED';
+  }).length;
+
+  const openJobsCount = jobCards.filter(jc => (jc.status || '').toUpperCase() !== 'COMPLETED').length;
+
   const pendingDeliveryCount = jobCards.filter(jc => jc.readyForPickup).length;
   
   const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  const deliveredTodayCount = jobCards.filter(jc => jc.status === 'COMPLETED' && (jc.expectedDelivery || '').includes(todayStr)).length;
+  const deliveredTodayCount = jobCards.filter(jc => (jc.status || '').toUpperCase() === 'COMPLETED' && (jc.expectedDelivery || '').includes(todayStr)).length;
   
   const activeMechanicsCount = mechanics.filter(m => m.status === 'Available' || m.status === 'Busy').length;
 
-  const totalJobs = jobCards.length;
-  const unassignedPct = totalJobs ? (unassignedCount / totalJobs) * 100 : 0;
-  const workingPct = totalJobs ? (underServiceCount / totalJobs) * 100 : 0;
-  const assignedPct = totalJobs ? (assignedJobsCount / totalJobs) * 100 : 0;
-  const waitingPct = totalJobs ? (waitingPartsCount / totalJobs) * 100 : 0;
-  const completedPct = totalJobs ? (completedCount / totalJobs) * 100 : 0;
+  const totalJobs = jobCards.length || (unassignedCount + underServiceCount + assignedJobsCount + waitingPartsCount + completedCount);
+  const safeTotal = totalJobs || 1;
+  const unassignedPct = (unassignedCount / safeTotal) * 100;
+  const workingPct = (underServiceCount / safeTotal) * 100;
+  const assignedPct = (assignedJobsCount / safeTotal) * 100;
+  const waitingPct = (waitingPartsCount / safeTotal) * 100;
+  const completedPct = (completedCount / safeTotal) * 100;
 
   // Arc math for Donut Chart
   const circumference = 377;
@@ -244,7 +266,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
   const completedOffset = unassignedDash + workingDash + assignedDash + waitingDash;
 
   const serviceRevenue = jobCards
-    .filter(jc => jc.status === 'COMPLETED')
+    .filter(jc => (jc.status || '').toUpperCase() === 'COMPLETED')
     .reduce((sum, jc) => {
       if (!jc.amount) return sum;
       const val = typeof jc.amount === 'string' ? Number(jc.amount.replace(/[^0-9.-]+/g, '')) : jc.amount;
@@ -255,23 +277,54 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
     ? `₹${(serviceRevenue / 100000).toFixed(2)}L` 
     : `₹${serviceRevenue.toLocaleString('en-IN')}`;
 
-  // Calculate Mechanic Efficiency
-  const mechanicStats = jobCards.reduce((acc: any, jc) => {
-    if (jc.mechanicName) {
-      if (!acc[jc.mechanicName]) acc[jc.mechanicName] = { name: jc.mechanicName, jobs: 0 };
-      if (jc.status === 'COMPLETED') acc[jc.mechanicName].jobs += 1;
+  // Calculate Mechanic Efficiency & Workload
+  const mechanicMap = new Map();
+
+  mechanics.forEach((m: any) => {
+    if (m.name) {
+      mechanicMap.set(m.name.toLowerCase(), {
+        name: m.name,
+        completedJobs: 0,
+        totalJobs: 0,
+        status: m.status || 'Available'
+      });
     }
-    return acc;
-  }, {});
-  const topMechanics = Object.values(mechanicStats)
-    .sort((a: any, b: any) => b.jobs - a.jobs)
-    .slice(0, 4) as { name: string; jobs: number }[];
-  const maxJobs = topMechanics.length > 0 ? Math.max(...topMechanics.map(m => m.jobs), 1) : 1;
+  });
+
+  jobCards.forEach((jc: any) => {
+    if (jc.mechanicName && jc.mechanicName !== 'Unassigned') {
+      const key = jc.mechanicName.toLowerCase();
+      if (!mechanicMap.has(key)) {
+        mechanicMap.set(key, {
+          name: jc.mechanicName,
+          completedJobs: 0,
+          totalJobs: 0,
+          status: 'Active'
+        });
+      }
+      const item = mechanicMap.get(key);
+      item.totalJobs += 1;
+      const statusUpper = (jc.status || '').toUpperCase();
+      if (statusUpper === 'COMPLETED') {
+        item.completedJobs += 1;
+      }
+    }
+  });
+
+  const topMechanics = Array.from(mechanicMap.values())
+    .sort((a: any, b: any) => (b.completedJobs * 2 + b.totalJobs) - (a.completedJobs * 2 + a.totalJobs))
+    .slice(0, 5);
+
+  const maxJobs = topMechanics.length > 0
+    ? Math.max(...topMechanics.map((m: any) => Math.max(m.completedJobs, m.totalJobs)), 1)
+    : 1;
+
   const colors = [
     { text: 'text-[#184edb]', bg: 'bg-[#184edb]' },
     { text: 'text-blue-900', bg: 'bg-blue-900' },
     { text: 'text-cyan-600', bg: 'bg-cyan-500' },
-    { text: 'text-emerald-600', bg: 'bg-emerald-500' }
+    { text: 'text-emerald-600', bg: 'bg-emerald-500' },
+    { text: 'text-amber-600', bg: 'bg-amber-500' }
   ];
 
   return (
@@ -284,7 +337,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
             Service Dashboard
           </h1>
           <p className="text-xs text-slate-400 font-semibold mt-1">
-            Real-time workshop operations overview for today, July 11, 2026
+            Real-time workshop operations overview for today, {new Date().toLocaleDateString('en-IN', { month: 'long', day: 'numeric', year: 'numeric' })}
           </p>
         </div>
         <div className="flex items-center gap-2.5">
@@ -316,9 +369,6 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
             <div className="bg-blue-50 text-[#184edb] p-3 rounded-xl flex items-center justify-center">
               <ClipboardList size={22} />
             </div>
-            <span className="text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-              +4%
-            </span>
           </div>
         </div>
 
@@ -606,14 +656,15 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
           </h3>
 
           <div className="flex flex-col gap-3 py-1 w-full box-border">
-            {topMechanics.length > 0 ? topMechanics.map((mech, index) => {
+            {topMechanics.length > 0 ? topMechanics.map((mech: any, index: number) => {
               const color = colors[index % colors.length];
-              const width = Math.max((mech.jobs / maxJobs) * 100, 5);
+              const displayCount = mech.completedJobs > 0 ? `${mech.completedJobs} Completed (${mech.totalJobs} Total)` : `${mech.totalJobs} Active Jobs`;
+              const width = Math.max((Math.max(mech.completedJobs, mech.totalJobs) / maxJobs) * 100, 8);
               return (
                 <div key={mech.name} className="flex flex-col gap-1.5">
                   <div className="flex justify-between items-center text-[12px]">
-                    <span className="font-bold text-slate-700">{mech.name}</span>
-                    <span className={`font-extrabold ${color.text}`}>{mech.jobs} Jobs</span>
+                    <span className="font-bold text-slate-700">{mech.name} <span className="text-[10px] text-slate-400 font-semibold">({mech.status})</span></span>
+                    <span className={`font-extrabold ${color.text}`}>{displayCount}</span>
                   </div>
                   <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
                     <div className={`${color.bg} h-full rounded-full transition-all duration-500`} style={{ width: `${width}%` }} />
@@ -621,7 +672,7 @@ export const ServiceDashboard: React.FC<ServiceDashboardProps> = ({
                 </div>
               );
             }) : (
-              <div className="text-slate-400 text-xs font-semibold py-6 text-center">No completed jobs recorded yet.</div>
+              <div className="text-slate-400 text-xs font-semibold py-6 text-center">No mechanic activity recorded yet.</div>
             )}
           </div>
         </div>

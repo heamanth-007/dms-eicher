@@ -12,7 +12,6 @@ import {
   Users,
   Truck,
   Search,
-  ArrowUpRight,
   X
 } from 'lucide-react';
 
@@ -91,14 +90,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
       const saved = localStorage.getItem('dms_service_bills');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {}
-    return [
-      { id: 'sb-101', billNo: 'SB-4492', customerName: 'Balaji Logistics', vehicleNo: 'TN-38-AK-8821', date: 'Oct 12, 2023', grandTotal: 18450, status: 'PAID' },
-      { id: 'sb-102', billNo: 'SB-4493', customerName: 'Ramu Transport', vehicleNo: 'TN-37-BY-1102', date: 'Oct 14, 2023', grandTotal: 24100, status: 'PENDING' },
-      { id: 'sb-103', billNo: 'SB-4494', customerName: 'City Motors Garage', vehicleNo: 'KA-01-EF-5566', date: 'Oct 18, 2023', grandTotal: 9600, status: 'PAID' }
-    ];
+    return [];
   });
 
   useEffect(() => {
@@ -382,8 +377,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-50">
               <Car className="text-blue-600" size={18} />
             </div>
-            <span className="text-[11px] font-semibold inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-100 text-green-700">
-              <ArrowUpRight size={10} /> +12%
+            <span className="text-[11px] font-semibold inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">
+              Live
             </span>
           </div>
           <div className="flex flex-col gap-1">
@@ -403,8 +398,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-50">
               <ShoppingBag className="text-purple-600" size={18} />
             </div>
-            <span className="text-[11px] font-semibold inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-100 text-green-700">
-              <ArrowUpRight size={10} /> +5%
+            <span className="text-[11px] font-semibold inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-purple-50 text-purple-700">
+              Live
             </span>
           </div>
           <div className="flex flex-col gap-1">
@@ -422,8 +417,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-cyan-50">
               <FileText className="text-cyan-600" size={18} />
             </div>
-            <span className="text-[11px] font-semibold inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-100 text-green-700">
-              <ArrowUpRight size={10} /> +8.2%
+            <span className="text-[11px] font-semibold inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-700">
+              Live
             </span>
           </div>
           <div className="flex flex-col gap-1">
@@ -495,8 +490,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-green-50">
               <Coins className="text-green-600" size={18} />
             </div>
-            <span className="text-[11px] font-semibold inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-100 text-green-700">
-              <ArrowUpRight size={10} /> +16%
+            <span className="text-[11px] font-semibold inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-50 text-green-700">
+              Live
             </span>
           </div>
           <div className="flex flex-col gap-1">
@@ -548,12 +543,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
             <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-50">
               <Users className="text-purple-500" size={18} />
             </div>
-            <span className="text-[11px] font-bold text-purple-500">+4 New</span>
+            <span className="text-[11px] font-bold text-purple-500">{customers.length} Total</span>
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[10.5px] font-bold text-slate-400 tracking-wider">TOTAL CUSTOMERS</span>
             <h3 className="text-2xl font-extrabold text-slate-800 m-0">
-              {customers.length || '1.2k'}
+              {customers.length}
             </h3>
           </div>
         </div>
@@ -601,7 +596,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
                   </tr>
                 </thead>
                 <tbody>
-                  {customers.slice(0, 3).map(c => (
+                  {customers.length > 0 ? customers.slice(0, 3).map(c => (
                     <tr key={c.id}>
                       <td className="p-3 border-b border-slate-100 font-bold text-slate-500">{c.id}</td>
                       <td className="p-3 border-b border-slate-100 text-slate-600">{c.name}</td>
@@ -614,7 +609,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
                         </span>
                       </td>
                     </tr>
-                  ))}
+                  )) : (
+                    <tr>
+                      <td colSpan={3} className="p-4 text-center text-slate-400 font-medium">No customer records found.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -644,7 +643,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
                   </tr>
                 </thead>
                 <tbody>
-                  {serviceBills.slice(0, 3).map((bill: any, idx: number) => (
+                  {serviceBills.length > 0 ? serviceBills.slice(0, 3).map((bill: any, idx: number) => (
                     <tr key={bill.id || bill.billNo || idx}>
                       <td className="p-3 border-b border-slate-100 font-bold text-[#184edb]">{bill.billNo || bill.id}</td>
                       <td className="p-3 border-b border-slate-100 font-semibold text-slate-700">
@@ -665,7 +664,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
                         </span>
                       </td>
                     </tr>
-                  ))}
+                  )) : (
+                    <tr>
+                      <td colSpan={5} className="p-4 text-center text-slate-400 font-medium">No service bills recorded.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -698,7 +701,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
               </tr>
             </thead>
             <tbody>
-              {filteredTransactions.slice(0, 3).map((t, idx) => (
+              {filteredTransactions.length > 0 ? filteredTransactions.slice(0, 3).map((t, idx) => (
                 <tr key={t.refId || idx}>
                   <td className="p-3 border-b border-slate-100 font-bold text-[#184edb] cursor-pointer hover:underline">{t.refId}</td>
                   <td className="p-3 border-b border-slate-100 font-medium text-slate-700">{t.payeeName}</td>
@@ -711,7 +714,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ salesCount, onNavigate, on
                       }`}>{t.status}</span>
                   </td>
                 </tr>
-              ))}
+              )) : (
+                <tr>
+                  <td colSpan={7} className="p-4 text-center text-slate-400 font-medium">No transactions recorded yet.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

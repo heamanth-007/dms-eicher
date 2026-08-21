@@ -447,19 +447,33 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
     setPurchaseItems(purchaseItems.filter(item => item.id !== id));
   };
 
-  // View & Edit Return Modal state
+  // View, Edit & Print Return Modal state
   const [viewingReturn, setViewingReturn] = useState<PurchaseReturn | null>(null);
   const [editingReturn, setEditingReturn] = useState<PurchaseReturn | null>(null);
+  const [printingReturn, setPrintingReturn] = useState<PurchaseReturn | null>(null);
 
   const handleViewReturn = (ret: PurchaseReturn) => {
     setViewingReturn(ret);
   };
 
+  const handlePrintReturnSlip = (ret: PurchaseReturn) => {
+    setPrintingReturn(ret);
+    setTimeout(() => {
+      window.print();
+    }, 100);
+  };
+
   const handleStartNewReturn = () => {
     setEditingReturn(null);
     setNewRetId(`RET-2026-${String(returns.length + 1).padStart(3, '0')}`);
-    setNewRetSupplier(activeSuppliersList[0]?.name || suppliersList.filter(s => s !== 'All')[0] || '');
-    setNewRetPoRef(purchases[0]?.id || 'PO-2026-0942');
+    const defaultSup = activeSuppliersList[0]?.name || suppliersList.filter(s => s !== 'All')[0] || '';
+    setNewRetSupplier(defaultSup);
+
+    // Find PO specifically belonging to defaultSup
+    const matchingPo = purchases.find(
+      p => p.supplier && p.supplier.trim().toLowerCase() === defaultSup.trim().toLowerCase()
+    );
+    setNewRetPoRef(matchingPo ? matchingPo.id : '');
     setNewRetDate(getTodayFormattedDate());
     setNewRetStatus('PENDING');
     setNewRetItems([]);
@@ -2353,6 +2367,125 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
   return (
     <div className="flex-1 flex flex-col p-8 bg-[#f8fafc] w-full box-border font-sans min-h-[calc(100vh-64px)]">
 
+      {/* PRINT-ONLY CSS RULES FOR PURCHASE RETURN DEBIT NOTE */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #purchase-return-print-sheet, #purchase-return-print-sheet * {
+            visibility: visible !important;
+          }
+          #purchase-return-print-sheet {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 24px !important;
+            background: white !important;
+            color: black !important;
+            display: block !important;
+          }
+        }
+      `}</style>
+
+      {/* PRINTABLE PURCHASE RETURN DEBIT NOTE (ONLY VISIBLE IN PRINT PREVIEW) */}
+      {printingReturn && (
+        <div id="purchase-return-print-sheet" className="hidden print:block text-black p-6 font-sans">
+          {/* Shop Header & Return Details */}
+          <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl font-black uppercase text-slate-900 tracking-tight m-0">
+                PURCHASE RETURN DEBIT NOTE
+              </h1>
+              <p className="text-sm font-bold text-slate-800 m-0 mt-1 uppercase">
+                EICHER AUTHORIZED DEALER &amp; WORKSHOP DIVISION
+              </p>
+              <p className="text-xs text-slate-600 m-0 mt-0.5">
+                Main Workshop Road, Industrial Area, Tamil Nadu | Phone: +91 98765 43210
+              </p>
+              <p className="text-xs text-slate-500 m-0 mt-0.5 font-bold">
+                GSTIN: 33AAAAA0000A1Z5
+              </p>
+            </div>
+
+            <div className="text-right flex flex-col gap-1">
+              <span className="text-base font-black text-[#184edb]">RETURN NO: {printingReturn.id}</span>
+              <span className="text-xs font-bold text-slate-700">Date: {printingReturn.date || getTodayFormattedDate()}</span>
+              <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                Status: {printingReturn.status}
+              </span>
+            </div>
+          </div>
+
+          {/* Supplier & PO Reference Info Grid */}
+          <div className="bg-slate-100 p-4 rounded-lg border border-slate-300 mb-6 grid grid-cols-2 gap-4 text-xs font-bold">
+            <div>
+              <span className="text-slate-500 uppercase tracking-wider block text-[10px]">SUPPLIER NAME:</span>
+              <span className="text-slate-900 text-sm font-extrabold">{printingReturn.supplier || 'N/A'}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 uppercase tracking-wider block text-[10px]">PO REFERENCE NUMBER:</span>
+              <span className="text-slate-900 text-sm font-extrabold">{printingReturn.poRef || 'N/A'}</span>
+            </div>
+          </div>
+
+          {/* Returned Items Table */}
+          <table className="w-full border-collapse border border-slate-300 text-xs mb-6">
+            <thead>
+              <tr className="bg-slate-200 text-slate-900 font-black uppercase border-b-2 border-slate-400">
+                <th className="border border-slate-300 p-2 text-center w-10">S.No</th>
+                <th className="border border-slate-300 p-2 text-left">Item / Part Name</th>
+                <th className="border border-slate-300 p-2 text-center w-28">Returned Qty</th>
+                <th className="border border-slate-300 p-2 text-left">Reason for Return</th>
+                <th className="border border-slate-300 p-2 text-right w-36">Refund Amount (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {printingReturn.items && printingReturn.items.length > 0 ? (
+                printingReturn.items.map((item, idx) => (
+                  <tr key={item.id || idx} className="border-b border-slate-200">
+                    <td className="border border-slate-300 p-2 text-center font-bold">{idx + 1}</td>
+                    <td className="border border-slate-300 p-2 font-bold text-slate-900">{item.productName}</td>
+                    <td className="border border-slate-300 p-2 text-center font-extrabold text-slate-800">{item.qty} Units</td>
+                    <td className="border border-slate-300 p-2 text-slate-700 font-semibold">{item.reason || 'Defective / Return'}</td>
+                    <td className="border border-slate-300 p-2 text-right font-black text-slate-900">
+                      ₹{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="border border-slate-300 p-2 text-center font-bold">1</td>
+                  <td className="border border-slate-300 p-2 font-bold text-slate-900">{printingReturn.productName || 'Returned Component'}</td>
+                  <td className="border border-slate-300 p-2 text-center font-extrabold text-slate-800">{printingReturn.itemsCount || 1} Units</td>
+                  <td className="border border-slate-300 p-2 text-slate-700 font-semibold">{cleanReasonDisplay(printingReturn.reason) || 'Defective part'}</td>
+                  <td className="border border-slate-300 p-2 text-right font-black text-slate-900">
+                    ₹{printingReturn.refundValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+            <tfoot>
+              <tr className="bg-slate-100 font-black text-slate-900 border-t-2 border-slate-400">
+                <td colSpan={4} className="border border-slate-300 p-2.5 text-right uppercase">TOTAL REFUND VALUE:</td>
+                <td className="border border-slate-300 p-2.5 text-right text-sm">
+                  ₹{printingReturn.refundValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+
+          {/* Signatures Footer */}
+          <div className="mt-12 flex justify-between items-center text-xs font-bold border-t border-slate-300 pt-6">
+            <div>Store Keeper Signature: ___________________</div>
+            <div>Supplier Acceptance: ___________________</div>
+            <div>Authorized Signatory: ___________________</div>
+          </div>
+        </div>
+      )}
+
       {/* Breadcrumbs */}
       <div className="flex items-center gap-2 text-[13px] text-slate-400 font-semibold mb-2">
         <span>Dashboard</span>
@@ -3199,7 +3332,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
           {/* RETURN TAB TABLE */}
           {subTab === 'return' && (
-            <table className="w-full text-left border-collapse min-w-[1000px]">
+            <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
                 <tr className="bg-slate-50/75 border-b border-slate-100 text-slate-400 text-[11px] uppercase tracking-wider font-bold">
                   <th className="py-4.5 px-6 font-bold">Return ID</th>
@@ -3208,7 +3341,6 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                   <th className="py-4.5 px-5 font-bold">Return Date</th>
                   <th className="py-4.5 px-5 text-center font-bold">Returned Qty</th>
                   <th className="py-4.5 px-5 text-right font-bold">Refund Value</th>
-                  <th className="py-4.5 px-5 font-bold">Reason</th>
                   <th className="py-4.5 px-5 text-center font-bold">Refund Status</th>
                   <th className="py-4.5 px-6 text-right font-bold">Actions</th>
                 </tr>
@@ -3216,7 +3348,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
               <tbody className="divide-y divide-slate-100 text-[14px]">
                 {filteredReturns.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-10 text-center text-slate-400 font-semibold bg-white">
+                    <td colSpan={8} className="py-10 text-center text-slate-400 font-semibold bg-white">
                       No purchase returns found matching the filters.
                     </td>
                   </tr>
@@ -3267,11 +3399,6 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                         ₹{r.refundValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
 
-                      {/* Reason */}
-                      <td className="py-4 px-5 text-slate-600 font-medium">
-                        {cleanReasonDisplay(r.reason)}
-                      </td>
-
                       {/* Status */}
                       <td className="py-4 px-5 text-center whitespace-nowrap">
                         {r.status === 'COMPLETED' && (
@@ -3312,8 +3439,8 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                           </button>
                           <button
                             type="button"
-                            onClick={() => alert(`Refund slip for Return: ${r.id}`)}
-                            className="p-2 text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200 cursor-pointer"
+                            onClick={() => handlePrintReturnSlip(r)}
+                            className="p-2 text-slate-600 hover:text-[#184edb] bg-slate-100 hover:bg-blue-50 rounded-lg transition-colors border border-slate-200 cursor-pointer"
                             title="Print Return Slip"
                           >
                             <Printer size={16} />
@@ -3346,6 +3473,8 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                   <th className="py-4.5 px-5 font-bold">Supplier</th>
                   <th className="py-4.5 px-5 font-bold">Issue Date</th>
                   <th className="py-4.5 px-5 font-bold">Due Date</th>
+                  <th className="py-4.5 px-5 text-center font-bold">Total Items</th>
+                  <th className="py-4.5 px-5 text-right font-bold">GST Amount</th>
                   <th className="py-4.5 px-5 text-right font-bold">Total Amount</th>
                   <th className="py-4.5 px-5 text-right font-bold">Paid Amount</th>
                   <th className="py-4.5 px-5 text-right font-bold">Balance Due</th>
@@ -3356,7 +3485,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
               <tbody className="divide-y divide-slate-100 text-[14px]">
                 {filteredInvoices.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-10 text-center text-slate-400 font-semibold bg-white">
+                    <td colSpan={12} className="py-10 text-center text-slate-400 font-semibold bg-white">
                       No invoices found matching the filters.
                     </td>
                   </tr>
@@ -3364,6 +3493,12 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                   paginatedInvoices.map((i) => {
                     const paidAmt = getPaidAmount(i);
                     const balAmt = getBalanceDue(i);
+                    const poMatch = purchases.find(p => p.invoiceNo === i.id || p.id === i.poRef);
+                    const itemsCount = i.items?.reduce((acc, it) => acc + (Number(it.qty) || 1), 0) || poMatch?.itemsCount || 1;
+                    const gstAmount = poMatch?.gstAmount || Math.round(i.amount * 0.18);
+                    const supplierBg = poMatch?.supplierBg || 'bg-[#184edb]/10 text-[#184edb]';
+                    const supplierInitials = poMatch?.supplierInitials || i.supplier?.substring(0, 2).toUpperCase() || 'SP';
+
                     return (
                       <tr key={i.id} className="hover:bg-slate-50/40 transition-colors">
 
@@ -3378,18 +3513,33 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                         </td>
 
                         {/* Supplier */}
-                        <td className="py-4 px-5 font-bold text-slate-850 whitespace-nowrap">
-                          {i.supplier}
+                        <td className="py-4 px-5 whitespace-nowrap">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full ${supplierBg} font-bold text-[11.5px] flex items-center justify-center`}>
+                              {supplierInitials}
+                            </div>
+                            <span className="font-bold text-slate-800">{i.supplier}</span>
+                          </div>
                         </td>
 
                         {/* Issue Date */}
-                        <td className="py-4 px-5 text-slate-600 font-medium whitespace-nowrap">
+                        <td className="py-4 px-5 text-slate-650 font-medium whitespace-nowrap">
                           {i.issueDate}
                         </td>
 
                         {/* Due Date */}
                         <td className="py-4 px-5 text-slate-600 font-medium whitespace-nowrap">
                           {i.dueDate}
+                        </td>
+
+                        {/* Total Items */}
+                        <td className="py-4 px-5 text-slate-700 font-semibold text-center whitespace-nowrap">
+                          {itemsCount} Units
+                        </td>
+
+                        {/* GST Amount */}
+                        <td className="py-4 px-5 text-slate-500 text-right font-medium whitespace-nowrap">
+                          ₹{gstAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
 
                         {/* Total Amount */}
@@ -3433,28 +3583,37 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
 
                         {/* Actions */}
                         <td className="py-4 px-6 whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-3.5">
-                            <button
-                              onClick={() => {
-                                setQrPaymentInvoice(i);
-                                setCustomPaymentAmount(getBalanceDue(i));
-                                setShowQrPaymentModal(true);
-                              }}
-                              className="p-1.5 text-purple-600 hover:text-purple-700 bg-purple-50/80 hover:bg-purple-100 rounded-lg transition-colors border border-purple-200/60 cursor-pointer shadow-2xs"
-                              title="Pay via UPI QR Code"
-                            >
-                              <QrCode size={16} />
-                            </button>
+                          <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => setSelectedInvoice(i)}
                               className="p-1.5 text-blue-600 hover:text-blue-700 bg-blue-50/80 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200/60 cursor-pointer shadow-2xs"
-                              title="View & Edit Invoice Details"
+                              title="View Invoice Details"
                             >
                               <Eye size={16} />
                             </button>
                             <button
-                              onClick={() => alert(`Downloading Invoice PDF: ${i.id}`)}
+                              onClick={() => {
+                                if (poMatch) handleStartEditPurchase(poMatch);
+                                else setSelectedInvoice(i);
+                              }}
+                              className="p-1.5 text-amber-600 hover:text-amber-700 bg-amber-50/80 hover:bg-amber-100 rounded-lg transition-colors border border-amber-200/60 cursor-pointer shadow-2xs"
+                              title="Edit Purchase / Invoice"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedInvoice(i);
+                                setShouldTriggerPrint(true);
+                              }}
                               className="p-1.5 text-emerald-600 hover:text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200/60 cursor-pointer shadow-2xs"
+                              title="Print Invoice"
+                            >
+                              <Printer size={16} />
+                            </button>
+                            <button
+                              onClick={() => alert(`Downloading Invoice PDF: ${i.id}`)}
+                              className="p-1.5 text-indigo-600 hover:text-indigo-700 bg-indigo-50/80 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-200/60 cursor-pointer shadow-2xs"
                               title="Download PDF"
                             >
                               <Download size={16} />
@@ -4398,10 +4557,10 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                     onChange={(e) => {
                       const selectedSup = e.target.value;
                       setNewRetSupplier(selectedSup);
-                      const matchingPo = purchases.find(p => p.supplier === selectedSup);
-                      if (matchingPo) {
-                        setNewRetPoRef(matchingPo.id);
-                      }
+                      const matchingPo = purchases.find(
+                        p => p.supplier && p.supplier.trim().toLowerCase() === selectedSup.trim().toLowerCase()
+                      );
+                      setNewRetPoRef(matchingPo ? matchingPo.id : '');
                     }}
                     className="p-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 bg-white focus:outline-none focus:border-[#184edb]"
                   >
@@ -4419,12 +4578,12 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                     className="p-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 bg-white focus:outline-none focus:border-[#184edb]"
                   >
                     {purchases
-                      .filter(p => !newRetSupplier || p.supplier === newRetSupplier)
+                      .filter(p => p.supplier && p.supplier.trim().toLowerCase() === newRetSupplier.trim().toLowerCase())
                       .map(p => (
-                        <option key={p.id} value={p.id}>{p.id}</option>
+                        <option key={p.id} value={p.id}>{p.id} ({p.date || 'Recent'})</option>
                       ))}
-                    {purchases.filter(p => !newRetSupplier || p.supplier === newRetSupplier).length === 0 && (
-                      <option value={newRetPoRef}>{newRetPoRef}</option>
+                    {purchases.filter(p => p.supplier && p.supplier.trim().toLowerCase() === newRetSupplier.trim().toLowerCase()).length === 0 && (
+                      <option value="">No POs for {newRetSupplier}</option>
                     )}
                   </select>
                 </div>
@@ -4454,61 +4613,158 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                 </div>
               </div>
 
-              {/* Product Return Line Entry Box */}
+              {/* Interactive PO References & Purchased Parts List for Selected Supplier */}
               {(() => {
-                const selectedPoForReturn = purchases.find(p => p.id === newRetPoRef);
-                const poReturnItems = selectedPoForReturn?.items || [];
+                const supplierPos = purchases.filter(p => !newRetSupplier || p.supplier.toLowerCase().trim() === newRetSupplier.toLowerCase().trim());
+                const selectedPo = purchases.find(p => p.id === newRetPoRef) || supplierPos[0];
+
+                // Retrieve purchased items for the selected PO
+                let poItems: PurchaseItem[] = selectedPo?.items || [];
+                if (poItems.length === 0 && selectedPo) {
+                  const invMatch = invoices.find(inv => inv.poRef === selectedPo.id || inv.id === selectedPo.id);
+                  if (invMatch && invMatch.items && invMatch.items.length > 0) {
+                    poItems = invMatch.items;
+                  } else {
+                    // Fallback parts if PO items array is not populated
+                    poItems = sparePartsInventory
+                      .filter(sp => !selectedPo.supplier || sp.brand?.toLowerCase().includes(selectedPo.supplier.toLowerCase()) || selectedPo.supplier.toLowerCase().includes(sp.brand?.toLowerCase() || ''))
+                      .slice(0, 4)
+                      .map((sp, idx) => ({
+                        id: `sp-item-${idx}`,
+                        productName: sp.partName,
+                        qty: 2,
+                        rate: parseFloat((sp.purchasePrice || '0').replace(/[^0-9.]/g, '')) || 450,
+                        gstPercent: parseInt((sp.gstPercent || '18').replace(/[^0-9]/g, ''), 10) || 18
+                      }));
+                  }
+                }
 
                 return (
-                  <div className="bg-[#f8fafc] border border-blue-100 rounded-xl p-4 flex flex-col gap-3 shadow-2xs text-left">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-extrabold text-[#184edb] uppercase tracking-wider flex items-center gap-1.5">
-                        <Plus size={14} /> Add Product Return Line Item
-                      </span>
-                      {poReturnItems.length > 0 && (
-                        <span className="text-[11px] font-bold text-slate-500">
-                          {poReturnItems.length} Products in PO #{newRetPoRef}
-                        </span>
-                      )}
-                    </div>
+                  <div className="flex flex-col gap-3.5">
+                    {/* Supplier's PO Selection Bar */}
+                    {supplierPos.length > 0 && (
+                      <div className="bg-blue-50/60 border border-blue-150 rounded-xl p-3.5 flex flex-col gap-2 text-left">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-extrabold text-[#184edb] uppercase tracking-wider flex items-center gap-1.5">
+                            <ShoppingBag size={14} /> Available PO References for {newRetSupplier || 'Supplier'} ({supplierPos.length} POs Found)
+                          </span>
+                          <span className="text-[11px] font-bold text-slate-500">Click a PO to view &amp; load parts</span>
+                        </div>
 
-                    {/* Quick Selection Pills for Products Purchased under selected PO */}
-                    {poReturnItems.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-1.5 bg-blue-50/70 p-2.5 rounded-lg border border-blue-100">
-                        <span className="text-[10px] font-extrabold text-[#184edb] uppercase tracking-wider">
-                          Click to select items bought in {newRetPoRef}:
-                        </span>
-                        {poReturnItems.map((item, idx) => (
-                          <button
-                            key={`po-item-btn-${idx}`}
-                            type="button"
-                            onClick={() => {
-                              const isDuplicate = newRetItems.some(
-                                i => i.productName.toLowerCase() === item.productName.toLowerCase()
-                              );
-                              if (isDuplicate) {
-                                alert(`Product "${item.productName}" is already added to this return record.`);
-                                return;
-                              }
-                              setRetLineProdName(item.productName);
-                              setRetLineQty(item.qty);
-                              const totalVal = Math.round(item.qty * item.rate * (1 + (item.gstPercent || 0) / 100));
-                              setRetLineAmount(totalVal);
-                              setTimeout(() => {
-                                retReasonRef.current?.focus();
-                              }, 50);
-                            }}
-                            className="text-[11.5px] font-bold bg-white text-slate-800 hover:bg-[#184edb] hover:text-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs transition-all cursor-pointer flex items-center gap-1"
-                            title={`Click to fill ${item.productName}`}
-                          >
-                            <span>+ {item.productName}</span>
-                            <span className="text-[10px] opacity-80">({item.qty} Qty • ₹{item.rate})</span>
-                          </button>
-                        ))}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {supplierPos.map(p => {
+                            const isSelected = newRetPoRef === p.id;
+                            return (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => setNewRetPoRef(p.id)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-extrabold border cursor-pointer transition-all flex items-center gap-2 shadow-2xs ${
+                                  isSelected
+                                    ? 'bg-[#184edb] text-white border-[#184edb] ring-2 ring-blue-500/20'
+                                    : 'bg-white text-slate-700 border-slate-200 hover:border-blue-400 hover:text-[#184edb]'
+                                }`}
+                              >
+                                <span>{p.id}</span>
+                                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                  {p.date || 'Recent'} • ₹{p.grandTotal?.toLocaleString() || '0'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                    {/* Compact Purchased Parts List under Selected PO - Format: part name (qty)+ */}
+                    {selectedPo && (
+                      <div className="bg-white border border-slate-200 rounded-xl p-3.5 flex flex-col gap-2.5 text-left shadow-2xs">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <span className="text-[11px] font-extrabold text-[#184edb] uppercase tracking-wider flex items-center gap-1.5">
+                            <ShoppingBag size={14} /> Parts Purchased in PO #{selectedPo.id} ({newRetSupplier}):
+                          </span>
+                          {poItems.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newItemsToAdd: ReturnItem[] = [];
+                                poItems.forEach(item => {
+                                  const isDup = newRetItems.some(i => i.productName.toLowerCase() === item.productName.toLowerCase()) ||
+                                                newItemsToAdd.some(i => i.productName.toLowerCase() === item.productName.toLowerCase());
+                                  if (!isDup) {
+                                    const totalVal = Math.round(item.qty * item.rate * (1 + (item.gstPercent || 0) / 100));
+                                    newItemsToAdd.push({
+                                      id: `ret-item-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                                      productName: item.productName,
+                                      qty: item.qty,
+                                      amount: totalVal,
+                                      reason: 'Defective / Damaged part'
+                                    });
+                                  }
+                                });
+                                if (newItemsToAdd.length > 0) {
+                                  setNewRetItems(prev => [...prev, ...newItemsToAdd]);
+                                }
+                              }}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[10.5px] rounded-lg border-none cursor-pointer transition-colors shadow-2xs flex items-center gap-1"
+                            >
+                              <Plus size={12} />
+                              <span>Add All ({poItems.length}) Parts</span>
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                          {poItems.length === 0 ? (
+                            <span className="text-xs text-slate-400 font-medium italic">No parts found for PO #{selectedPo.id}</span>
+                          ) : (
+                            poItems.map((item, idx) => {
+                              const isAdded = newRetItems.some(i => i.productName.toLowerCase() === item.productName.toLowerCase());
+                              const totalVal = Math.round(item.qty * item.rate * (1 + (item.gstPercent || 0) / 100));
+
+                              return isAdded ? (
+                                <span
+                                  key={`po-part-badge-${idx}`}
+                                  className="text-xs font-extrabold bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-200 shadow-2xs flex items-center gap-1.5"
+                                >
+                                  <span>✓ {item.productName} ({item.qty} Units)</span>
+                                </span>
+                              ) : (
+                                <button
+                                  key={`po-part-badge-${idx}`}
+                                  type="button"
+                                  onClick={() => {
+                                    const newReturnLineItem: ReturnItem = {
+                                      id: `ret-item-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                                      productName: item.productName,
+                                      qty: item.qty,
+                                      amount: totalVal,
+                                      reason: 'Defective / Damaged part'
+                                    };
+                                    setNewRetItems(prev => [...prev, newReturnLineItem]);
+                                  }}
+                                  className="text-xs font-bold bg-white text-slate-800 hover:bg-[#184edb] hover:text-white px-3 py-1.5 rounded-lg border border-slate-250 shadow-2xs transition-all cursor-pointer flex items-center gap-1 group"
+                                  title={`Click to add ${item.productName} to return list`}
+                                >
+                                  <span>{item.productName} ({item.qty} Units)+</span>
+                                  <span className="text-[10px] text-slate-400 group-hover:text-blue-100 font-semibold ml-0.5">₹{totalVal}</span>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Manual Return Line Item Entry */}
+                    <div className="bg-[#f8fafc] border border-blue-100 rounded-xl p-4 flex flex-col gap-3 shadow-2xs text-left">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-extrabold text-[#184edb] uppercase tracking-wider flex items-center gap-1.5">
+                          <Plus size={14} /> Add Custom Product Return Line Item
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                       {/* Product Name */}
                       <div className="sm:col-span-4 flex flex-col gap-1">
                         <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Product Name / Part *</label>
@@ -4522,7 +4778,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                             setRetLineProdName(val);
 
                             // Check PO items match first
-                            const poMatch = poReturnItems.find(i => i.productName.toLowerCase() === val.toLowerCase());
+                            const poMatch = poItems.find((i: PurchaseItem) => i.productName.toLowerCase() === val.toLowerCase());
                             if (poMatch) {
                               setRetLineQty(poMatch.qty);
                               const totalVal = Math.round(poMatch.qty * poMatch.rate * (1 + (poMatch.gstPercent || 0) / 100));
@@ -4549,7 +4805,7 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                           className="p-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#184edb] bg-white"
                         />
                         <datalist id="po-return-suggestions">
-                          {poReturnItems.map((item, idx) => (
+                          {poItems.map((item: PurchaseItem, idx: number) => (
                             <option key={`po-sug-${idx}`} value={item.productName}>
                               [PO {newRetPoRef}] {item.productName} ({item.qty} Purchased @ ₹{item.rate})
                             </option>
@@ -4632,10 +4888,11 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                           <Plus size={16} />
                         </button>
                       </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            );
-          })()}
+              );
+            })()}
 
               {/* Added Returned Products Table */}
               <div className="flex flex-col gap-2 text-left">
@@ -4674,9 +4931,16 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                             <td className="py-2.5 px-4 font-bold text-slate-800">{item.productName}</td>
                             <td className="py-2.5 px-3 text-center font-semibold text-slate-700">{item.qty}</td>
                             <td className="py-2.5 px-4 text-slate-600 font-medium">
-                              <span className="bg-rose-50 text-rose-700 px-2 py-0.5 rounded text-[11px] font-bold border border-rose-100">
-                                {item.reason}
-                              </span>
+                              <input
+                                type="text"
+                                value={item.reason || ''}
+                                onChange={(e) => {
+                                  const updatedReason = e.target.value;
+                                  setNewRetItems(prev => prev.map(i => i.id === item.id ? { ...i, reason: updatedReason } : i));
+                                }}
+                                placeholder="Enter return reason (e.g. Damaged / Defective)..."
+                                className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded-lg font-semibold text-slate-800 focus:outline-none focus:border-[#184edb] bg-white shadow-2xs"
+                              />
                             </td>
                             <td className="py-2.5 px-4 text-right font-extrabold text-[#184edb] font-mono">
                               ₹{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -4773,21 +5037,9 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    const retToEdit = viewingReturn;
-                    setViewingReturn(null);
-                    handleStartEditReturn(retToEdit);
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-lg border border-white/20 transition-colors cursor-pointer"
-                  title="Edit Return"
-                >
-                  <Pencil size={14} />
-                  <span>Edit</span>
-                </button>
-                <button
-                  type="button"
                   onClick={() => setViewingReturn(null)}
                   className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer border-none"
+                  title="Close"
                 >
                   <X size={18} />
                 </button>
@@ -4928,14 +5180,6 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                 Return ID: <span className="font-bold text-slate-700">{viewingReturn.id}</span>
               </div>
               <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => alert(`Printing Return Slip for ${viewingReturn.id}...`)}
-                  className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
-                >
-                  <Printer size={14} />
-                  <span>Print Slip</span>
-                </button>
                 <button
                   type="button"
                   onClick={() => setViewingReturn(null)}
@@ -5529,17 +5773,6 @@ export const Purchase: React.FC<PurchaseProps> = ({ suppliersList: propSuppliers
                 >
                   <Printer size={15} />
                   <span>Print Invoice</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setQrPaymentInvoice(selectedInvoice);
-                    setCustomPaymentAmount(getBalanceDue(selectedInvoice));
-                    setShowQrPaymentModal(true);
-                  }}
-                  className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-[12.5px] px-4 py-2.5 border-none rounded-lg cursor-pointer transition-colors shadow-md"
-                >
-                  <QrCode size={15} />
-                  <span>Pay via QR</span>
                 </button>
               </div>
               <button

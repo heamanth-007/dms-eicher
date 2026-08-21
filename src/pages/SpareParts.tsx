@@ -947,8 +947,153 @@ export const SpareParts: React.FC = () => {
     );
   }
 
+  const handleExportExcel = () => {
+    const headers = [
+      'S.No',
+      'Part Number',
+      'Part Name',
+      'Category',
+      'Brand',
+      'HSN Code',
+      'GST %',
+      'Purchase Price',
+      'Sale Price',
+      'Stock Quantity',
+      'Total Valuation',
+      'Stock Status'
+    ];
+
+    const rows = filteredParts.map((p, index) => {
+      const qty = parseInt((p.stock || '0').replace(/[^0-9]/g, ''), 10) || 0;
+      const salePrice = parseFloat((p.salePrice || '0').replace(/[^0-9.]/g, '')) || 0;
+      const totalVal = qty * salePrice;
+      const st = getDerivedStatus(p);
+      const statusLabel = st === 'out' ? 'OUT OF STOCK' : st === 'low' ? 'LOW STOCK' : 'IN STOCK';
+
+      return [
+        index + 1,
+        `"${(p.partNumber || '').replace(/"/g, '""')}"`,
+        `"${(p.partName || '').replace(/"/g, '""')}"`,
+        `"${(p.category || '').replace(/"/g, '""')}"`,
+        `"${(p.brand || '').replace(/"/g, '""')}"`,
+        `"${(p.hsnCode || '').replace(/"/g, '""')}"`,
+        `"${(p.gstPercent || '').replace(/"/g, '""')}"`,
+        `"${(p.purchasePrice || '').replace(/"/g, '""')}"`,
+        `"${(p.salePrice || '').replace(/"/g, '""')}"`,
+        `"${qty} Units"`,
+        `"₹${totalVal.toFixed(2)}"`,
+        `"${statusLabel}"`
+      ];
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const todayStr = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.setAttribute('download', `spare_parts_inventory_catalog_${todayStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex-1 flex flex-col box-border max-w-full">
+      {/* PRINT-ONLY CSS RULES FOR SPARE PARTS */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #spare-parts-print-report, #spare-parts-print-report * {
+            visibility: visible !important;
+          }
+          #spare-parts-print-report {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 20px !important;
+            background: white !important;
+            color: black !important;
+            display: block !important;
+          }
+        }
+      `}</style>
+
+      {/* PRINTABLE SPARE PARTS REPORT (ONLY SHOWN IN PRINT PREVIEW) */}
+      <div id="spare-parts-print-report" className="hidden print:block text-black p-6 font-sans">
+        <div className="border-b-2 border-slate-900 pb-4 mb-5 flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-black uppercase text-slate-900 tracking-tight m-0">
+              SPARE PARTS INVENTORY & STOCK REPORT
+            </h1>
+            <p className="text-xs text-slate-600 m-0 font-semibold mt-1">
+              Official Dealer Stock Catalog & Details Summary
+            </p>
+            <p className="text-xs text-slate-500 m-0 mt-0.5 font-bold">
+              Report Generated: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-base font-black text-slate-900 uppercase">EICHER AUTHORIZED DEALER</div>
+            <div className="text-xs text-slate-600 font-semibold">Spare Parts & Workshop Division</div>
+          </div>
+        </div>
+
+        <div className="bg-slate-100 p-2.5 rounded border border-slate-300 mb-5 flex justify-between items-center text-xs font-bold">
+          <span>Total Spare Parts: <strong>{filteredParts.length}</strong></span>
+          <span>In Stock: <strong>{filteredParts.filter(p => getDerivedStatus(p) === 'normal').length}</strong></span>
+          <span>Low Stock: <strong>{filteredParts.filter(p => getDerivedStatus(p) === 'low').length}</strong></span>
+          <span>Out of Stock: <strong>{filteredParts.filter(p => getDerivedStatus(p) === 'out').length}</strong></span>
+        </div>
+
+        <table className="w-full border-collapse border border-slate-300 text-xs">
+          <thead>
+            <tr className="bg-slate-200 text-slate-900 font-black uppercase border-b-2 border-slate-400">
+              <th className="border border-slate-300 p-2 text-center">#</th>
+              <th className="border border-slate-300 p-2 text-left">Part Number</th>
+              <th className="border border-slate-300 p-2 text-left">Part Name</th>
+              <th className="border border-slate-300 p-2 text-left">Brand</th>
+              <th className="border border-slate-300 p-2 text-center">HSN</th>
+              <th className="border border-slate-300 p-2 text-center">GST %</th>
+              <th className="border border-slate-300 p-2 text-right">Sale Price</th>
+              <th className="border border-slate-300 p-2 text-center">Stock</th>
+              <th className="border border-slate-300 p-2 text-center">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredParts.map((p, idx) => {
+              const st = getDerivedStatus(p);
+              return (
+                <tr key={p.partNumber || idx} className="border-b border-slate-200">
+                  <td className="border border-slate-300 p-2 text-center font-bold">{idx + 1}</td>
+                  <td className="border border-slate-300 p-2 font-bold text-slate-900">{p.partNumber}</td>
+                  <td className="border border-slate-300 p-2 font-extrabold text-slate-900">{p.partName}</td>
+                  <td className="border border-slate-300 p-2">{p.brand}</td>
+                  <td className="border border-slate-300 p-2 text-center">{p.hsnCode}</td>
+                  <td className="border border-slate-300 p-2 text-center">{p.gstPercent}</td>
+                  <td className="border border-slate-300 p-2 text-right font-bold">{p.salePrice}</td>
+                  <td className="border border-slate-300 p-2 text-center font-black">{p.stock} Units</td>
+                  <td className="border border-slate-300 p-2 text-center font-bold uppercase">
+                    {st === 'out' ? 'OUT OF STOCK' : st === 'low' ? 'LOW STOCK' : 'AVAILABLE'}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        <div className="mt-10 flex justify-between items-center text-xs font-bold border-t border-slate-300 pt-5">
+          <div>Prepared By: ___________________</div>
+          <div>Store In-charge: ___________________</div>
+          <div>Authorized Signatory: ___________________</div>
+        </div>
+      </div>
+
       {/* Sub-tab Switcher Header Row */}
       <div className="bg-white border-b border-slate-200 px-8 py-3.5 flex justify-end items-center gap-6 shadow-sm w-full box-border">
         <div className="flex items-center gap-6">
@@ -1625,7 +1770,10 @@ export const SpareParts: React.FC = () => {
                 <Printer size={15} className="text-slate-500" />
                 <span>Print</span>
               </button>
-              <button className="flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-755 font-bold rounded-lg text-[13.5px] cursor-pointer transition-colors shadow-sm">
+              <button 
+                onClick={handleExportExcel}
+                className="flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-755 font-bold rounded-lg text-[13.5px] cursor-pointer transition-colors shadow-sm"
+              >
                 <FileText size={15} className="text-slate-500" />
                 <span>Export Excel</span>
               </button>

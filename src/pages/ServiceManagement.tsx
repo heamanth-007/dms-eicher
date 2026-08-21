@@ -68,9 +68,104 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
   const queueJobs = mappedQueueJobs;
 
   const todayJobsCount = activeJobs.length;
-  const inProgressCount = activeJobs.filter(jc => jc.status === 'WORKING').length;
-  const pendingCount = activeJobs.filter(jc => jc.status === 'WAITING PARTS' || jc.status === 'ASSIGNED' || jc.status === 'PENDING').length;
-  const completedTodayCount = (jobCards || []).filter(jc => jc.status === 'COMPLETED').length;
+  const inProgressCount = activeJobs.filter(jc => (jc.status || '').toUpperCase() === 'WORKING' || (jc.status || '').toUpperCase() === 'IN PROGRESS').length;
+  const pendingCount = activeJobs.filter(jc => (jc.status || '').toUpperCase() === 'WAITING PARTS' || (jc.status || '').toUpperCase() === 'ASSIGNED' || (jc.status || '').toUpperCase() === 'PENDING').length;
+  const completedTodayCount = (jobCards || []).filter(jc => (jc.status || '').toUpperCase() === 'COMPLETED').length;
+
+  const allJobs = jobCards || [];
+  const unassignedCount = allJobs.filter(jc => {
+    const s = (jc.status || '').toUpperCase();
+    return s === 'WAITING TO ASSIGN' || s === 'UNASSIGNED' || s === 'OPEN' || s === 'OPENING' || s === 'PENDING' || !jc.mechanicName || jc.mechanicName === 'Unassigned';
+  }).length;
+
+  const underServiceCount = allJobs.filter(jc => {
+    const s = (jc.status || '').toUpperCase();
+    return s === 'WORKING' || s === 'IN PROGRESS' || s === 'IN_PROGRESS';
+  }).length;
+
+  const assignedJobsCount = allJobs.filter(jc => {
+    const s = (jc.status || '').toUpperCase();
+    return s === 'ASSIGNED';
+  }).length;
+
+  const waitingPartsCount = allJobs.filter(jc => {
+    const s = (jc.status || '').toUpperCase();
+    return s === 'WAITING PARTS' || s === 'WAITING_PARTS' || s === 'WAITING FOR PARTS';
+  }).length;
+
+  const completedCount = allJobs.filter(jc => {
+    const s = (jc.status || '').toUpperCase();
+    return s === 'COMPLETED';
+  }).length;
+
+  const totalJobs = allJobs.length || (unassignedCount + underServiceCount + assignedJobsCount + waitingPartsCount + completedCount);
+  const safeTotal = totalJobs || 1;
+  const unassignedPct = (unassignedCount / safeTotal) * 100;
+  const workingPct = (underServiceCount / safeTotal) * 100;
+  const assignedPct = (assignedJobsCount / safeTotal) * 100;
+  const waitingPct = (waitingPartsCount / safeTotal) * 100;
+  const completedPct = (completedCount / safeTotal) * 100;
+
+  const circumference = 377;
+  const unassignedDash = (unassignedPct / 100) * circumference;
+  const workingDash = (workingPct / 100) * circumference;
+  const assignedDash = (assignedPct / 100) * circumference;
+  const waitingDash = (waitingPct / 100) * circumference;
+  const completedDash = (completedPct / 100) * circumference;
+
+  const unassignedOffset = 0;
+  const workingOffset = unassignedDash;
+  const assignedOffset = unassignedDash + workingDash;
+  const waitingOffset = unassignedDash + workingDash + assignedDash;
+  const completedOffset = unassignedDash + workingDash + assignedDash + waitingDash;
+
+  const mechanicMap = new Map();
+  mechanics.forEach(m => {
+    if (m.name) {
+      mechanicMap.set(m.name.toLowerCase(), {
+        name: m.name,
+        completedJobs: 0,
+        totalJobs: 0,
+        status: m.status || 'Available'
+      });
+    }
+  });
+
+  allJobs.forEach(jc => {
+    if (jc.mechanicName && jc.mechanicName !== 'Unassigned') {
+      const key = jc.mechanicName.toLowerCase();
+      if (!mechanicMap.has(key)) {
+        mechanicMap.set(key, {
+          name: jc.mechanicName,
+          completedJobs: 0,
+          totalJobs: 0,
+          status: 'Active'
+        });
+      }
+      const item = mechanicMap.get(key);
+      item.totalJobs += 1;
+      const s = (jc.status || '').toUpperCase();
+      if (s === 'COMPLETED') {
+        item.completedJobs += 1;
+      }
+    }
+  });
+
+  const topMechanics = Array.from(mechanicMap.values())
+    .sort((a: any, b: any) => (b.completedJobs * 2 + b.totalJobs) - (a.completedJobs * 2 + a.totalJobs))
+    .slice(0, 5);
+
+  const maxJobs = topMechanics.length > 0
+    ? Math.max(...topMechanics.map((m: any) => Math.max(m.completedJobs, m.totalJobs)), 1)
+    : 1;
+
+  const colors = [
+    { text: 'text-[#184edb]', bg: 'bg-[#184edb]' },
+    { text: 'text-blue-900', bg: 'bg-blue-900' },
+    { text: 'text-cyan-600', bg: 'bg-cyan-500' },
+    { text: 'text-emerald-600', bg: 'bg-emerald-500' },
+    { text: 'text-amber-600', bg: 'bg-amber-500' }
+  ];
 
   if (view === 'assign') {
     return (
@@ -454,6 +549,158 @@ export const ServiceManagement: React.FC<ServiceManagementProps> = ({ onBack, jo
           </div>
 
         </div>
+      </div>
+
+      {/* 2-Column Section: Status Distribution & Mechanic Efficiency Graphs */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full box-border">
+
+        {/* Status Distribution Donut Chart */}
+        <div className="bg-white rounded-xl p-6 border border-slate-150 shadow-xs flex flex-col gap-6 text-left">
+          <h3 className="text-sm font-extrabold text-slate-800 m-0 tracking-tight font-heading">
+            Service Status Distribution
+          </h3>
+
+          <div className="flex flex-col sm:flex-row items-center gap-6 justify-center h-full">
+            {/* SVG Donut Chart */}
+            <div className="relative w-36 h-36 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 160 160">
+                <circle cx="80" cy="80" r="60" fill="transparent" stroke="#f1f5f9" strokeWidth="16" />
+                
+                {/* Unassigned (Amber/Orange) */}
+                {unassignedPct > 0 && (
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="60"
+                    fill="transparent"
+                    stroke="#f59e0b"
+                    strokeWidth="16"
+                    strokeDasharray={`${unassignedDash} ${circumference}`}
+                    strokeDashoffset={`-${unassignedOffset}`}
+                  />
+                )}
+
+                {/* Working (Cyan) */}
+                {workingPct > 0 && (
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="60"
+                    fill="transparent"
+                    stroke="#06b6d4"
+                    strokeWidth="16"
+                    strokeDasharray={`${workingDash} ${circumference}`}
+                    strokeDashoffset={`-${workingOffset}`}
+                  />
+                )}
+
+                {/* Assigned (Dark Blue) */}
+                {assignedPct > 0 && (
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="60"
+                    fill="transparent"
+                    stroke="#184edb"
+                    strokeWidth="16"
+                    strokeDasharray={`${assignedDash} ${circumference}`}
+                    strokeDashoffset={`-${assignedOffset}`}
+                  />
+                )}
+
+                {/* Waiting Parts (Red) */}
+                {waitingPct > 0 && (
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="60"
+                    fill="transparent"
+                    stroke="#ef4444"
+                    strokeWidth="16"
+                    strokeDasharray={`${waitingDash} ${circumference}`}
+                    strokeDashoffset={`-${waitingOffset}`}
+                  />
+                )}
+
+                {/* Completed (Emerald Green) */}
+                {completedPct > 0 && (
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="60"
+                    fill="transparent"
+                    stroke="#10b981"
+                    strokeWidth="16"
+                    strokeDasharray={`${completedDash} ${circumference}`}
+                    strokeDashoffset={`-${completedOffset}`}
+                  />
+                )}
+              </svg>
+              <div className="absolute flex flex-col items-center justify-center text-center">
+                <span className="text-2xl font-extrabold text-slate-800 font-heading leading-none">{allJobs.length}</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Total</span>
+              </div>
+            </div>
+
+            {/* Donut Legend */}
+            <div className="flex flex-col gap-2 justify-center">
+              <div className="flex items-center gap-2 p-1 rounded-md">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />
+                <span className="text-[11.5px] font-semibold text-slate-600 w-24">Unassigned</span>
+                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">{unassignedCount} ({Math.round(unassignedPct)}%)</span>
+              </div>
+              <div className="flex items-center gap-2 p-1 rounded-md">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#06b6d4]" />
+                <span className="text-[11.5px] font-semibold text-slate-600 w-24">Working</span>
+                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">{underServiceCount} ({Math.round(workingPct)}%)</span>
+              </div>
+              <div className="flex items-center gap-2 p-1 rounded-md">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#184edb]" />
+                <span className="text-[11.5px] font-semibold text-slate-600 w-24">Assigned</span>
+                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">{assignedJobsCount} ({Math.round(assignedPct)}%)</span>
+              </div>
+              <div className="flex items-center gap-2 p-1 rounded-md">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]" />
+                <span className="text-[11.5px] font-semibold text-slate-600 w-24">Waiting Parts</span>
+                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">{waitingPartsCount} ({Math.round(waitingPct)}%)</span>
+              </div>
+              <div className="flex items-center gap-2 p-1 rounded-md">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
+                <span className="text-[11.5px] font-semibold text-slate-600 w-24">Completed</span>
+                <span className="text-[11.5px] font-extrabold text-slate-800 text-right">{completedCount} ({Math.round(completedPct)}%)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Mechanic Efficiency Bar Chart */}
+        <div className="bg-white rounded-xl p-6 border border-slate-150 shadow-xs flex flex-col gap-5 justify-between box-border text-left">
+          <h3 className="text-sm font-extrabold text-slate-800 m-0 tracking-tight font-heading">
+            Technician Efficiency & Workload
+          </h3>
+
+          <div className="flex flex-col gap-3 py-1 w-full box-border">
+            {topMechanics.length > 0 ? topMechanics.map((mech: any, index: number) => {
+              const color = colors[index % colors.length];
+              const displayCount = mech.completedJobs > 0 ? `${mech.completedJobs} Completed (${mech.totalJobs} Total)` : `${mech.totalJobs} Active Jobs`;
+              const width = Math.max((Math.max(mech.completedJobs, mech.totalJobs) / maxJobs) * 100, 8);
+              return (
+                <div key={mech.name} className="flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center text-[12px]">
+                    <span className="font-bold text-slate-700">{mech.name} <span className="text-[10px] text-slate-400 font-semibold">({mech.status})</span></span>
+                    <span className={`font-extrabold ${color.text}`}>{displayCount}</span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                    <div className={`${color.bg} h-full rounded-full transition-all duration-500`} style={{ width: `${width}%` }} />
+                  </div>
+                </div>
+              );
+            }) : (
+              <div className="text-slate-400 text-xs font-semibold py-6 text-center">No technician activity recorded yet.</div>
+            )}
+          </div>
+        </div>
+
       </div>
 
       {/* Queue Table Card */}

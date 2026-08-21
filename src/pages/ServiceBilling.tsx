@@ -33,6 +33,7 @@ interface SparePart {
   price: number;
   gstPercent: number; // e.g., 18 for 18%
   total: number;
+  availableStock?: number | string;
   stockStatus?: 'Available' | 'Low Stock' | 'Out of Stock';
   imageUrl?: string;
 }
@@ -236,7 +237,9 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
   const [partQtyInput, setPartQtyInput] = useState(1);
   const [partPriceInput, setPartPriceInput] = useState(100);
   const [partGstInput, setPartGstInput] = useState(18);
+  const [partStockQtyInput, setPartStockQtyInput] = useState<number | string>(0);
   const [partStockInput, setPartStockInput] = useState<'Available' | 'Low Stock' | 'Out of Stock'>('Available');
+  const [suggestedPartsIndex, setSuggestedPartsIndex] = useState(0);
 
   const [inventoryParts, setInventoryParts] = useState<PartType[]>(() => getStoredInventory());
   const [showPartNoSuggestions, setShowPartNoSuggestions] = useState(false);
@@ -301,7 +304,8 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
     setPartPriceInput(parsedPrice);
     const parsedGst = parseInt(part.gstPercent?.replace(/[^0-9]/g, '') || '18', 10) || 18;
     setPartGstInput(parsedGst);
-    const stockQty = parseInt(part.stock.replace(/[^0-9]/g, ''), 10) || 0;
+    const stockQty = parseInt((part.stock || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    setPartStockQtyInput(stockQty);
     setPartStockInput(stockQty === 0 ? 'Out of Stock' : stockQty < 12 ? 'Low Stock' : 'Available');
   };
 
@@ -433,23 +437,28 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
       price: Number(partPriceInput) || 0,
       gstPercent: Number(partGstInput) || 18,
       total: calculatePartTotal(Number(partQtyInput) || 1, Number(partPriceInput) || 0, Number(partGstInput) || 18),
+      availableStock: partStockQtyInput,
       stockStatus: partStockInput
     };
 
     setSpareParts(prev => [...prev, newPart]);
 
+    // Immediately deduct stock from Spare Parts Inventory
+    deductInventoryStock([newPart], billNo || 'SB-LIVE', 'Service Billing');
+
     // Reset inputs for next entry
     setPartNoInput('');
     setPartNameInput('');
     setPartQtyInput(1);
-    setPartPriceInput(100);
+    setPartPriceInput(0);
     setPartGstInput(18);
+    setPartStockQtyInput(0);
     setPartStockInput('Available');
     setEditingPart(null);
 
-    // Focus back on Part Number for next part entry
+    // Focus cursor back on Part Name for next product entry!
     setTimeout(() => {
-      partNoRef.current?.focus();
+      partNameRef.current?.focus();
     }, 50);
   };
 
@@ -468,6 +477,7 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
               price: Number(partPriceInput),
               gstPercent: Number(partGstInput),
               total: calculatePartTotal(Number(partQtyInput), Number(partPriceInput), Number(partGstInput)),
+              availableStock: partStockQtyInput,
               stockStatus: partStockInput
             };
           }
@@ -485,9 +495,12 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
         price: Number(partPriceInput),
         gstPercent: Number(partGstInput),
         total: calculatePartTotal(Number(partQtyInput), Number(partPriceInput), Number(partGstInput)),
+        availableStock: partStockQtyInput,
         stockStatus: partStockInput
       };
       setSpareParts([...spareParts, newPart]);
+      // Immediately deduct stock from Spare Parts Inventory
+      deductInventoryStock([newPart], billNo || 'SB-LIVE', 'Service Billing');
     }
     setShowAddPartModal(false);
     // Reset
@@ -496,6 +509,7 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
     setPartQtyInput(1);
     setPartPriceInput(100);
     setPartGstInput(18);
+    setPartStockQtyInput(0);
     setPartStockInput('Available');
   };
 
@@ -506,9 +520,12 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
     setPartQtyInput(part.qty);
     setPartPriceInput(part.price);
     setPartGstInput(part.gstPercent);
+    setPartStockQtyInput(part.availableStock !== undefined ? part.availableStock : 0);
     setPartStockInput(part.stockStatus || 'Available');
     setShowAddPartModal(true);
   };
+
+
 
   const handleDeletePart = (id: string) => {
     if (window.confirm('Are you sure you want to delete this spare part?')) {
@@ -1155,6 +1172,218 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
               </div>
             </div>
 
+            {/* Inline Quick Add Bar */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-3 text-left">
+              <div className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between flex-wrap gap-2">
+                <span>⚡ Quick Add Spare Part (Auto-Fill from Stock)</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-6 gap-3 items-end">
+                {/* Part Name */}
+                <div 
+                  className="sm:col-span-2 relative" 
+                  ref={partNameContainerRef}
+                >
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Part Name</label>
+                  <input
+                    ref={partNameRef}
+                    type="text"
+                    placeholder="Type Part Name (e.g. Seat)..."
+                    value={partNameInput}
+                    onFocus={() => { setShowPartNameSuggestions(true); setSuggestedPartsIndex(0); }}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPartNameInput(val);
+                      setShowPartNameSuggestions(true);
+                      setSuggestedPartsIndex(0);
+                      const match = inventoryParts.find(p => p.partName.toLowerCase() === val.toLowerCase().trim() || p.partNumber.toLowerCase() === val.toLowerCase().trim());
+                      if (match) handleSelectInventoryPart(match);
+                    }}
+                    onKeyDown={(e) => {
+                      const filtered = inventoryParts.filter(p => !partNameInput || p.partName.toLowerCase().includes(partNameInput.toLowerCase().trim()) || p.partNumber.toLowerCase().includes(partNameInput.toLowerCase().trim()));
+                      if (showPartNameSuggestions && filtered.length > 0) {
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setSuggestedPartsIndex(prev => (prev + 1) % filtered.length);
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setSuggestedPartsIndex(prev => (prev - 1 + filtered.length) % filtered.length);
+                        } else if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const selected = filtered[suggestedPartsIndex] || filtered[0];
+                          if (selected) {
+                            handleSelectInventoryPart(selected);
+                            setShowPartNameSuggestions(false);
+                            partQtyRef.current?.focus();
+                          }
+                        }
+                      }
+                    }}
+                    className="w-full p-2 border border-slate-200 rounded-lg text-xs font-bold focus:border-[#184edb] bg-white outline-none"
+                  />
+                  {showPartNameSuggestions && (
+                    <div className="absolute top-[100%] left-0 right-0 mt-1 bg-white border border-blue-400 rounded-lg shadow-2xl z-50 max-h-44 overflow-y-auto box-border p-1 divide-y divide-slate-100 ring-1 ring-blue-500/20">
+                      {inventoryParts
+                        .filter(p => !partNameInput || p.partName.toLowerCase().includes(partNameInput.toLowerCase().trim()) || p.partNumber.toLowerCase().includes(partNameInput.toLowerCase().trim()))
+                        .map((p, idx) => {
+                          const isFocused = idx === suggestedPartsIndex;
+                          return (
+                            <div
+                              key={p.partNumber || idx}
+                              onClick={() => {
+                                handleSelectInventoryPart(p);
+                                setShowPartNameSuggestions(false);
+                              }}
+                              onMouseEnter={() => setSuggestedPartsIndex(idx)}
+                              className={`p-2.5 cursor-pointer text-xs flex justify-between items-center transition-colors rounded-md ${
+                                isFocused
+                                  ? 'bg-[#184edb] text-white font-bold'
+                                  : 'bg-white text-slate-800 hover:bg-blue-50 hover:text-[#184edb]'
+                              }`}
+                            >
+                              <div>
+                                <span className={`font-bold block ${isFocused ? 'text-white' : 'text-slate-800'}`}>{p.partName}</span>
+                                <span className={`text-[11px] ${isFocused ? 'text-blue-100' : 'text-slate-500'}`}>Part No: {p.partNumber} | Stock: {p.stock}</span>
+                              </div>
+                              <span className={`font-extrabold ${isFocused ? 'text-white' : 'text-[#184edb]'}`}>{p.salePrice}</span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Part No */}
+                <div 
+                  className="sm:col-span-1 relative" 
+                  ref={partNoContainerRef}
+                >
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Part Number</label>
+                  <input
+                    ref={partNoRef}
+                    type="text"
+                    placeholder="Part No..."
+                    value={partNoInput}
+                    onFocus={() => { setShowPartNoSuggestions(true); setSuggestedPartsIndex(0); }}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPartNoInput(val);
+                      setShowPartNoSuggestions(true);
+                      setSuggestedPartsIndex(0);
+                      const match = inventoryParts.find(p => p.partNumber.toLowerCase() === val.toLowerCase().trim() || p.partName.toLowerCase() === val.toLowerCase().trim());
+                      if (match) handleSelectInventoryPart(match);
+                    }}
+                    onKeyDown={(e) => {
+                      const filtered = inventoryParts.filter(p => !partNoInput || p.partNumber.toLowerCase().includes(partNoInput.toLowerCase().trim()) || p.partName.toLowerCase().includes(partNoInput.toLowerCase().trim()));
+                      if (showPartNoSuggestions && filtered.length > 0) {
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setSuggestedPartsIndex(prev => (prev + 1) % filtered.length);
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setSuggestedPartsIndex(prev => (prev - 1 + filtered.length) % filtered.length);
+                        } else if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const selected = filtered[suggestedPartsIndex] || filtered[0];
+                          if (selected) {
+                            handleSelectInventoryPart(selected);
+                            setShowPartNoSuggestions(false);
+                            partStockRef.current?.focus();
+                          }
+                        }
+                      }
+                    }}
+                    className="w-full p-2 border border-slate-200 rounded-lg text-xs font-semibold focus:border-[#184edb] bg-white outline-none"
+                  />
+                  {showPartNoSuggestions && (
+                    <div className="absolute top-[100%] left-0 right-0 mt-1 bg-white border border-blue-400 rounded-lg shadow-2xl z-50 max-h-44 overflow-y-auto box-border p-1 divide-y divide-slate-100 ring-1 ring-blue-500/20">
+                      {inventoryParts
+                        .filter(p => !partNoInput || p.partNumber.toLowerCase().includes(partNoInput.toLowerCase().trim()) || p.partName.toLowerCase().includes(partNoInput.toLowerCase().trim()))
+                        .map((p, idx) => {
+                          const isFocused = idx === suggestedPartsIndex;
+                          return (
+                            <div
+                              key={p.partNumber || idx}
+                              onClick={() => {
+                                handleSelectInventoryPart(p);
+                                setShowPartNoSuggestions(false);
+                              }}
+                              onMouseEnter={() => setSuggestedPartsIndex(idx)}
+                              className={`p-2.5 cursor-pointer text-xs flex justify-between items-center transition-colors rounded-md ${
+                                isFocused
+                                  ? 'bg-[#184edb] text-white font-bold'
+                                  : 'bg-white text-slate-800 hover:bg-blue-50 hover:text-[#184edb]'
+                              }`}
+                            >
+                              <div>
+                                <span className={`font-bold block ${isFocused ? 'text-white' : 'text-slate-800'}`}>{p.partNumber}</span>
+                                <span className={`text-[11px] ${isFocused ? 'text-blue-100' : 'text-slate-500'}`}>{p.partName} | Stock: {p.stock}</span>
+                              </div>
+                              <span className={`font-extrabold ${isFocused ? 'text-white' : 'text-[#184edb]'}`}>{p.salePrice}</span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Qty */}
+                <div className="sm:col-span-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Qty</label>
+                  <input
+                    ref={partQtyRef}
+                    type="number"
+                    min="1"
+                    value={partQtyInput}
+                    onChange={(e) => setPartQtyInput(Number(e.target.value))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddAndNewPart(e);
+                      }
+                    }}
+                    className="w-full p-2 border border-slate-200 rounded-lg text-xs font-bold text-center bg-white outline-none focus:border-[#184edb]"
+                  />
+                </div>
+
+                {/* Price (Read-only catalog rate) */}
+                <div className="sm:col-span-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Price (₹)</label>
+                  <input
+                    ref={partPriceRef}
+                    type="number"
+                    value={partPriceInput}
+                    readOnly
+                    tabIndex={-1}
+                    className="w-full p-2 border border-slate-200 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 outline-none cursor-not-allowed"
+                    title="Price is locked to inventory catalog rate"
+                  />
+                </div>
+
+                {/* Add Button & Available Stock Badge right above it */}
+                <div className="sm:col-span-1 flex flex-col items-end justify-end gap-1">
+                  {partNameInput && partStockQtyInput !== undefined && (
+                    <span className={`text-[10.5px] font-extrabold px-2 py-0.5 rounded-full shadow-xs transition-all ${
+                      Number(partStockQtyInput) === 0
+                        ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                        : Number(partStockQtyInput) < 12
+                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                        : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                    }`}>
+                      Stock: {partStockQtyInput} Units
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => handleAddAndNewPart(e)}
+                    className="w-full bg-[#184edb] hover:bg-blue-800 text-white font-bold text-xs py-2 px-3 rounded-lg border-none cursor-pointer shadow-sm transition-colors flex items-center justify-center gap-1"
+                  >
+                    <Plus size={14} /> Add Item
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Table Container */}
             <div className="border border-slate-100 rounded-xl overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[700px]">
@@ -1182,20 +1411,10 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
                         {/* Part No */}
                         <td className="py-4.5 px-5 font-semibold text-slate-500 whitespace-nowrap">{p.partNo}</td>
 
-                        {/* Part Name with stock badge */}
+                        {/* Part Name */}
                         <td className="py-4.5 px-5 whitespace-nowrap">
                           <div className="flex flex-col gap-1">
                             <span className="font-bold text-slate-800">{p.name}</span>
-                            {p.stockStatus === 'Low Stock' && (
-                              <span className="self-start text-[10px] font-extrabold bg-rose-50 text-rose-600 border border-rose-100 rounded px-1.5 py-0.5 mt-0.5">
-                                Low Stock
-                              </span>
-                            )}
-                            {p.stockStatus === 'Out of Stock' && (
-                              <span className="self-start text-[10px] font-extrabold bg-slate-100 text-slate-650 border border-slate-200 rounded px-1.5 py-0.5 mt-0.5">
-                                Out of Stock
-                              </span>
-                            )}
                           </div>
                         </td>
 
@@ -1656,17 +1875,11 @@ export const ServiceBilling: React.FC<ServiceBillingProps> = ({ companySettings 
                   <input
                     ref={partPriceRef}
                     type="number"
-                    min="0"
                     value={partPriceInput}
-                    onChange={(e) => setPartPriceInput(Number(e.target.value))}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        partGstRef.current?.focus();
-                      }
-                    }}
-                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] focus:outline-none focus:border-[#184edb] font-medium"
-                    required
+                    readOnly
+                    tabIndex={-1}
+                    className="p-2.5 border border-slate-200 rounded-lg text-[13.5px] bg-slate-100 text-slate-700 font-bold cursor-not-allowed focus:outline-none"
+                    title="Price is locked to inventory catalog rate"
                   />
                 </div>
 
